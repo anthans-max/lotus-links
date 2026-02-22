@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Tournament, Hole } from '@/lib/types'
-import { createTournament, updateTournament, WISH_HOLES } from '@/lib/actions/tournament'
+import { createTournament, updateTournament } from '@/lib/actions/tournament'
+import { WISH_HOLES } from '@/lib/course-data'
 
 interface TournamentSetupProps {
   tournament: Tournament | null
