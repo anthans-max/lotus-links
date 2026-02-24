@@ -36,6 +36,8 @@ export default function GroupsManager({
   const [showPairings, setShowPairings] = useState(false)
   const [newName, setNewName] = useState(`Group ${groups.length + 1}`)
   const [newChaperone, setNewChaperone] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newPhone, setNewPhone] = useState('')
   const [newStarting, setNewStarting] = useState('')
   const [groupSize, setGroupSize] = useState('4')
   const [error, setError] = useState<string | null>(null)
@@ -44,8 +46,14 @@ export default function GroupsManager({
   const [editGroup, setEditGroup] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editChaperone, setEditChaperone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
   const [editStarting, setEditStarting] = useState('')
   const [copiedPin, setCopiedPin] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState<string | null>(null)
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
+  const [confirmSendAll, setConfirmSendAll] = useState(false)
+  const [sendingAll, setSendingAll] = useState(false)
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -56,6 +64,8 @@ export default function GroupsManager({
 
   const unassignedPlayers = players.filter(p => !assignedPlayerIds.has(p.id))
   const playerMap = new Map(players.map(p => [p.id, p]))
+
+  const groupsWithEmail = groups.filter(g => g.chaperone_email)
 
   // Build pairing preference summary
   const pairingMap = useMemo(() => {
@@ -89,9 +99,18 @@ export default function GroupsManager({
     setError(null)
     startTransition(async () => {
       try {
-        await createGroup(tournamentId, newName, newChaperone || undefined, newStarting ? parseInt(newStarting) : undefined)
+        await createGroup(
+          tournamentId,
+          newName,
+          newChaperone || undefined,
+          newStarting ? parseInt(newStarting) : undefined,
+          newEmail || undefined,
+          newPhone || undefined
+        )
         setNewName(`Group ${groups.length + 2}`)
         setNewChaperone('')
+        setNewEmail('')
+        setNewPhone('')
         setNewStarting('')
         setShowCreate(false)
         setSuccess('Group created')
@@ -160,6 +179,8 @@ export default function GroupsManager({
         await updateGroup(groupId, {
           name: editName || undefined,
           chaperone_name: editChaperone || null,
+          chaperone_email: editEmail || null,
+          chaperone_phone: editPhone || null,
           starting_hole: editStarting ? parseInt(editStarting) : null,
         })
         setEditGroup(null)
@@ -185,6 +206,63 @@ export default function GroupsManager({
     navigator.clipboard.writeText(pin)
     setCopiedPin(pin)
     setTimeout(() => setCopiedPin(null), 1500)
+  }
+
+  const copyLink = (groupId: string) => {
+    const url = `${window.location.origin}/score/${groupId}`
+    navigator.clipboard.writeText(url)
+    setCopiedLink(groupId)
+    setTimeout(() => setCopiedLink(null), 1500)
+  }
+
+  const handleEmailLink = async (groupId: string, email: string) => {
+    setSendingEmail(groupId)
+    setError(null)
+    try {
+      const res = await fetch('/api/email/send-scoring-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'single',
+          groupId,
+          email,
+          baseUrl: window.location.origin,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send email')
+      setSuccess(`Email sent to ${email}`)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send email')
+    } finally {
+      setSendingEmail(null)
+    }
+  }
+
+  const handleSendAll = async () => {
+    setSendingAll(true)
+    setConfirmSendAll(false)
+    setError(null)
+    try {
+      const res = await fetch('/api/email/send-scoring-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'bulk',
+          tournamentId,
+          baseUrl: window.location.origin,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send emails')
+      setSuccess(`Sent ${data.sent} email${data.sent !== 1 ? 's' : ''}${data.failed ? `, ${data.failed} failed` : ''}`)
+      setTimeout(() => setSuccess(null), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send emails')
+    } finally {
+      setSendingAll(false)
+    }
   }
 
   return (
@@ -295,6 +373,38 @@ export default function GroupsManager({
             </div>
           </div>
         )}
+        {groupsWithEmail.length > 0 && (
+          <>
+            {confirmSendAll ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Send to {groupsWithEmail.length} chaperone{groupsWithEmail.length !== 1 ? 's' : ''}?
+                </span>
+                <button
+                  className="btn btn-gold btn-sm"
+                  onClick={handleSendAll}
+                  disabled={sendingAll}
+                >
+                  Confirm
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setConfirmSendAll(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setConfirmSendAll(true)}
+                disabled={sendingAll}
+              >
+                {sendingAll ? 'Sending...' : `Send All Links (${groupsWithEmail.length})`}
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Create group form */}
@@ -322,6 +432,26 @@ export default function GroupsManager({
                 placeholder="Chaperone name"
                 value={newChaperone}
                 onChange={e => setNewChaperone(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="label">Chaperone Email (optional)</div>
+              <input
+                className="input"
+                type="email"
+                placeholder="chaperone@email.com"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="label">Chaperone Phone (optional)</div>
+              <input
+                className="input"
+                type="tel"
+                placeholder="(555) 555-5555"
+                value={newPhone}
+                onChange={e => setNewPhone(e.target.value)}
               />
             </div>
             <div>
@@ -397,6 +527,16 @@ export default function GroupsManager({
                         <input className="input" value={editChaperone} onChange={e => setEditChaperone(e.target.value)} style={{ fontSize: '0.85rem' }} />
                       </div>
                     </div>
+                    <div className="g2" style={{ marginBottom: '0.75rem' }}>
+                      <div>
+                        <div className="label">Chaperone Email</div>
+                        <input className="input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder="chaperone@email.com" />
+                      </div>
+                      <div>
+                        <div className="label">Chaperone Phone</div>
+                        <input className="input" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder="(555) 555-5555" />
+                      </div>
+                    </div>
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div className="label">Starting Hole</div>
                       <input className="input" type="number" min="1" max={tournament.holes} value={editStarting} onChange={e => setEditStarting(e.target.value)} style={{ fontSize: '0.85rem', width: 80 }} />
@@ -421,6 +561,11 @@ export default function GroupsManager({
                           CHAPERONE &middot; {group.chaperone_name}
                         </div>
                       )}
+                      {group.chaperone_email && (
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '0.1rem' }}>
+                          {group.chaperone_email}
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       {group.starting_hole && (
@@ -441,6 +586,8 @@ export default function GroupsManager({
                           setEditGroup(group.id)
                           setEditName(group.name)
                           setEditChaperone(group.chaperone_name ?? '')
+                          setEditEmail(group.chaperone_email ?? '')
+                          setEditPhone(group.chaperone_phone ?? '')
                           setEditStarting(String(group.starting_hole ?? ''))
                         }}
                         title="Edit group"
@@ -542,6 +689,23 @@ export default function GroupsManager({
 
                 {/* Group actions */}
                 <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.65rem' }}
+                    onClick={() => copyLink(group.id)}
+                  >
+                    {copiedLink === group.id ? 'Copied!' : 'Copy Link'}
+                  </button>
+                  {group.chaperone_email && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '0.65rem' }}
+                      onClick={() => handleEmailLink(group.id, group.chaperone_email!)}
+                      disabled={sendingEmail === group.id}
+                    >
+                      {sendingEmail === group.id ? 'Sending...' : 'Email Link'}
+                    </button>
+                  )}
                   <button
                     className="btn btn-ghost btn-sm"
                     style={{ fontSize: '0.65rem' }}

@@ -144,6 +144,8 @@ export interface Group {
   tournament_id: string
   name: string
   chaperone_name?: string | null
+  chaperone_email?: string | null
+  chaperone_phone?: string | null
   pin: string
   starting_hole: number
   tee_time: string | null

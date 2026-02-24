@@ -11,7 +11,9 @@ export async function createGroup(
   tournamentId: string,
   name: string,
   chaperoneName?: string,
-  startingHole?: number
+  startingHole?: number,
+  chaperoneEmail?: string,
+  chaperonePhone?: string
 ) {
   const supabase = await createClient()
 
@@ -31,6 +33,8 @@ export async function createGroup(
     tournament_id: tournamentId,
     name: name.trim(),
     chaperone_name: chaperoneName?.trim() || null,
+    chaperone_email: chaperoneEmail?.trim() || null,
+    chaperone_phone: chaperonePhone?.trim() || null,
     pin,
     starting_hole: startingHole ?? null,
   })
@@ -44,6 +48,8 @@ export async function updateGroup(
   updates: {
     name?: string
     chaperone_name?: string | null
+    chaperone_email?: string | null
+    chaperone_phone?: string | null
     starting_hole?: number | null
   }
 ) {

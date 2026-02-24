@@ -27,7 +27,7 @@ export default async function ScoreEntryPage({ params }: Props) {
 
   // Fetch tournament, holes, players, existing scores in parallel
   const [{ data: tournament }, { data: holes }, { data: scores }] = await Promise.all([
-    supabase.from('tournaments').select('id, name, course, format, holes, status, league_id').eq('id', group.tournament_id).single(),
+    supabase.from('tournaments').select('id, name, course, format, holes, status, league_id, leaderboard_public').eq('id', group.tournament_id).single(),
     supabase.from('holes').select('*').eq('tournament_id', group.tournament_id).order('hole_number'),
     supabase.from('scores').select('*').eq('group_id', groupId).eq('tournament_id', group.tournament_id).order('hole_number'),
   ])
@@ -65,6 +65,7 @@ export default async function ScoreEntryPage({ params }: Props) {
         course: tournament.course,
         format: tournament.format,
         status: tournament.status,
+        leaderboardPublic: tournament.leaderboard_public ?? false,
       }}
       leagueName={league?.name ?? ''}
       holes={holes.map(h => ({

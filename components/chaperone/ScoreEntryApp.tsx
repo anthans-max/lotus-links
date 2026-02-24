@@ -24,6 +24,7 @@ interface ScoreEntryAppProps {
     course: string
     format: string
     status: string
+    leaderboardPublic: boolean
   }
   leagueName: string
   holes: HoleInfo[]
@@ -481,6 +482,28 @@ export default function ScoreEntryApp({
           Great job out there{group.chaperoneName ? `, ${group.chaperoneName}` : ''}!<br />
           Scores are now live on the leaderboard.
         </div>
+
+        {tournament.leaderboardPublic && (
+          <a
+            href={`/leaderboard/${tournament.id}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              background: 'var(--gold-dim)',
+              border: '1px solid var(--gold-border)',
+              borderRadius: 8,
+              color: 'var(--gold)',
+              fontFamily: 'var(--fd)',
+              fontSize: '1rem',
+              textDecoration: 'none',
+              transition: 'all 0.15s',
+            }}
+          >
+            View Live Leaderboard &rarr;
+          </a>
+        )}
       </div>
     </div>
   )

@@ -48,7 +48,8 @@ app/
   │   └── [tournamentId]/
   │       └── page.tsx
   ├── api/
-  │   └── auth/callback/route.ts
+  │   ├── auth/callback/route.ts
+  │   └── email/send-scoring-link/route.ts
   └── leaderboard/
       ├── page.tsx
       └── [tournamentId]/page.tsx
@@ -58,6 +59,7 @@ app/
 - [x] Sprint 1: League setup, tournament creation, hole configuration
 - [x] Sprint 2: Player management, parent registration, group pairings
 - [x] Sprint 3: Scoring & leaderboard — chaperone score entry, live leaderboard, admin score monitoring, check-in
+- [x] Sprint 4: Chaperone link sharing — copy/email scoring links, bulk send, leaderboard link on success
 
 ## Decisions Made (Sprint 1 additions)
 - Number of holes is a free input (1-18), not just 9/18 — The Lakes has 10
@@ -81,6 +83,14 @@ app/
 - Check-in: admin can check in registered players (registered → checked_in) from players page
 - Leaderboard URL is /leaderboard/[tournamentId] (old /leaderboard is a redirect)
 
+## Decisions Made (Sprint 4 additions)
+- Resend SDK for transactional email, API route at /api/email/send-scoring-link
+- onboarding@resend.dev sender (sandbox — only delivers to verified Resend account email)
+- Groups table extended with chaperone_email and chaperone_phone columns
+- Copy Link + Email Link per group card, Send All Links bulk action with inline confirmation
+- Leaderboard link on chaperone success screen gated behind tournament.leaderboard_public
+- No rate limiting at MVP scale (~12 groups)
+
 ## DB Schema
 
 ### leagues
@@ -99,7 +109,7 @@ id (uuid PK), tournament_id (uuid FK→tournaments), hole_number (int), par (int
 id (uuid PK), tournament_id (uuid FK→tournaments), name (text), grade (text nullable), handicap (int default 0), skill_level (text nullable), status (text default 'pre-registered'), parent_name (text nullable), parent_phone (text nullable), registered_at (timestamptz nullable), created_at (timestamptz)
 
 ### groups
-id (uuid PK), tournament_id (uuid FK→tournaments), name (text), chaperone_name (text nullable), pin (text), starting_hole (int default 1), tee_time (time nullable), current_hole (int default 1), status (text default 'not_started'), created_at (timestamptz)
+id (uuid PK), tournament_id (uuid FK→tournaments), name (text), chaperone_name (text nullable), chaperone_email (text nullable), chaperone_phone (text nullable), pin (text), starting_hole (int default 1), tee_time (time nullable), current_hole (int default 1), status (text default 'not_started'), created_at (timestamptz)
 
 ### group_players
 group_id (uuid FK→groups), player_id (uuid FK→players) — junction table
