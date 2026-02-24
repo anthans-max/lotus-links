@@ -33,11 +33,15 @@ export default async function TournamentDetailPage({ params }: Props) {
     { count: playerCount },
     { count: groupCount },
     { count: registeredCount },
+    { count: scoreCount },
+    { count: completedGroupCount },
   ] = await Promise.all([
     supabase.from('holes').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
     supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
     supabase.from('groups').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
     supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id).in('status', ['registered', 'checked_in']),
+    supabase.from('scores').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
+    supabase.from('groups').select('*', { count: 'exact', head: true }).eq('tournament_id', id).eq('status', 'completed'),
   ])
 
   const totalPar = holeCount && holeCount > 0
@@ -72,7 +76,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       </Card>
 
       {/* Navigation cards */}
-      <div className="g3" style={{ alignItems: 'stretch' }}>
+      <div className="g2" style={{ alignItems: 'stretch' }}>
         <NavCard
           href={`/dashboard/leagues/${leagueId}/tournaments/${id}/holes`}
           title="Holes"
@@ -95,6 +99,14 @@ export default async function TournamentDetailPage({ params }: Props) {
           stat={groupCount ?? 0}
           statLabel={`group${(groupCount ?? 0) !== 1 ? 's' : ''}`}
           icon="👥"
+        />
+        <NavCard
+          href={`/dashboard/leagues/${leagueId}/tournaments/${id}/scores`}
+          title="Scores"
+          stat={scoreCount ?? 0}
+          statLabel={`score${(scoreCount ?? 0) !== 1 ? 's' : ''} entered`}
+          subStat={(completedGroupCount ?? 0) > 0 ? `${completedGroupCount} groups finished` : undefined}
+          icon="📊"
         />
       </div>
     </div>

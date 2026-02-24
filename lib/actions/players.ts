@@ -68,6 +68,30 @@ export async function bulkAddPlayers(
   return { added: names.length }
 }
 
+export async function checkInPlayer(playerId: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('players')
+    .update({ status: 'checked_in' })
+    .eq('id', playerId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function undoCheckIn(playerId: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('players')
+    .update({ status: 'registered' })
+    .eq('id', playerId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function deletePlayer(playerId: string) {
   const supabase = await createClient()
 

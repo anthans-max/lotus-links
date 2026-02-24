@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Player } from '@/lib/types'
-import { addPlayer, bulkAddPlayers, deletePlayer } from '@/lib/actions/players'
+import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn } from '@/lib/actions/players'
 import CsvImportDialog from './CsvImportDialog'
 
 interface PlayersManagerProps {
@@ -35,6 +35,7 @@ export default function PlayersManager({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
+  const checkedInCount = players.filter(p => p.status === 'checked_in').length
 
   // Build pairing prefs map: playerId -> count of preferences
   const prefCountMap = new Map<string, number>()
@@ -102,6 +103,28 @@ export default function PlayersManager({
     })
   }
 
+  const handleCheckIn = (playerId: string) => {
+    startTransition(async () => {
+      try {
+        await checkInPlayer(playerId)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to check in player')
+      }
+    })
+  }
+
+  const handleUndoCheckIn = (playerId: string) => {
+    startTransition(async () => {
+      try {
+        await undoCheckIn(playerId)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to undo check-in')
+      }
+    })
+  }
+
   const handleCopyLink = () => {
     const url = `${window.location.origin}/register/${tournamentId}`
     navigator.clipboard.writeText(url).then(() => {
@@ -162,6 +185,9 @@ export default function PlayersManager({
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
           <span className="badge badge-gold">{players.length} total</span>
           <span className="badge badge-green">{registeredCount} registered</span>
+          {checkedInCount > 0 && (
+            <span className="badge badge-gold">{checkedInCount} checked in</span>
+          )}
           {players.length > 0 && (
             <div style={{ flex: 1, minWidth: 120, maxWidth: 200 }}>
               <div className="progress-track">
@@ -382,7 +408,31 @@ export default function PlayersManager({
                       {p.grade || '—'}
                     </td>
                     <td style={{ padding: '0.65rem 0.75rem' }}>
-                      {statusBadge(p.status)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {statusBadge(p.status)}
+                        {p.status === 'registered' && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: '#4CAF50' }}
+                            onClick={() => handleCheckIn(p.id)}
+                            disabled={isPending}
+                            title="Check in player"
+                          >
+                            Check In
+                          </button>
+                        )}
+                        {p.status === 'checked_in' && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: 'var(--text-dim)' }}
+                            onClick={() => handleUndoCheckIn(p.id)}
+                            disabled={isPending}
+                            title="Undo check-in"
+                          >
+                            Undo
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       {p.parent_name || '—'}

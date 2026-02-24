@@ -109,6 +109,7 @@ export interface Tournament {
   login_required: boolean
   notes: string | null
   shotgun_start: boolean
+  leaderboard_public: boolean
   created_at: string
   // Legacy alias — old code references course_name
   course_name?: string
@@ -146,6 +147,7 @@ export interface Group {
   pin: string
   starting_hole: number
   tee_time: string | null
+  current_hole: number
   status: 'not_started' | 'in_progress' | 'completed'
   created_at: string
 }
