@@ -39,6 +39,48 @@ export async function createGroup(
   revalidatePath('/dashboard')
 }
 
+export async function updateGroup(
+  groupId: string,
+  updates: {
+    name?: string
+    chaperone_name?: string | null
+    starting_hole?: number | null
+  }
+) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('groups')
+    .update(updates)
+    .eq('id', groupId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function regenerateGroupPin(groupId: string, tournamentId: string) {
+  const supabase = await createClient()
+
+  const { data: existingGroups } = await supabase
+    .from('groups')
+    .select('pin')
+    .eq('tournament_id', tournamentId)
+
+  const usedPins = new Set(existingGroups?.map(g => g.pin) ?? [])
+  let pin = generatePin()
+  while (usedPins.has(pin)) {
+    pin = generatePin()
+  }
+
+  const { error } = await supabase
+    .from('groups')
+    .update({ pin })
+    .eq('id', groupId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function deleteGroup(groupId: string) {
   const supabase = await createClient()
 
@@ -77,6 +119,154 @@ export async function removePlayerFromGroup(groupId: string, playerId: string) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
+}
+
+export async function autoGenerateGroups(
+  tournamentId: string,
+  groupSize: number = 4
+) {
+  const supabase = await createClient()
+
+  // Get all players for this tournament
+  const { data: players } = await supabase
+    .from('players')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .order('name')
+
+  if (!players || players.length === 0) throw new Error('No players to group')
+
+  // Get pairing preferences
+  const { data: prefs } = await supabase
+    .from('pairing_preferences')
+    .select('player_id, preferred_player_id')
+    .eq('tournament_id', tournamentId)
+
+  // Build mutual preference map
+  const prefMap = new Map<string, Set<string>>()
+  for (const p of prefs ?? []) {
+    if (!prefMap.has(p.player_id)) prefMap.set(p.player_id, new Set())
+    prefMap.get(p.player_id)!.add(p.preferred_player_id)
+  }
+
+  // Find mutual pairs (both want each other)
+  const mutualPairs: [string, string][] = []
+  const visited = new Set<string>()
+  for (const [pid, wants] of prefMap) {
+    for (const wantedId of wants) {
+      const key = [pid, wantedId].sort().join('-')
+      if (visited.has(key)) continue
+      visited.add(key)
+      if (prefMap.get(wantedId)?.has(pid)) {
+        mutualPairs.push([pid, wantedId])
+      }
+    }
+  }
+
+  // Build groups respecting mutual preferences
+  const assigned = new Set<string>()
+  const groups: string[][] = []
+
+  // Start with mutual pairs as seeds
+  for (const [a, b] of mutualPairs) {
+    if (assigned.has(a) || assigned.has(b)) continue
+    const group = [a, b]
+    assigned.add(a)
+    assigned.add(b)
+
+    // Try to add one-way preferences of either player
+    const wanted = new Set([
+      ...(prefMap.get(a) ?? []),
+      ...(prefMap.get(b) ?? []),
+    ])
+    for (const w of wanted) {
+      if (group.length >= groupSize) break
+      if (assigned.has(w)) continue
+      group.push(w)
+      assigned.add(w)
+    }
+
+    groups.push(group)
+  }
+
+  // Fill remaining players into existing groups or create new ones
+  const remaining = players.filter(p => !assigned.has(p.id))
+  let currentGroupIdx = 0
+
+  for (const player of remaining) {
+    // Check if player has a one-way preference for someone already in a group
+    const playerPrefs = prefMap.get(player.id)
+    let placed = false
+
+    if (playerPrefs) {
+      for (let i = 0; i < groups.length; i++) {
+        if (groups[i].length >= groupSize) continue
+        const hasPreferred = groups[i].some(id => playerPrefs.has(id))
+        if (hasPreferred) {
+          groups[i].push(player.id)
+          placed = true
+          break
+        }
+      }
+    }
+
+    if (!placed) {
+      // Find a group with room, or create a new one
+      const openGroup = groups.find(g => g.length < groupSize)
+      if (openGroup) {
+        openGroup.push(player.id)
+      } else {
+        groups.push([player.id])
+      }
+    }
+  }
+
+  // Delete existing groups and group_players for this tournament
+  const { data: existingGroups } = await supabase
+    .from('groups')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+
+  if (existingGroups && existingGroups.length > 0) {
+    const groupIds = existingGroups.map(g => g.id)
+    await supabase.from('group_players').delete().in('group_id', groupIds)
+    await supabase.from('groups').delete().eq('tournament_id', tournamentId)
+  }
+
+  // Get existing PINs (should be empty after delete, but just in case)
+  const usedPins = new Set<string>()
+
+  // Create groups in Supabase
+  for (let i = 0; i < groups.length; i++) {
+    let pin = generatePin()
+    while (usedPins.has(pin)) pin = generatePin()
+    usedPins.add(pin)
+
+    const { data: newGroup, error: groupError } = await supabase
+      .from('groups')
+      .insert({
+        tournament_id: tournamentId,
+        name: `Group ${i + 1}`,
+        pin,
+        starting_hole: i + 1,
+      })
+      .select('id')
+      .single()
+
+    if (groupError) throw new Error(groupError.message)
+
+    // Assign players
+    const gpRows = groups[i].map(playerId => ({
+      group_id: newGroup.id,
+      player_id: playerId,
+    }))
+
+    const { error: gpError } = await supabase.from('group_players').insert(gpRows)
+    if (gpError) throw new Error(gpError.message)
+  }
+
+  revalidatePath('/dashboard')
+  return { groupCount: groups.length }
 }
 
 export async function autoAssignPlayers(tournamentId: string) {

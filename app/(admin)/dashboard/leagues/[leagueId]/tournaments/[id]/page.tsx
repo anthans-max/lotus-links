@@ -27,21 +27,18 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   if (!league || !tournament) notFound()
 
-  // Fetch hole count
-  const { count: holeCount } = await supabase
-    .from('holes')
-    .select('*', { count: 'exact', head: true })
-    .eq('tournament_id', id)
-
-  const { count: playerCount } = await supabase
-    .from('players')
-    .select('*', { count: 'exact', head: true })
-    .eq('tournament_id', id)
-
-  const { count: groupCount } = await supabase
-    .from('groups')
-    .select('*', { count: 'exact', head: true })
-    .eq('tournament_id', id)
+  // Fetch counts in parallel
+  const [
+    { count: holeCount },
+    { count: playerCount },
+    { count: groupCount },
+    { count: registeredCount },
+  ] = await Promise.all([
+    supabase.from('holes').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
+    supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
+    supabase.from('groups').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
+    supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id).in('status', ['registered', 'checked_in']),
+  ])
 
   const totalPar = holeCount && holeCount > 0
     ? (await supabase.from('holes').select('par').eq('tournament_id', id)).data?.reduce((sum, h) => sum + h.par, 0) ?? 0
@@ -85,22 +82,19 @@ export default async function TournamentDetailPage({ params }: Props) {
           icon="⛳"
         />
         <NavCard
-          href={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
+          href={`/dashboard/leagues/${leagueId}/tournaments/${id}/players`}
           title="Players"
           stat={playerCount ?? 0}
           statLabel={`player${(playerCount ?? 0) !== 1 ? 's' : ''}`}
+          subStat={registeredCount ? `${registeredCount} registered` : undefined}
           icon="👤"
-          disabled
-          disabledLabel="Sprint 2"
         />
         <NavCard
-          href={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
+          href={`/dashboard/leagues/${leagueId}/tournaments/${id}/groups`}
           title="Groups"
           stat={groupCount ?? 0}
           statLabel={`group${(groupCount ?? 0) !== 1 ? 's' : ''}`}
           icon="👥"
-          disabled
-          disabledLabel="Sprint 2"
         />
       </div>
     </div>

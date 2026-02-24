@@ -1,0 +1,446 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Player } from '@/lib/types'
+import { addPlayer, bulkAddPlayers, deletePlayer } from '@/lib/actions/players'
+import CsvImportDialog from './CsvImportDialog'
+
+interface PlayersManagerProps {
+  tournamentId: string
+  leagueId: string
+  players: Player[]
+  pairingPrefs: { player_id: string; preferred_player_id: string }[]
+}
+
+export default function PlayersManager({
+  tournamentId,
+  leagueId,
+  players,
+  pairingPrefs,
+}: PlayersManagerProps) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [showAdd, setShowAdd] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
+  const [showCsv, setShowCsv] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newGrade, setNewGrade] = useState('')
+  const [bulkText, setBulkText] = useState('')
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'grade' | 'status'>('name')
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
+
+  // Build pairing prefs map: playerId -> count of preferences
+  const prefCountMap = new Map<string, number>()
+  for (const pref of pairingPrefs) {
+    prefCountMap.set(pref.player_id, (prefCountMap.get(pref.player_id) ?? 0) + 1)
+  }
+
+  // Filter and sort
+  const filtered = players.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name)
+    if (sortBy === 'grade') return (a.grade ?? '').localeCompare(b.grade ?? '')
+    if (sortBy === 'status') return a.status.localeCompare(b.status)
+    return 0
+  })
+
+  const handleAdd = () => {
+    if (!newName.trim()) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        await addPlayer(tournamentId, newName, newGrade)
+        setNewName('')
+        setNewGrade('')
+        setShowAdd(false)
+        setSuccess('Player added')
+        setTimeout(() => setSuccess(null), 2000)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to add player')
+      }
+    })
+  }
+
+  const handleBulkAdd = () => {
+    if (!bulkText.trim()) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        const result = await bulkAddPlayers(tournamentId, bulkText)
+        setBulkText('')
+        setShowBulk(false)
+        setSuccess(`Added ${result.added} players`)
+        setTimeout(() => setSuccess(null), 3000)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to add players')
+      }
+    })
+  }
+
+  const handleDelete = (playerId: string) => {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deletePlayer(playerId)
+        setConfirmDelete(null)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to delete player')
+      }
+    })
+  }
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/register/${tournamentId}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    })
+  }
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'registered':
+        return <span className="badge badge-green">Registered</span>
+      case 'checked_in':
+        return <span className="badge badge-gold">Checked In</span>
+      default:
+        return <span className="badge badge-gray">Pre-registered</span>
+    }
+  }
+
+  return (
+    <div>
+      {/* Registration link banner */}
+      <div
+        className="card card-gold"
+        style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.3s ease' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.25rem' }}>
+              Parent Registration Link
+            </div>
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--fm)',
+                wordBreak: 'break-all',
+              }}
+            >
+              {typeof window !== 'undefined' ? `${window.location.origin}/register/${tournamentId}` : `/register/${tournamentId}`}
+            </div>
+          </div>
+          <button
+            className={`btn ${copied ? 'btn-gold' : 'btn-outline'} btn-sm`}
+            onClick={handleCopyLink}
+          >
+            {copied ? 'Copied!' : 'Copy Link'}
+          </button>
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <span className="section-tag">Roster</span>
+          <div className="gold-divider" />
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
+          <span className="badge badge-gold">{players.length} total</span>
+          <span className="badge badge-green">{registeredCount} registered</span>
+          {players.length > 0 && (
+            <div style={{ flex: 1, minWidth: 120, maxWidth: 200 }}>
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${players.length > 0 ? (registeredCount / players.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action bar */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <button className="btn btn-gold btn-sm" onClick={() => { setShowAdd(true); setShowBulk(false) }}>
+          + Add Player
+        </button>
+        <button className="btn btn-outline btn-sm" onClick={() => { setShowBulk(true); setShowAdd(false) }}>
+          Bulk Add
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowCsv(true)}>
+          Import CSV
+        </button>
+      </div>
+
+      {/* Error / Success */}
+      {error && (
+        <div
+          style={{
+            background: 'var(--over-dim)',
+            border: '1px solid var(--over-border)',
+            borderRadius: 2,
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            fontSize: '0.82rem',
+            color: 'var(--over)',
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {success && (
+        <div
+          style={{
+            background: 'rgba(45,140,69,0.12)',
+            border: '1px solid rgba(45,140,69,0.3)',
+            borderRadius: 2,
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            fontSize: '0.82rem',
+            color: '#4CAF50',
+            animation: 'fadeUp 0.3s ease',
+          }}
+        >
+          {success}
+        </div>
+      )}
+
+      {/* Add single player form */}
+      {showAdd && (
+        <div className="card card-gold" style={{ marginBottom: '1.25rem', animation: 'fadeUp 0.3s ease' }}>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '1rem' }}>
+            Add New Player
+          </div>
+          <div className="g2" style={{ marginBottom: '1rem' }}>
+            <div>
+              <div className="label">Full Name</div>
+              <input
+                className="input"
+                placeholder="Student name"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                autoFocus
+              />
+            </div>
+            <div>
+              <div className="label">Grade (optional)</div>
+              <input
+                className="input"
+                placeholder="e.g. 5th"
+                value={newGrade}
+                onChange={e => setNewGrade(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-gold" onClick={handleAdd} disabled={isPending}>
+              {isPending ? 'Adding...' : 'Add Player'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowAdd(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk add form */}
+      {showBulk && (
+        <div className="card card-gold" style={{ marginBottom: '1.25rem', animation: 'fadeUp 0.3s ease' }}>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+            Bulk Add Players
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            Paste names — one per line, or comma-separated
+          </div>
+          <textarea
+            className="input"
+            rows={6}
+            placeholder={"John Smith\nJane Doe\nAlex Johnson"}
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            style={{ resize: 'vertical', fontFamily: 'var(--fm)', fontSize: '0.85rem' }}
+          />
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.35rem', marginBottom: '0.75rem', fontFamily: 'var(--fm)' }}>
+            {bulkText.split(/[\n,]/).filter(n => n.trim()).length} names detected
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-gold" onClick={handleBulkAdd} disabled={isPending || !bulkText.trim()}>
+              {isPending ? 'Adding...' : 'Add All'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowBulk(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search and sort */}
+      {players.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <input
+              className="input"
+              placeholder="Search players..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ fontSize: '0.85rem' }}
+            />
+          </div>
+          <select
+            className="input"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as 'name' | 'grade' | 'status')}
+            style={{ width: 'auto', minWidth: 130, fontSize: '0.85rem' }}
+          >
+            <option value="name">Sort by Name</option>
+            <option value="grade">Sort by Grade</option>
+            <option value="status">Sort by Status</option>
+          </select>
+        </div>
+      )}
+
+      {/* Player table */}
+      {sorted.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem', borderStyle: 'dashed', borderColor: 'var(--border2)' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>👤</div>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.15rem', marginBottom: '0.5rem' }}>
+            {search ? 'No Players Match' : 'No Players Yet'}
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {search ? 'Try a different search term.' : 'Add players manually, bulk add, or import from CSV.'}
+          </div>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--forest)' }}>
+                  {['Player', 'Grade', 'Status', 'Parent', 'Pairings', ''].map(h => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: 'left',
+                        padding: '0.6rem 0.75rem',
+                        fontSize: '0.65rem',
+                        letterSpacing: '0.15em',
+                        textTransform: 'uppercase',
+                        color: 'var(--gold)',
+                        fontFamily: 'var(--fm)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(p => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '0.65rem 0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            background: 'var(--surface3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.65rem',
+                            color: 'var(--gold)',
+                            flexShrink: 0,
+                            fontFamily: 'var(--fm)',
+                          }}
+                        >
+                          {p.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{p.name}</div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {p.grade || '—'}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.75rem' }}>
+                      {statusBadge(p.status)}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      {p.parent_name || '—'}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.75rem' }}>
+                      {(prefCountMap.get(p.id) ?? 0) > 0 ? (
+                        <span className="badge badge-blue">
+                          {prefCountMap.get(p.id)} pref{(prefCountMap.get(p.id) ?? 0) > 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                      {confirmDelete === p.id ? (
+                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ borderColor: 'var(--over-border)', color: 'var(--over)', fontSize: '0.65rem' }}
+                            onClick={() => handleDelete(p.id)}
+                            disabled={isPending}
+                          >
+                            {isPending ? '...' : 'Confirm'}
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={() => setConfirmDelete(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
+                          onClick={() => setConfirmDelete(p.id)}
+                          disabled={isPending}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {showCsv && (
+        <CsvImportDialog
+          tournamentId={tournamentId}
+          onClose={() => setShowCsv(false)}
+        />
+      )}
+    </div>
+  )
+}

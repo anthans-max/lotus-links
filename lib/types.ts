@@ -53,6 +53,12 @@ export interface Database {
         Update: Partial<Omit<GroupPlayer, 'id'>>
         Relationships: []
       }
+      pairing_preferences: {
+        Row: PairingPreference
+        Insert: Omit<PairingPreference, 'id' | 'created_at'>
+        Update: Partial<Omit<PairingPreference, 'id' | 'created_at'>>
+        Relationships: []
+      }
       scores: {
         Row: Score
         Insert: Omit<Score, 'id' | 'created_at'>
@@ -125,6 +131,10 @@ export interface Player {
   grade?: string | null
   handicap: number
   skill_level: string | null
+  status: 'pre-registered' | 'registered' | 'checked_in'
+  parent_name: string | null
+  parent_phone: string | null
+  registered_at: string | null
   created_at: string
 }
 
@@ -144,6 +154,14 @@ export interface GroupPlayer {
   id: string
   group_id: string
   player_id: string
+}
+
+export interface PairingPreference {
+  id: string
+  tournament_id: string
+  player_id: string
+  preferred_player_id: string
+  created_at: string
 }
 
 export interface Score {

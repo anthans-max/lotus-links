@@ -10,6 +10,7 @@ export async function addPlayer(tournamentId: string, name: string, grade?: stri
     tournament_id: tournamentId,
     name: name.trim(),
     grade: grade?.trim() || null,
+    status: 'pre-registered',
   })
 
   if (error) throw new Error(error.message)
@@ -28,6 +29,7 @@ export async function importPlayers(
       tournament_id: tournamentId,
       name: r.name.trim(),
       grade: r.grade?.trim() || null,
+      status: 'pre-registered',
     }))
 
   if (cleaned.length === 0) return { imported: 0 }
@@ -39,10 +41,41 @@ export async function importPlayers(
   return { imported: cleaned.length }
 }
 
+export async function bulkAddPlayers(
+  tournamentId: string,
+  text: string
+) {
+  const supabase = await createClient()
+
+  // Parse names from text — supports newline-separated and comma-separated
+  const names = text
+    .split(/[\n,]/)
+    .map(n => n.trim())
+    .filter(n => n.length > 0)
+
+  if (names.length === 0) return { added: 0 }
+
+  const rows = names.map(name => ({
+    tournament_id: tournamentId,
+    name,
+    status: 'pre-registered',
+  }))
+
+  const { error } = await supabase.from('players').insert(rows)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard')
+  return { added: names.length }
+}
+
 export async function deletePlayer(playerId: string) {
   const supabase = await createClient()
 
-  // Remove from any groups first
+  // Remove pairing preferences
+  await supabase.from('pairing_preferences').delete().eq('player_id', playerId)
+  await supabase.from('pairing_preferences').delete().eq('preferred_player_id', playerId)
+
+  // Remove from any groups
   await supabase.from('group_players').delete().eq('player_id', playerId)
 
   const { error } = await supabase.from('players').delete().eq('id', playerId)
