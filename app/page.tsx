@@ -227,9 +227,7 @@ export default async function HomePage() {
       )}
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border)' }}>
-        <PoweredByFooter />
-      </footer>
+      <PoweredByFooter />
     </div>
   )
 }

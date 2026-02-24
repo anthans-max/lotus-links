@@ -1,4 +1,5 @@
 import AdminNavBar from '@/components/admin/AdminNavBar'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 export default function AdminLayout({
   children,
@@ -6,9 +7,10 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <AdminNavBar />
-      {children}
+      <div style={{ flex: 1 }}>{children}</div>
+      <PoweredByFooter />
     </div>
   )
 }
