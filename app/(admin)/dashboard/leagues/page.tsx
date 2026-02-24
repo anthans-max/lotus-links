@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
-import Badge from '@/components/ui/Badge'
 
 export const metadata: Metadata = {
   title: 'Leagues',
@@ -53,16 +52,13 @@ export default async function LeaguesPage() {
               <Link
                 key={league.id}
                 href={`/dashboard/leagues/${league.id}`}
-                className="card"
+                className="card card-hover"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '1rem',
-                  transition: 'border-color 0.2s',
                   cursor: 'pointer',
                 }}
-                onMouseEnter={(e: any) => e.currentTarget.style.borderColor = 'var(--gold-border)'}
-                onMouseLeave={(e: any) => e.currentTarget.style.borderColor = 'var(--border)'}
               >
                 {/* Color swatch */}
                 <div

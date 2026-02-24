@@ -3,7 +3,6 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import Badge from '@/components/ui/Badge'
-import Card from '@/components/ui/Card'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -94,25 +93,47 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="g3" style={{ marginBottom: '1.5rem' }}>
-        {[
-          { label: 'Leagues', value: String(totalLeagues), icon: '🏆' },
-          { label: 'Tournaments', value: String(totalTournaments), icon: '⛳' },
-          { label: 'Upcoming', value: String(upcomingTournaments.length), icon: '📅' },
-        ].map((s, i) => (
-          <Card key={i}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ fontSize: '1.5rem' }}>{s.icon}</div>
-              <div>
-                <div className="label">{s.label}</div>
-                <div style={{ fontFamily: 'var(--fd)', fontSize: '1.4rem', fontWeight: 400, color: 'var(--text)', lineHeight: 1 }}>
-                  {s.value}
+      {(() => {
+        // Compute links for each KPI card
+        const leaguesHref = '/dashboard/leagues'
+        const tournamentsHref = totalLeagues === 1
+          ? `/dashboard/leagues/${leagueList[0].id}`
+          : '/dashboard/leagues'
+        const upcomingHref = (() => {
+          if (upcomingTournaments.length === 1) {
+            const t = upcomingTournaments[0]
+            const league = leagueList.find((l: any) =>
+              (l.tournaments || []).some((lt: any) => lt.id === t.id)
+            )
+            if (league) return `/dashboard/leagues/${league.id}/tournaments/${t.id}`
+          }
+          return '/dashboard/leagues'
+        })()
+
+        const kpis = [
+          { label: 'Leagues', value: String(totalLeagues), icon: '🏆', href: leaguesHref },
+          { label: 'Tournaments', value: String(totalTournaments), icon: '⛳', href: tournamentsHref },
+          { label: 'Upcoming', value: String(upcomingTournaments.length), icon: '📅', href: upcomingHref },
+        ]
+
+        return (
+          <div className="g3" style={{ marginBottom: '1.5rem' }}>
+            {kpis.map((s, i) => (
+              <Link key={i} href={s.href} className="card card-hover" style={{ cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ fontSize: '1.5rem' }}>{s.icon}</div>
+                  <div>
+                    <div className="label">{s.label}</div>
+                    <div style={{ fontFamily: 'var(--fd)', fontSize: '1.4rem', fontWeight: 400, color: 'var(--text)', lineHeight: 1 }}>
+                      {s.value}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </Link>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Upcoming / Recent tournaments */}
       {allTournaments.length > 0 && (
