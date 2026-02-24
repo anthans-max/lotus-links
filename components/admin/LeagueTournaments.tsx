@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { deleteTournament } from '@/lib/actions/tournament'
 import type { Tournament } from '@/lib/types'
-import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 
@@ -57,13 +56,10 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
               e.currentTarget.style.background = ''
             }}
           >
-            {/* Top: Name + badge + meta */}
+            {/* Top: Name + meta */}
             <div className="tc-top" style={{ marginBottom: '0.35rem' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', minWidth: 0 }}>
-                  {t.name}
-                </div>
-                <Badge status={t.status}>{t.status}</Badge>
+              <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', minWidth: 0, marginBottom: '0.2rem' }}>
+                {t.name}
               </div>
               <div className="tc-meta" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                 <span>{new Date(t.date).toLocaleDateString()}</span>

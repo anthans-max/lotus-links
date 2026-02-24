@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 interface TournamentInfo {
   id: string
@@ -401,11 +402,10 @@ export default function LiveLeaderboard({
 
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <div className="gold-divider" style={{ margin: '0 auto 0.75rem' }} />
-          <div style={{ fontFamily: 'var(--fd)', fontSize: '0.85rem', color: 'var(--gold)' }}>Lotus Links</div>
           {!isCompleted && (
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>Auto-refreshes every 15 seconds</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.75rem' }}>Auto-refreshes every 15 seconds</div>
           )}
+          <PoweredByFooter />
         </div>
       </div>
     </div>

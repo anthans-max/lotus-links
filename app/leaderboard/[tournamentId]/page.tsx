@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import LiveLeaderboard from '@/components/leaderboard/LiveLeaderboard'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 export const metadata: Metadata = {
   title: 'Leaderboard',
@@ -142,8 +143,7 @@ function ComingSoonView({ tournamentName, tournamentDate }: { tournamentName: st
           </div>
         </div>
 
-        <div className="gold-divider" style={{ margin: '2rem auto' }} />
-        <div style={{ fontFamily: 'var(--fd)', fontSize: '0.85rem', color: 'var(--gold)' }}>Lotus Links</div>
+        <PoweredByFooter />
       </div>
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { upsertScore, updateGroupProgress, submitScorecard } from '@/lib/actions/scores'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 interface HoleInfo {
   number: number
@@ -509,6 +510,8 @@ export default function ScoreEntryApp({
             Leaderboard will be available soon
           </div>
         )}
+
+        <PoweredByFooter />
       </div>
     </div>
   )

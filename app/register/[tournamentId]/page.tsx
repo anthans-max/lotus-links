@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import RegistrationForm from '@/components/registration/RegistrationForm'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 export const metadata: Metadata = {
   title: 'Register',
@@ -70,8 +71,7 @@ function NotFoundView() {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
           This registration link doesn&apos;t match any tournament. Please check with your tournament organizer for the correct link.
         </p>
-        <div className="gold-divider" style={{ margin: '1.5rem auto' }} />
-        <div style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</div>
+        <PoweredByFooter />
       </div>
     </div>
   )
@@ -88,8 +88,7 @@ function ClosedView({ tournamentName }: { tournamentName: string }) {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
           Registration for <strong style={{ color: 'var(--gold)' }}>{tournamentName}</strong> has closed. Contact the tournament organizer if you have questions.
         </p>
-        <div className="gold-divider" style={{ margin: '1.5rem auto' }} />
-        <div style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</div>
+        <PoweredByFooter />
       </div>
     </div>
   )

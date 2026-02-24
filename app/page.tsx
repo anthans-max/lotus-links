@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 export const metadata: Metadata = {
   title: 'Lotus Links — Golf Tournament Management',
@@ -226,18 +227,8 @@ export default async function HomePage() {
       )}
 
       {/* Footer */}
-      <footer
-        style={{
-          borderTop: '1px solid var(--border)',
-          padding: '2rem 1.25rem',
-          textAlign: 'center',
-          fontSize: '0.72rem',
-          color: 'var(--text-dim)',
-          fontFamily: 'var(--fm)',
-          letterSpacing: '0.08em',
-        }}
-      >
-        Lotus Links &mdash; Golf Tournament Platform
+      <footer style={{ borderTop: '1px solid var(--border)' }}>
+        <PoweredByFooter />
       </footer>
     </div>
   )

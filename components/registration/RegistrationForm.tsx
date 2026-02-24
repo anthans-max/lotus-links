@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { registerPlayers, addAndRegisterPlayer } from '@/lib/actions/registration'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 interface TournamentInfo {
   id: string
@@ -213,8 +214,7 @@ export default function RegistrationForm({
             Add to Google Calendar
           </a>
 
-          <div className="gold-divider" style={{ margin: '1.5rem auto' }} />
-          <div style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</div>
+          <PoweredByFooter />
         </div>
       </div>
     )
@@ -759,9 +759,11 @@ export default function RegistrationForm({
                 {isPending ? 'Registering...' : 'Confirm Registration'}
               </button>
             </div>
-            <div style={{ height: '3rem' }} />
+            <div style={{ height: '1rem' }} />
           </div>
         )}
+
+        <PoweredByFooter />
       </div>
     </div>
   )
