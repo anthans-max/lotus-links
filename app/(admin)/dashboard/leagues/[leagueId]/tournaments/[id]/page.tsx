@@ -72,7 +72,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       </Card>
 
       {/* Navigation cards */}
-      <div className="g3">
+      <div className="g3" style={{ alignItems: 'stretch' }}>
         <NavCard
           href={`/dashboard/leagues/${leagueId}/tournaments/${id}/holes`}
           title="Holes"
@@ -139,15 +139,20 @@ function NavCard({
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         position: 'relative',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>{icon}</div>
       <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{title}</div>
       <div style={{ fontFamily: 'var(--fm)', fontSize: '1.5rem', color: 'var(--gold)', marginBottom: '0.15rem' }}>{stat}</div>
       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>{statLabel}</div>
-      {subStat && (
-        <div style={{ fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'var(--fm)', marginTop: '0.25rem' }}>{subStat}</div>
-      )}
+      <div style={{ fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'var(--fm)', marginTop: '0.25rem', visibility: subStat ? 'visible' : 'hidden' }}>
+        {subStat || '\u00A0'}
+      </div>
       {disabled && disabledLabel && (
         <span className="badge badge-gray" style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.6rem' }}>
           {disabledLabel}
@@ -157,5 +162,5 @@ function NavCard({
   )
 
   if (disabled) return content
-  return <Link href={href}>{content}</Link>
+  return <Link href={href} style={{ display: 'block', height: '100%' }}>{content}</Link>
 }
