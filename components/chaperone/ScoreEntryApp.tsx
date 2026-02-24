@@ -188,6 +188,7 @@ export default function ScoreEntryApp({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontFamily: 'var(--font-outfit, sans-serif)' }}>{leagueName} &middot; {tournament.course}</div>
+        <a href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1 }} title="View Leaderboard">🏆</a>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite' }} />
       </div>
     </div>
