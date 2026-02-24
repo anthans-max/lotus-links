@@ -8,6 +8,7 @@ export async function registerPlayers(data: {
   parentName: string
   parentPhone: string
   pairingPreferences: Record<string, string[]> // playerId -> preferred player IDs
+  willingToChaperone?: boolean
 }) {
   const supabase = await createClient()
 
@@ -20,6 +21,7 @@ export async function registerPlayers(data: {
         parent_name: data.parentName.trim(),
         parent_phone: data.parentPhone.trim(),
         registered_at: new Date().toISOString(),
+        willing_to_chaperone: data.willingToChaperone ?? false,
       })
       .eq('id', playerId)
 

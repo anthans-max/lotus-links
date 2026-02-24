@@ -112,6 +112,46 @@ export default async function TournamentDetailPage({ params }: Props) {
           icon="📊"
         />
       </div>
+
+      {/* Leaderboard quick-access */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <a
+          href={`/leaderboard/${id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1rem 1.25rem',
+            textDecoration: 'none',
+            color: 'var(--text)',
+            transition: 'border-color 0.2s',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontSize: '1.5rem' }}>🏆</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.15rem' }}>
+              Public Leaderboard
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
+              {tournament.leaderboard_public
+                ? 'Live — visible to spectators'
+                : 'Not live — activate from the Scores tab'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {tournament.leaderboard_public ? (
+              <span className="badge badge-green" style={{ fontSize: '0.58rem' }}>Live</span>
+            ) : (
+              <span className="badge badge-gray" style={{ fontSize: '0.58rem' }}>Hidden</span>
+            )}
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>↗</span>
+          </div>
+        </a>
+      </div>
     </div>
   )
 }

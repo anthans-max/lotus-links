@@ -484,7 +484,7 @@ export default function ScoreEntryApp({
           Scores are now live on the leaderboard.
         </div>
 
-        {tournament.leaderboardPublic && (
+        {tournament.leaderboardPublic ? (
           <a
             href={`/leaderboard/${tournament.id}`}
             style={{
@@ -504,6 +504,10 @@ export default function ScoreEntryApp({
           >
             View Live Leaderboard &rarr;
           </a>
+        ) : (
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+            Leaderboard will be available soon
+          </div>
         )}
       </div>
     </div>

@@ -49,6 +49,7 @@ export default function RegistrationForm({
   // Contact info
   const [parentName, setParentName] = useState('')
   const [parentPhone, setParentPhone] = useState('')
+  const [willingToChaperone, setWillingToChaperone] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
 
@@ -127,6 +128,7 @@ export default function RegistrationForm({
           parentName,
           parentPhone,
           pairingPreferences: pairingPrefs,
+          willingToChaperone,
         })
         setStep('done')
       } catch (e) {
@@ -653,6 +655,62 @@ export default function RegistrationForm({
                 onChange={e => setParentPhone(e.target.value)}
                 style={{ fontSize: '1rem' }}
               />
+            </div>
+
+            {/* Chaperone volunteer */}
+            <div className="card" style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.3s ease 0.1s both' }}>
+              <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.5rem' }}>
+                Would You Like to Help?
+              </div>
+              <button
+                onClick={() => setWillingToChaperone(!willingToChaperone)}
+                className="tap"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  padding: '0.75rem',
+                  background: willingToChaperone ? 'var(--gold-dim)' : 'var(--surface2)',
+                  border: `1.5px solid ${willingToChaperone ? 'var(--gold)' : 'var(--border)'}`,
+                  borderRadius: 8,
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  color: 'var(--text)',
+                  fontSize: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    border: `2px solid ${willingToChaperone ? 'var(--gold)' : 'var(--border2)'}`,
+                    background: willingToChaperone ? 'var(--gold)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.15s',
+                    fontSize: '0.75rem',
+                    color: '#0a120a',
+                    fontWeight: 700,
+                    marginTop: '0.1rem',
+                  }}
+                >
+                  {willingToChaperone && '✓'}
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                    I&apos;m willing to chaperone a group on tournament day
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Chaperones walk with a group of players and enter scores on their phone. No golf experience needed!
+                  </div>
+                </div>
+              </button>
             </div>
 
             {/* Summary */}

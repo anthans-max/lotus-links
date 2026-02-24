@@ -25,7 +25,7 @@ export default async function LeaderboardPage({ params }: Props) {
   }
 
   if (!tournament.leaderboard_public) {
-    return <NotPublicView tournamentName={tournament.name} />
+    return <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
   }
 
   // Fetch league
@@ -100,19 +100,50 @@ function NotFoundView() {
   )
 }
 
-function NotPublicView({ tournamentName }: { tournamentName: string }) {
+function ComingSoonView({ tournamentName, tournamentDate }: { tournamentName: string; tournamentDate: string }) {
+  const formattedDate = (() => {
+    try {
+      return new Date(tournamentDate + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    } catch {
+      return tournamentDate
+    }
+  })()
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <div style={{ textAlign: 'center', maxWidth: 400 }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
-        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text)' }}>
-          Leaderboard Not Yet Live
+      <div style={{ textAlign: 'center', maxWidth: 420, width: '100%' }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), #5a3e10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>⛳</div>
+          <span style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</span>
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          The leaderboard for <strong style={{ color: 'var(--gold)' }}>{tournamentName}</strong> hasn&apos;t been made public yet. Check back soon!
-        </p>
-        <div className="gold-divider" style={{ margin: '1.5rem auto' }} />
-        <div style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</div>
+
+        <div style={{ background: 'linear-gradient(135deg, var(--forest), var(--surface2))', border: '1px solid var(--gold-border)', borderRadius: 12, padding: '2.5rem 2rem', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -20, right: -20, fontSize: '8rem', opacity: 0.04, pointerEvents: 'none' }}>🏆</div>
+          <div style={{ fontSize: '3rem', marginBottom: '1.25rem' }}>🏌️</div>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text)' }}>
+            Leaderboard Coming Soon
+          </div>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '1rem' }}>
+            {tournamentName}
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
+            The leaderboard will be live on tournament day. Check back on:
+          </p>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem 1.25rem', display: 'inline-block' }}>
+            <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', color: 'var(--gold)' }}>
+              {formattedDate}
+            </div>
+          </div>
+        </div>
+
+        <div className="gold-divider" style={{ margin: '2rem auto' }} />
+        <div style={{ fontFamily: 'var(--fd)', fontSize: '0.85rem', color: 'var(--gold)' }}>Lotus Links</div>
       </div>
     </div>
   )

@@ -488,8 +488,8 @@ export default function GroupsManager({
           </div>
           <div className="card" style={{ padding: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
             {unassignedPlayers.map(p => (
-              <span key={p.id} className="badge badge-gray" style={{ fontSize: '0.72rem' }}>
-                {p.name}
+              <span key={p.id} className={`badge ${(p as any).willing_to_chaperone ? 'badge-gold' : 'badge-gray'}`} style={{ fontSize: '0.72rem' }}>
+                {(p as any).willing_to_chaperone && '🙋 '}{p.name}
               </span>
             ))}
           </div>
@@ -642,6 +642,11 @@ export default function GroupsManager({
                                 Grade {p.grade}
                               </span>
                             )}
+                            {(p as any).willing_to_chaperone && (
+                              <span style={{ fontSize: '0.6rem', color: 'var(--gold)', fontFamily: 'var(--fm)' }}>
+                                🙋 Chaperone volunteer
+                              </span>
+                            )}
                             {hasPref && (
                               <span style={{ fontSize: '0.6rem', color: 'var(--blue)', fontFamily: 'var(--fm)' }}>
                                 Has pairing prefs
@@ -682,7 +687,7 @@ export default function GroupsManager({
                       <option value="">+ Add player...</option>
                       {unassignedPlayers.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name}{p.grade ? ` (${p.grade})` : ''}
+                          {(p as any).willing_to_chaperone ? '🙋 ' : ''}{p.name}{p.grade ? ` (${p.grade})` : ''}
                         </option>
                       ))}
                     </select>

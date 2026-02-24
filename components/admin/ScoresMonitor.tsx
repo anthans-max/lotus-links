@@ -103,7 +103,7 @@ export default function ScoresMonitor({
     startTransition(async () => {
       try {
         await toggleLeaderboardPublic(tournamentId, newValue)
-        setSuccess(newValue ? 'Leaderboard is now public' : 'Leaderboard hidden')
+        setSuccess(newValue ? 'Leaderboard is now live and publicly accessible' : 'Leaderboard is now hidden from public')
         setTimeout(() => setSuccess(null), 2500)
         router.refresh()
       } catch (e) {
@@ -181,7 +181,16 @@ export default function ScoresMonitor({
               {leaderboardUrl}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <a
+              href={`/leaderboard/${tournamentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline btn-sm"
+              style={{ textDecoration: 'none' }}
+            >
+              View Leaderboard ↗
+            </a>
             <button
               className={`btn ${copiedLink ? 'btn-gold' : 'btn-outline'} btn-sm`}
               onClick={handleCopyLink}

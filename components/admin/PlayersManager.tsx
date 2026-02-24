@@ -29,6 +29,7 @@ export default function PlayersManager({
   const [bulkText, setBulkText] = useState('')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'grade' | 'status'>('name')
+  const [filterVolunteers, setFilterVolunteers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -48,10 +49,14 @@ export default function PlayersManager({
     prefCountMap.set(pref.player_id, (prefCountMap.get(pref.player_id) ?? 0) + 1)
   }
 
+  const volunteerCount = players.filter(p => (p as any).willing_to_chaperone).length
+
   // Filter and sort
-  const filtered = players.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = players.filter(p => {
+    if (!p.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (filterVolunteers && !(p as any).willing_to_chaperone) return false
+    return true
+  })
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
@@ -246,6 +251,15 @@ export default function PlayersManager({
         <button className="btn btn-ghost btn-sm" onClick={() => setShowCsv(true)}>
           Import CSV
         </button>
+        {volunteerCount > 0 && (
+          <button
+            className={`btn ${filterVolunteers ? 'btn-gold' : 'btn-ghost'} btn-sm`}
+            onClick={() => setFilterVolunteers(!filterVolunteers)}
+            style={{ marginLeft: 'auto' }}
+          >
+            🙋 Volunteers ({volunteerCount})
+          </button>
+        )}
       </div>
 
       {/* Error / Success */}
@@ -499,6 +513,11 @@ export default function PlayersManager({
                             {p.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </div>
                           <div style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{p.name}</div>
+                          {(p as any).willing_to_chaperone && (
+                            <span className="badge badge-gold" style={{ fontSize: '0.5rem', padding: '0.1rem 0.35rem' }} title="Parent volunteered to chaperone">
+                              🙋 Volunteer
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>

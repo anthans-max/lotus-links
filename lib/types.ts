@@ -135,6 +135,7 @@ export interface Player {
   status: 'pre-registered' | 'registered' | 'checked_in'
   parent_name: string | null
   parent_phone: string | null
+  willing_to_chaperone: boolean
   registered_at: string | null
   created_at: string
 }
