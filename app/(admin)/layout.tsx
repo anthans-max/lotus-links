@@ -1,9 +1,14 @@
-// Admin route group layout — wraps /login and /dashboard
-// Auth guard is handled in middleware.ts
+import AdminNavBar from '@/components/admin/AdminNavBar'
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <AdminNavBar />
+      {children}
+    </div>
+  )
 }

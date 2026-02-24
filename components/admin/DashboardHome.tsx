@@ -51,7 +51,7 @@ export default function DashboardHome({ data, onNavigate }: DashboardHomeProps) 
   }
 
   const totalPar = holes.reduce((sum, h) => sum + h.par, 0)
-  const holesCompleted = new Set(scores.map(s => s.hole_id)).size
+  const holesCompleted = new Set(scores.map(s => s.hole_number)).size
   const groupCount = groups.length
   const playerCount = players.length
 
@@ -59,7 +59,7 @@ export default function DashboardHome({ data, onNavigate }: DashboardHomeProps) 
   const groupScores = groups.map(g => {
     const groupScoreList = scores.filter(s => s.group_id === g.id)
     const total = groupScoreList.reduce((sum, s) => sum + s.strokes, 0)
-    const completed = new Set(groupScoreList.map(s => s.hole_id)).size
+    const completed = new Set(groupScoreList.map(s => s.hole_number)).size
     return {
       id: g.id,
       name: g.name,
@@ -138,7 +138,7 @@ export default function DashboardHome({ data, onNavigate }: DashboardHomeProps) 
             lineHeight: 1.6,
           }}
         >
-          {tournament.course_name} &middot; {tournament.date} &middot; {holes.length} Holes &middot; Par {totalPar}
+          {tournament.course} &middot; {tournament.date} &middot; {holes.length} Holes &middot; Par {totalPar}
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button className="btn btn-gold" onClick={() => onNavigate('groups')}>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Tournament, Hole } from '@/lib/types'
-import { createTournament, updateTournament } from '@/lib/actions/tournament'
+import { createTournamentWithWishHoles, updateTournament } from '@/lib/actions/tournament'
 import { WISH_HOLES } from '@/lib/course-data'
 
 interface TournamentSetupProps {
@@ -23,7 +23,7 @@ export default function TournamentSetup({ tournament, holes, onCreated }: Tourna
   const [form, setForm] = useState({
     name: tournament?.name ?? 'WISH Charter School Golf Tournament',
     date: tournament?.date ?? new Date().toISOString().split('T')[0],
-    course_name: tournament?.course_name ?? 'The Lakes at El Segundo',
+    course_name: tournament?.course || 'The Lakes at El Segundo',
     format: tournament?.format ?? 'Scramble',
   })
 
@@ -38,13 +38,13 @@ export default function TournamentSetup({ tournament, holes, onCreated }: Tourna
   }))
 
   const totalPar = displayHoles.reduce((sum, h) => sum + h.par, 0)
-  const totalYards = displayHoles.reduce((sum, h) => sum + h.yardage, 0)
+  const totalYards = displayHoles.reduce((sum, h) => sum + (h.yardage || 0), 0)
 
   const handleCreate = () => {
     setError(null)
     startTransition(async () => {
       try {
-        await createTournament(form)
+        await createTournamentWithWishHoles(form)
         router.refresh()
         onCreated()
       } catch (e) {

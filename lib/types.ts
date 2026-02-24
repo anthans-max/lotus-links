@@ -71,6 +71,9 @@ export interface Database {
 export interface League {
   id: string
   name: string
+  admin_email: string
+  logo_url: string | null
+  primary_color: string
   created_at: string
 }
 
@@ -79,19 +82,31 @@ export interface Season {
   league_id: string
   name: string
   year: number
+  start_date: string | null
+  end_date: string | null
+  points_system: string
   created_at: string
 }
 
 export interface Tournament {
   id: string
+  league_id: string
   season_id: string | null
   name: string
   date: string
-  course_name: string
-  format: string          // e.g. 'scramble'
-  status: 'draft' | 'active' | 'completed'
-  pin?: string | null     // chaperone PIN
+  course: string
+  format: string
+  holes: number
+  status: 'upcoming' | 'active' | 'completed'
+  course_source: string
+  tournament_type: string
+  login_required: boolean
+  notes: string | null
+  shotgun_start: boolean
   created_at: string
+  // Legacy alias — old code references course_name
+  course_name?: string
+  pin?: string | null
 }
 
 export interface Hole {
@@ -99,7 +114,8 @@ export interface Hole {
   tournament_id: string
   hole_number: number
   par: number
-  yardage: number
+  yardage: number | null
+  handicap: number | null
 }
 
 export interface Player {
@@ -107,16 +123,20 @@ export interface Player {
   tournament_id: string
   name: string
   grade?: string | null
+  handicap: number
+  skill_level: string | null
   created_at: string
 }
 
 export interface Group {
   id: string
   tournament_id: string
-  name: string            // e.g. "Group 1"
+  name: string
   chaperone_name?: string | null
-  pin: string             // 4-6 digit PIN for score entry
-  starting_hole?: number | null
+  pin: string
+  starting_hole: number
+  tee_time: string | null
+  status: 'not_started' | 'in_progress' | 'completed'
   created_at: string
 }
 
@@ -130,9 +150,11 @@ export interface Score {
   id: string
   tournament_id: string
   group_id: string
-  hole_id: string
+  hole_number: number
   strokes: number
-  created_at: string
+  entered_by: string | null
+  submitted_at: string
+  created_at?: string
 }
 
 // ─── Derived / UI types ───────────────────────────────────────────────────────
