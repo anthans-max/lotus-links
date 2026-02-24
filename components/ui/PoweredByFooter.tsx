@@ -16,7 +16,7 @@ export default function PoweredByFooter() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/lotus-ai-lab-logo.png"
+          src="/lotus-logo.png"
           alt="Lotus AI Lab"
           style={{
             height: 24,
