@@ -93,15 +93,14 @@ export default function CreateTournamentForm({ leagueId }: CreateTournamentFormP
           ]}
         />
 
-        <Select
+        <Input
           id="holes"
           label="Number of Holes"
+          type="number"
+          min={1}
+          max={18}
           value={holes}
           onChange={e => setHoles(e.target.value)}
-          options={[
-            { value: '9', label: '9 Holes' },
-            { value: '18', label: '18 Holes' },
-          ]}
         />
 
         <div>

@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 
 const COLOR_OPTIONS = [
+  { value: '#B91C1C', label: 'Crimson', color: '#B91C1C' },
   { value: '#1a5c2a', label: 'Green', color: '#1a5c2a' },
   { value: '#2980b9', label: 'Blue', color: '#2980b9' },
   { value: '#7b3fa0', label: 'Purple', color: '#7b3fa0' },
