@@ -12,9 +12,10 @@ import Input from '@/components/ui/Input'
 interface LeagueTournamentsProps {
   tournaments: Tournament[]
   leagueId: string
+  leagueColor?: string
 }
 
-export default function LeagueTournaments({ tournaments, leagueId }: LeagueTournamentsProps) {
+export default function LeagueTournaments({ tournaments, leagueId, leagueColor }: LeagueTournamentsProps) {
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<Tournament | null>(null)
   const [confirmName, setConfirmName] = useState('')
@@ -48,6 +49,7 @@ export default function LeagueTournaments({ tournaments, leagueId }: LeagueTourn
               flexWrap: 'wrap',
               cursor: 'pointer',
               transition: 'border-color 0.2s, background 0.2s',
+              borderLeft: leagueColor ? `3px solid ${leagueColor}` : undefined,
             }}
             onClick={() => router.push(`/dashboard/leagues/${leagueId}/tournaments/${t.id}`)}
             onMouseEnter={e => {

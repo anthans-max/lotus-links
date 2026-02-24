@@ -2,40 +2,39 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createLeague } from '@/lib/actions/leagues'
+import { updateLeague } from '@/lib/actions/leagues'
+import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
-import Button from '@/components/ui/Button'
-import Card from '@/components/ui/Card'
 import LogoUpload from '@/components/admin/LogoUpload'
+import type { League } from '@/lib/types'
 
 const COLOR_OPTIONS = [
-  { value: '#B91C1C', label: 'Crimson', color: '#B91C1C' },
-  { value: '#1a5c2a', label: 'Green', color: '#1a5c2a' },
-  { value: '#2980b9', label: 'Blue', color: '#2980b9' },
-  { value: '#7b3fa0', label: 'Purple', color: '#7b3fa0' },
-  { value: '#d4730c', label: 'Orange', color: '#d4730c' },
-  { value: '#1a8a7a', label: 'Teal', color: '#1a8a7a' },
-  { value: '#b8960c', label: 'Gold', color: '#b8960c' },
-  { value: '#2c2c2c', label: 'Black', color: '#2c2c2c' },
+  { value: '#B91C1C', label: 'Crimson' },
+  { value: '#1a5c2a', label: 'Green' },
+  { value: '#2980b9', label: 'Blue' },
+  { value: '#7b3fa0', label: 'Purple' },
+  { value: '#d4730c', label: 'Orange' },
+  { value: '#1a8a7a', label: 'Teal' },
+  { value: '#b8960c', label: 'Gold' },
+  { value: '#2c2c2c', label: 'Black' },
 ]
 
-interface CreateLeagueFormProps {
-  userEmail: string
+interface EditLeagueModalProps {
+  open: boolean
+  onClose: () => void
+  league: League
 }
 
-export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
+export default function EditLeagueModal({ open, onClose, league }: EditLeagueModalProps) {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [adminEmail, setAdminEmail] = useState(userEmail)
-  const [primaryColor, setPrimaryColor] = useState('#1a5c2a')
-  const [logoUrl, setLogoUrl] = useState('')
+  const [name, setName] = useState(league.name)
+  const [adminEmail, setAdminEmail] = useState(league.admin_email)
+  const [primaryColor, setPrimaryColor] = useState(league.primary_color)
+  const [logoUrl, setLogoUrl] = useState(league.logo_url || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  // Temp ID for logo upload before league exists
-  const [tempId] = useState(() => `new-${Date.now()}`)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSave = async () => {
     if (!name.trim()) {
       setError('League name is required')
       return
@@ -45,24 +44,32 @@ export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
     setError('')
 
     try {
-      const league = await createLeague({
+      await updateLeague(league.id, {
         name: name.trim(),
         admin_email: adminEmail,
         primary_color: primaryColor,
         logo_url: logoUrl || null,
       })
-      router.push(`/dashboard/leagues/${league.id}`)
+      router.refresh()
+      onClose()
     } catch (err: any) {
-      setError(err.message || 'Failed to create league')
+      setError(err.message || 'Failed to update league')
       setLoading(false)
     }
   }
 
   return (
-    <Card style={{ maxWidth: 520 }}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit League"
+      confirmLabel="Save Changes"
+      confirmLoading={loading}
+      onConfirm={handleSave}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <Input
-          id="name"
+          id="edit-name"
           label="League Name"
           placeholder="e.g. WISH Golf League"
           value={name}
@@ -71,12 +78,11 @@ export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
         />
 
         <Input
-          id="email"
+          id="edit-email"
           label="Admin Email"
           type="email"
           value={adminEmail}
           onChange={e => setAdminEmail(e.target.value)}
-          required
         />
 
         <div>
@@ -89,10 +95,10 @@ export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
                 onClick={() => setPrimaryColor(opt.value)}
                 title={opt.label}
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   borderRadius: '50%',
-                  background: opt.color,
+                  background: opt.value,
                   border: primaryColor === opt.value
                     ? '3px solid var(--gold)'
                     : '2px solid var(--border2)',
@@ -106,7 +112,7 @@ export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
         </div>
 
         <LogoUpload
-          leagueId={tempId}
+          leagueId={league.id}
           currentLogoUrl={logoUrl}
           onUploaded={setLogoUrl}
           onRemoved={() => setLogoUrl('')}
@@ -117,11 +123,7 @@ export default function CreateLeagueForm({ userEmail }: CreateLeagueFormProps) {
             {error}
           </p>
         )}
-
-        <Button type="submit" loading={loading} style={{ alignSelf: 'flex-start' }}>
-          Create League
-        </Button>
-      </form>
-    </Card>
+      </div>
+    </Modal>
   )
 }

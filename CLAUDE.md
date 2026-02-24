@@ -99,6 +99,8 @@ UNIQUE(player_id, preferred_player_id)
 - [x] Sprint 3: Chaperone score entry, leaderboard, check-in, admin score monitoring
 - [x] Sprint 4: Chaperone link sharing — copy/email scoring links, bulk send
 - [x] Sprint 5A: Tournament UX — tab navigation, edit player/group, clickable cards, delete button audit, card alignment
+- [x] Sprint 5B: Public leaderboard polish, registration volunteer, leaderboard links
+- [x] Sprint 5C: Admin infrastructure — delete/edit league, logo upload, color theming, league isolation, homepage
 
 ## Key Decisions
 - Scramble format only for MVP (one team score per group per hole)

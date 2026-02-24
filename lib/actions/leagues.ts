@@ -7,6 +7,7 @@ export async function createLeague(formData: {
   name: string
   admin_email: string
   primary_color: string
+  logo_url?: string | null
 }) {
   const supabase = await createClient()
 
@@ -16,6 +17,7 @@ export async function createLeague(formData: {
       name: formData.name,
       admin_email: formData.admin_email,
       primary_color: formData.primary_color,
+      logo_url: formData.logo_url || null,
     })
     .select()
     .single()
@@ -23,6 +25,31 @@ export async function createLeague(formData: {
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/leagues')
+  return league
+}
+
+export async function updateLeague(
+  id: string,
+  formData: {
+    name?: string
+    admin_email?: string
+    primary_color?: string
+    logo_url?: string | null
+  }
+) {
+  const supabase = await createClient()
+
+  const { data: league, error } = await supabase
+    .from('leagues')
+    .update({ ...formData, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/leagues')
+  revalidatePath(`/dashboard/leagues/${id}`)
   return league
 }
 

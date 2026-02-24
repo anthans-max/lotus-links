@@ -14,13 +14,22 @@ export default async function LeaguesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Fetch leagues with tournament count
-  const { data: leagues } = await supabase
+  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
+  const isSuperAdmin = user.email === superAdmin
+
+  // Fetch leagues — filter by admin_email unless super admin
+  let query = supabase
     .from('leagues')
     .select('*, tournaments(id)')
     .order('created_at', { ascending: false })
 
-  const leagueList = (leagues ?? []) as (typeof leagues extends (infer T)[] | null ? T : never)[]
+  if (!isSuperAdmin) {
+    query = query.eq('admin_email', user.email!)
+  }
+
+  const { data: leagues } = await query
+
+  const leagueList = (leagues ?? []) as any[]
 
   return (
     <div className="section fade-up">
@@ -48,6 +57,7 @@ export default async function LeaguesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {leagueList.map((league: any) => {
             const tournamentCount = Array.isArray(league.tournaments) ? league.tournaments.length : 0
+            const color = league.primary_color || 'var(--green)'
             return (
               <Link
                 key={league.id}
@@ -58,24 +68,48 @@ export default async function LeaguesPage() {
                   alignItems: 'center',
                   gap: '1rem',
                   cursor: 'pointer',
+                  borderLeft: `3px solid ${color}`,
                 }}
               >
-                {/* Color swatch */}
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    background: league.primary_color || 'var(--green)',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  ⛳
-                </div>
+                {/* Logo or color swatch */}
+                {league.logo_url ? (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--surface2)',
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={league.logo_url}
+                      alt={`${league.name} logo`}
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      background: color,
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.1rem',
+                    }}
+                  >
+                    ⛳
+                  </div>
+                )}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.15rem' }}>

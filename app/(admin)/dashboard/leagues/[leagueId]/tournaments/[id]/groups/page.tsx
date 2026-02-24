@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { checkLeagueAccess } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
 import TournamentTabs from '@/components/admin/TournamentTabs'
 import GroupsManager from '@/components/admin/GroupsManager'
@@ -15,10 +16,11 @@ interface Props {
 
 export default async function GroupsPage({ params }: Props) {
   const { leagueId, id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, hasAccess } = await checkLeagueAccess(leagueId)
   if (!user) redirect('/login')
+  if (!hasAccess) redirect('/dashboard/leagues')
 
+  const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }] = await Promise.all([
     supabase.from('leagues').select('id, name').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),

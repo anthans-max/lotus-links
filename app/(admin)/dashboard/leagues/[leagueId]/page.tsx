@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
 import LeagueTournaments from '@/components/admin/LeagueTournaments'
+import LeagueDetailHeader from '@/components/admin/LeagueDetailHeader'
 
 export const metadata: Metadata = {
   title: 'League',
@@ -20,6 +21,8 @@ export default async function LeagueDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Access control: check league ownership
+  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
   const { data: league } = await supabase
     .from('leagues')
     .select('*')
@@ -27,6 +30,11 @@ export default async function LeagueDetailPage({ params }: Props) {
     .single()
 
   if (!league) notFound()
+
+  // If not super admin and not league owner, redirect
+  if (user.email !== superAdmin && league.admin_email !== user.email) {
+    redirect('/dashboard/leagues')
+  }
 
   const { data: tournaments } = await supabase
     .from('tournaments')
@@ -47,37 +55,14 @@ export default async function LeagueDetailPage({ params }: Props) {
         }
       />
 
-      {/* League info bar */}
-      <div
-        className="card"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          marginBottom: '1.5rem',
-          padding: '0.875rem 1.25rem',
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: league.primary_color || 'var(--green)',
-            flexShrink: 0,
-          }}
-        />
-        <div style={{ flex: 1 }}>
-          <span className="section-tag">{league.admin_email}</span>
-        </div>
-        <span className="badge badge-gray">
-          {(tournaments ?? []).length} tournament{(tournaments ?? []).length !== 1 ? 's' : ''}
-        </span>
-      </div>
+      <LeagueDetailHeader league={league as any} />
 
       {/* Tournaments */}
       <div style={{ marginBottom: '0.75rem' }}>
         <span className="section-tag">Tournaments</span>
+        <span className="badge badge-gray" style={{ marginLeft: '0.5rem' }}>
+          {(tournaments ?? []).length}
+        </span>
       </div>
 
       {(!tournaments || tournaments.length === 0) ? (
@@ -95,6 +80,7 @@ export default async function LeagueDetailPage({ params }: Props) {
         <LeagueTournaments
           tournaments={tournaments as any[]}
           leagueId={leagueId}
+          leagueColor={league.primary_color}
         />
       )}
     </div>

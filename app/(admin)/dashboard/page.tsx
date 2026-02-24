@@ -13,11 +13,20 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Fetch leagues with tournament counts
-  const { data: leagues } = await supabase
+  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
+  const isSuperAdmin = user.email === superAdmin
+
+  // Fetch leagues with tournament counts — filter by admin unless super admin
+  let query = supabase
     .from('leagues')
     .select('*, tournaments(id, name, date, status, course, format)')
     .order('created_at', { ascending: false })
+
+  if (!isSuperAdmin) {
+    query = query.eq('admin_email', user.email!)
+  }
+
+  const { data: leagues } = await query
 
   const leagueList = (leagues ?? []) as any[]
   const totalLeagues = leagueList.length

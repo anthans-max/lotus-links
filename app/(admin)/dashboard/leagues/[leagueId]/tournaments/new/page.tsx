@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { checkLeagueAccess } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
 import CreateTournamentForm from '@/components/admin/CreateTournamentForm'
 
@@ -14,10 +15,11 @@ interface Props {
 
 export default async function NewTournamentPage({ params }: Props) {
   const { leagueId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, hasAccess } = await checkLeagueAccess(leagueId)
   if (!user) redirect('/login')
+  if (!hasAccess) redirect('/dashboard/leagues')
 
+  const supabase = await createClient()
   const { data: league } = await supabase
     .from('leagues')
     .select('id, name')
