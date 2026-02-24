@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
+import TournamentTabs from '@/components/admin/TournamentTabs'
 import HoleConfigForm from '@/components/admin/HoleConfigForm'
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default async function HolesPage({ params }: Props) {
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
         backLabel={tournament.name}
       />
+      <TournamentTabs leagueId={leagueId} tournamentId={id} />
       <HoleConfigForm
         tournamentId={id}
         leagueId={leagueId}

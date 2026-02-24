@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
+import TournamentTabs from '@/components/admin/TournamentTabs'
 
 export const metadata: Metadata = {
   title: 'Tournament',
@@ -75,8 +76,10 @@ export default async function TournamentDetailPage({ params }: Props) {
         )}
       </Card>
 
+      <TournamentTabs leagueId={leagueId} tournamentId={id} />
+
       {/* Navigation cards */}
-      <div className="g2" style={{ alignItems: 'stretch' }}>
+      <div className="g4" style={{ alignItems: 'stretch' }}>
         <NavCard
           href={`/dashboard/leagues/${leagueId}/tournaments/${id}/holes`}
           title="Holes"

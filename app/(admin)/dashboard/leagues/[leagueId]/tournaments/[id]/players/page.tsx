@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
+import TournamentTabs from '@/components/admin/TournamentTabs'
 import PlayersManager from '@/components/admin/PlayersManager'
 
 export const metadata: Metadata = {
@@ -39,6 +40,7 @@ export default async function PlayersPage({ params }: Props) {
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
         backLabel={tournament.name}
       />
+      <TournamentTabs leagueId={leagueId} tournamentId={id} />
       <PlayersManager
         tournamentId={id}
         leagueId={leagueId}

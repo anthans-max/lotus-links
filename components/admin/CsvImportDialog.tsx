@@ -143,13 +143,13 @@ export default function CsvImportDialog({ tournamentId, onClose }: CsvImportDial
         {error && (
           <div
             style={{
-              background: 'rgba(192,57,43,0.12)',
-              border: '1px solid rgba(192,57,43,0.3)',
+              background: 'var(--over-dim)',
+              border: '1px solid var(--over-border)',
               borderRadius: 2,
               padding: '0.75rem 1rem',
               marginBottom: '1rem',
               fontSize: '0.82rem',
-              color: '#e74c3c',
+              color: 'var(--over)',
             }}
           >
             {error}

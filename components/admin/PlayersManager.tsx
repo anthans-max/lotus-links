@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Player } from '@/lib/types'
-import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn } from '@/lib/actions/players'
+import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn, updatePlayer } from '@/lib/actions/players'
 import CsvImportDialog from './CsvImportDialog'
 
 interface PlayersManagerProps {
@@ -33,6 +33,11 @@ export default function PlayersManager({
   const [success, setSuccess] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [editPlayerId, setEditPlayerId] = useState<string | null>(null)
+  const [editPlayerName, setEditPlayerName] = useState('')
+  const [editPlayerGrade, setEditPlayerGrade] = useState('')
+  const [editPlayerHandicap, setEditPlayerHandicap] = useState('0')
+  const [editPlayerSkill, setEditPlayerSkill] = useState('')
 
   const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
   const checkedInCount = players.filter(p => p.status === 'checked_in').length
@@ -130,6 +135,35 @@ export default function PlayersManager({
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
+    })
+  }
+
+  const startEdit = (p: Player) => {
+    setEditPlayerId(p.id)
+    setEditPlayerName(p.name)
+    setEditPlayerGrade(p.grade ?? '')
+    setEditPlayerHandicap(String(p.handicap ?? 0))
+    setEditPlayerSkill(p.skill_level ?? '')
+  }
+
+  const handleEditSave = () => {
+    if (!editPlayerId || !editPlayerName.trim()) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        await updatePlayer(editPlayerId, {
+          name: editPlayerName,
+          grade: editPlayerGrade || null,
+          handicap: parseInt(editPlayerHandicap) || 0,
+          skill_level: editPlayerSkill || null,
+        })
+        setEditPlayerId(null)
+        setSuccess('Player updated')
+        setTimeout(() => setSuccess(null), 2000)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to update player')
+      }
     })
   }
 
@@ -381,102 +415,177 @@ export default function PlayersManager({
               </thead>
               <tbody>
                 {sorted.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '0.65rem 0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: '50%',
-                            background: 'var(--surface3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.65rem',
-                            color: 'var(--gold)',
-                            flexShrink: 0,
-                            fontFamily: 'var(--fm)',
-                          }}
+                  editPlayerId === p.id ? (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                      <td style={{ padding: '0.5rem 0.75rem' }}>
+                        <input
+                          className="input"
+                          value={editPlayerName}
+                          onChange={e => setEditPlayerName(e.target.value)}
+                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem' }}
+                          autoFocus
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem 0.75rem' }}>
+                        <input
+                          className="input"
+                          value={editPlayerGrade}
+                          onChange={e => setEditPlayerGrade(e.target.value)}
+                          placeholder="Grade"
+                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 80 }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem 0.75rem' }}>
+                        <input
+                          className="input"
+                          type="number"
+                          value={editPlayerHandicap}
+                          onChange={e => setEditPlayerHandicap(e.target.value)}
+                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 60 }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem 0.75rem' }}>
+                        <select
+                          className="input"
+                          value={editPlayerSkill}
+                          onChange={e => setEditPlayerSkill(e.target.value)}
+                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 100 }}
                         >
-                          {p.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </div>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{p.name}</div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {p.grade || '—'}
-                    </td>
-                    <td style={{ padding: '0.65rem 0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        {statusBadge(p.status)}
-                        {p.status === 'registered' && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: '#4CAF50' }}
-                            onClick={() => handleCheckIn(p.id)}
-                            disabled={isPending}
-                            title="Check in player"
-                          >
-                            Check In
-                          </button>
-                        )}
-                        {p.status === 'checked_in' && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: 'var(--text-dim)' }}
-                            onClick={() => handleUndoCheckIn(p.id)}
-                            disabled={isPending}
-                            title="Undo check-in"
-                          >
-                            Undo
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {p.parent_name || '—'}
-                    </td>
-                    <td style={{ padding: '0.65rem 0.75rem' }}>
-                      {(prefCountMap.get(p.id) ?? 0) > 0 ? (
-                        <span className="badge badge-blue">
-                          {prefCountMap.get(p.id)} pref{(prefCountMap.get(p.id) ?? 0) > 1 ? 's' : ''}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
-                      {confirmDelete === p.id ? (
+                          <option value="">—</option>
+                          <option value="beginner">Beginner</option>
+                          <option value="intermediate">Intermediate</option>
+                          <option value="advanced">Advanced</option>
+                        </select>
+                      </td>
+                      <td colSpan={2} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
                           <button
-                            className="btn btn-outline btn-sm"
-                            style={{ borderColor: 'var(--over-border)', color: 'var(--over)', fontSize: '0.65rem' }}
-                            onClick={() => handleDelete(p.id)}
-                            disabled={isPending}
+                            className="btn btn-gold btn-sm"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={handleEditSave}
+                            disabled={isPending || !editPlayerName.trim()}
                           >
-                            {isPending ? '...' : 'Confirm'}
+                            {isPending ? '...' : 'Save'}
                           </button>
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ fontSize: '0.65rem' }}
-                            onClick={() => setConfirmDelete(null)}
+                            onClick={() => setEditPlayerId(null)}
                           >
                             Cancel
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
-                          onClick={() => setConfirmDelete(p.id)}
-                          disabled={isPending}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '0.65rem 0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: '50%',
+                              background: 'var(--surface3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.65rem',
+                              color: 'var(--gold)',
+                              flexShrink: 0,
+                              fontFamily: 'var(--fm)',
+                            }}
+                          >
+                            {p.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{p.name}</div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {p.grade || '—'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          {statusBadge(p.status)}
+                          {p.status === 'registered' && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: '#4CAF50' }}
+                              onClick={() => handleCheckIn(p.id)}
+                              disabled={isPending}
+                              title="Check in player"
+                            >
+                              Check In
+                            </button>
+                          )}
+                          {p.status === 'checked_in' && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.6rem', padding: '0.15rem 0.4rem', color: 'var(--text-dim)' }}
+                              onClick={() => handleUndoCheckIn(p.id)}
+                              disabled={isPending}
+                              title="Undo check-in"
+                            >
+                              Undo
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {p.parent_name || '—'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem' }}>
+                        {(prefCountMap.get(p.id) ?? 0) > 0 ? (
+                          <span className="badge badge-blue">
+                            {prefCountMap.get(p.id)} pref{(prefCountMap.get(p.id) ?? 0) > 1 ? 's' : ''}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.65rem', color: 'var(--gold)' }}
+                            onClick={() => startEdit(p)}
+                            disabled={isPending}
+                            title="Edit player"
+                          >
+                            Edit
+                          </button>
+                          {confirmDelete === p.id ? (
+                            <>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ borderColor: 'var(--over-border)', color: 'var(--over)', fontSize: '0.65rem' }}
+                                onClick={() => handleDelete(p.id)}
+                                disabled={isPending}
+                              >
+                                {isPending ? '...' : 'Confirm'}
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                style={{ fontSize: '0.65rem' }}
+                                onClick={() => setConfirmDelete(null)}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
+                              onClick={() => setConfirmDelete(p.id)}
+                              disabled={isPending}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
                 ))}
               </tbody>
             </table>

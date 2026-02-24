@@ -46,6 +46,17 @@ export default function LeagueTournaments({ tournaments, leagueId }: LeagueTourn
               gap: '0.75rem',
               padding: '0.875rem 1.25rem',
               flexWrap: 'wrap',
+              cursor: 'pointer',
+              transition: 'border-color 0.2s, background 0.2s',
+            }}
+            onClick={() => router.push(`/dashboard/leagues/${leagueId}/tournaments/${t.id}`)}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--gold-border)'
+              e.currentTarget.style.background = 'var(--surface2)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = ''
+              e.currentTarget.style.background = ''
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -61,7 +72,7 @@ export default function LeagueTournaments({ tournaments, leagueId }: LeagueTourn
 
             <Badge status={t.status}>{t.status}</Badge>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
               <Link
                 href={`/dashboard/leagues/${leagueId}/tournaments/${t.id}`}
                 className="btn btn-outline btn-sm"

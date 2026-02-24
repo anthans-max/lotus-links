@@ -153,13 +153,13 @@ export default function GroupsPanel({ tournament, players, groups }: GroupsPanel
       {error && (
         <div
           style={{
-            background: 'rgba(192,57,43,0.12)',
-            border: '1px solid rgba(192,57,43,0.3)',
+            background: 'var(--over-dim)',
+            border: '1px solid var(--over-border)',
             borderRadius: 2,
             padding: '0.75rem 1rem',
             marginBottom: '1.25rem',
             fontSize: '0.82rem',
-            color: '#e74c3c',
+            color: 'var(--over)',
           }}
         >
           {error}
@@ -369,7 +369,7 @@ export default function GroupsPanel({ tournament, players, groups }: GroupsPanel
                 <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
                   <button
                     className="btn btn-ghost btn-sm"
-                    style={{ fontSize: '0.65rem', color: 'var(--red)', borderColor: 'rgba(192,57,43,0.25)' }}
+                    style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
                     onClick={() => handleDelete(group.id)}
                     disabled={isPending}
                   >

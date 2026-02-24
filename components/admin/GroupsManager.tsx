@@ -184,6 +184,8 @@ export default function GroupsManager({
           starting_hole: editStarting ? parseInt(editStarting) : null,
         })
         setEditGroup(null)
+        setSuccess('Group updated')
+        setTimeout(() => setSuccess(null), 2000)
         router.refresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to update group')

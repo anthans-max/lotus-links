@@ -1,25 +1,32 @@
 # Lotus Links — Project Brief
 
-Golf tournament management platform. See /design-reference/ for full PRD and UI prototypes.
+Golf tournament management platform for WISH Charter School tournament.
 
 ## Current Phase
-MVP Phase 1 — WISH Charter School tournament (end of March deadline)
+MVP Phase 1 — WISH Charter School tournament (end of March 2026 deadline)
 
 ## Stack
-Next.js 14, Tailwind, Supabase, Vercel
+Next.js 14 (App Router), Tailwind CSS, Supabase, Vercel
 
 ## Design
-Match lotus-links.jsx and chaperone-scoreentry.jsx prototypes exactly.
-Dark forest green, aged gold, Playfair Display headings.
+- Match lotus-links.jsx and chaperone-scoreentry.jsx prototypes in /design-reference/
+- Dark forest green (#1a3c2a), aged gold (#b8960c / #d4af37), cream (#f5f0e8)
+- Playfair Display for headings, clean sans-serif for body
+- Dark theme throughout — light text on dark backgrounds
 
 ## Key Rules
-- No red colors anywhere in the UI (use amber/gold for over par)
-- Mobile-first on all screens
-- Do not build beyond MVP Phase 1 scope yet
+- **No red colors anywhere in the app UI** (use amber/gold for over par, warnings, destructive actions). League brand colors like WISH's red are only for league-specific branding accents.
+- Mobile-first on all screens (design at 375px first)
+- Do not build beyond MVP Phase 1 scope
+- All child table FKs CASCADE on delete except tournaments.season_id which is SET NULL
+- RLS is disabled on all Lotus Links tables (permissive for MVP)
+- Chaperone auth via group PIN (no login needed)
+- Scores save per-hole immediately via upsert (not full-card submit)
+- Supabase Realtime on scores table powers live leaderboard
 
 ## File Structure
+```
 app/
-  ├── favicon.ico
   ├── globals.css
   ├── layout.tsx
   ├── page.tsx
@@ -45,51 +52,14 @@ app/
   │   ├── layout.tsx
   │   └── score/[groupId]/page.tsx
   ├── register/
-  │   └── [tournamentId]/
-  │       └── page.tsx
+  │   └── [tournamentId]/page.tsx
   ├── api/
   │   ├── auth/callback/route.ts
   │   └── email/send-scoring-link/route.ts
   └── leaderboard/
       ├── page.tsx
       └── [tournamentId]/page.tsx
-
-## Completed
-- [x] Sprint 0: Scaffolding — Next.js, Tailwind, Supabase client, auth, basic routing
-- [x] Sprint 1: League setup, tournament creation, hole configuration
-- [x] Sprint 2: Player management, parent registration, group pairings
-- [x] Sprint 3: Scoring & leaderboard — chaperone score entry, live leaderboard, admin score monitoring, check-in
-- [x] Sprint 4: Chaperone link sharing — copy/email scoring links, bulk send, leaderboard link on success
-
-## Decisions Made (Sprint 1 additions)
-- Number of holes is a free input (1-18), not just 9/18 — The Lakes has 10
-- League primary color includes red option for school branding (WISH is red)
-- League brand colors are separate from app UI (app stays green/gold, no red in chrome)
-
-## Decisions Made (Sprint 2 additions)
-- Player status: pre-registered → registered → checked_in
-- Registration page is public (no auth), uses server actions for DB writes
-- Pairing preferences stored in separate table, used for smart auto-group generation
-- Destructive actions (delete player/group) use amber/gold confirmation, NOT red
-- Auto-generate groups respects mutual pairing preferences first, then one-way
-- Groups page and Players page are separate routes (not DashboardShell tabs)
-
-## Decisions Made (Sprint 3 additions)
-- Chaperone score entry: hole-by-hole stepper with +/- and quick buttons, matching chaperone-scoreentry.jsx prototype
-- Scores save per-hole immediately via upsert (not full-card submit only)
-- Leaderboard is Supabase Realtime + 15s polling fallback
-- Admin can toggle leaderboard_public on/off from scores monitoring page
-- Admin can edit individual scores from the scores monitoring page
-- Check-in: admin can check in registered players (registered → checked_in) from players page
-- Leaderboard URL is /leaderboard/[tournamentId] (old /leaderboard is a redirect)
-
-## Decisions Made (Sprint 4 additions)
-- Resend SDK for transactional email, API route at /api/email/send-scoring-link
-- onboarding@resend.dev sender (sandbox — only delivers to verified Resend account email)
-- Groups table extended with chaperone_email and chaperone_phone columns
-- Copy Link + Email Link per group card, Send All Links bulk action with inline confirmation
-- Leaderboard link on chaperone success screen gated behind tournament.leaderboard_public
-- No rate limiting at MVP scale (~12 groups)
+```
 
 ## DB Schema
 
@@ -122,9 +92,30 @@ UNIQUE constraint on (group_id, tournament_id, hole_number)
 id (uuid PK), tournament_id (uuid FK→tournaments), player_id (uuid FK→players), preferred_player_id (uuid FK→players), created_at (timestamptz)
 UNIQUE(player_id, preferred_player_id)
 
-Also add under Key Rules:
-- All child table FKs CASCADE on delete except tournaments.season_id which is SET NULL
-- RLS is disabled on all Lotus Links tables (permissive for MVP)
-- Chaperone auth via group PIN (no login needed)
-- Scores save per-hole immediately via upsert (not full-card submit)
-- Supabase Realtime on scores table powers live leaderboard
+## Sprint Status
+- [x] Sprint 0: Scaffolding — Next.js, Tailwind, Supabase client, auth, basic routing
+- [x] Sprint 1: League setup, tournament creation, hole configuration
+- [x] Sprint 2: Player management, parent registration, group pairings
+- [x] Sprint 3: Chaperone score entry, leaderboard, check-in, admin score monitoring
+- [x] Sprint 4: Chaperone link sharing — copy/email scoring links, bulk send
+- [x] Sprint 5A: Tournament UX — tab navigation, edit player/group, clickable cards, delete button audit, card alignment
+
+## Key Decisions
+- Scramble format only for MVP (one team score per group per hole)
+- Number of holes is a free input (1-18) — The Lakes at El Segundo has 10
+- Player status flow: pre-registered → registered → checked_in
+- Registration page is public (no auth required)
+- Pairing preferences stored in separate table, used for smart auto-group generation
+- Auto-generate groups respects mutual pairing preferences first, then one-way
+- Chaperone scoring page requires no auth — direct link via /score/[groupId]
+- Leaderboard is per-tournament at /leaderboard/[tournamentId], gated by leaderboard_public flag
+- Leaderboard uses Supabase Realtime + 15s polling fallback
+- Email via Resend SDK, API route at /api/email/send-scoring-link
+- RESEND_API_KEY and RESEND_FROM_EMAIL configured in Vercel env vars
+- Destructive actions (delete player/group) use amber/gold confirmation, NOT red
+
+## Known Issues / Pre-Launch TODO
+- [x] DELETE GROUP button is red — FIXED: all destructive buttons now use amber/gold
+- [ ] Custom Resend domain needed before tournament day (currently onboarding@resend.dev, only delivers to verified account email)
+- [ ] Leaderboard link on chaperone scoring success page
+- [x] Tournament overview cards (Holes/Players/Groups) vertical alignment — FIXED: uses g4 grid with stretch

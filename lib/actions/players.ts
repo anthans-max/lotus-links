@@ -68,6 +68,27 @@ export async function bulkAddPlayers(
   return { added: names.length }
 }
 
+export async function updatePlayer(
+  playerId: string,
+  updates: { name?: string; grade?: string | null; handicap?: number; skill_level?: string | null }
+) {
+  const supabase = await createClient()
+
+  const cleaned: Record<string, unknown> = {}
+  if (updates.name !== undefined) cleaned.name = updates.name.trim()
+  if (updates.grade !== undefined) cleaned.grade = updates.grade?.trim() || null
+  if (updates.handicap !== undefined) cleaned.handicap = updates.handicap
+  if (updates.skill_level !== undefined) cleaned.skill_level = updates.skill_level?.trim() || null
+
+  const { error } = await supabase
+    .from('players')
+    .update(cleaned)
+    .eq('id', playerId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function checkInPlayer(playerId: string) {
   const supabase = await createClient()
 
