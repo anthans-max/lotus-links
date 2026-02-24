@@ -40,13 +40,9 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
         {tournaments.map(t => (
           <div
             key={t.id}
-            className="card"
+            className="card tournament-card"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
               padding: '0.875rem 1.25rem',
-              flexWrap: 'wrap',
               cursor: 'pointer',
               transition: 'border-color 0.2s, background 0.2s',
               borderLeft: leagueColor ? `3px solid ${leagueColor}` : undefined,
@@ -61,20 +57,26 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
               e.currentTarget.style.background = ''
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.2rem' }}>
-                {t.name}
+            {/* Top: Name + badge + meta */}
+            <div className="tc-top" style={{ marginBottom: '0.35rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', minWidth: 0 }}>
+                  {t.name}
+                </div>
+                <Badge status={t.status}>{t.status}</Badge>
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div className="tc-meta" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                 <span>{new Date(t.date).toLocaleDateString()}</span>
                 <span>{t.course}</span>
                 <span>{t.format}</span>
               </div>
             </div>
 
-            <Badge status={t.status}>{t.status}</Badge>
-
-            <div style={{ display: 'flex', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+            {/* Action buttons */}
+            <div
+              className="tc-actions"
+              onClick={e => e.stopPropagation()}
+            >
               <Link
                 href={`/dashboard/leagues/${leagueId}/tournaments/${t.id}`}
                 className="btn btn-outline btn-sm"

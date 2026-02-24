@@ -166,6 +166,17 @@ select.input { cursor: pointer; }
 .badge-blue  { background: rgba(41,128,185,0.12); color: #5dade2; border: 1px solid rgba(41,128,185,0.22); }
 .badge-gray  { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border2); }
 
+/* ─── Tournament card: stacked mobile, inline desktop ──────────────────────── */
+.tournament-card .tc-actions { display: flex; gap: 0.5rem; }
+.tournament-card .tc-actions > * { flex: 1; text-align: center; }
+@media(min-width:640px) {
+  .tournament-card { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .tournament-card .tc-top { flex: 1; min-width: 0; margin-bottom: 0 !important; }
+  .tournament-card .tc-meta { margin-bottom: 0 !important; }
+  .tournament-card .tc-actions { flex: none; }
+  .tournament-card .tc-actions > * { flex: none; }
+}
+
 /* ─── Grid helpers ──────────────────────────────────────────────────────────── */
 .g2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 .g3 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
