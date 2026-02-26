@@ -2,7 +2,7 @@ export default function PoweredByFooter() {
   return (
     <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
       <a
-        href="https://lotusailab.framer.ai/"
+        href="https://lotusailab.app/"
         target="_blank"
         rel="noopener noreferrer"
         style={{

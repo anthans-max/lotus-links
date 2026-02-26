@@ -6,7 +6,7 @@ function getResend() {
   return _resend
 }
 
-const FROM_ADDRESS = 'Lotus Links <onboarding@resend.dev>'
+const FROM_ADDRESS = 'Lotus Links <anthan@lotusailab.app>'
 
 interface ScoringLinkEmailPayload {
   to: string
