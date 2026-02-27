@@ -90,6 +90,9 @@ export default function CreateTournamentForm({ leagueId }: CreateTournamentFormP
           onChange={e => setFormat(e.target.value)}
           options={[
             { value: 'Scramble', label: 'Scramble' },
+            { value: 'Stableford', label: 'Stableford' },
+            { value: 'Stroke Play', label: 'Stroke Play' },
+            { value: 'Match Play', label: 'Match Play' },
           ]}
         />
 
