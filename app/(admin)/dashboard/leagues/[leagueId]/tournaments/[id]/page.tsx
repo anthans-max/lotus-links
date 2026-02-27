@@ -7,6 +7,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
 import TournamentTabs from '@/components/admin/TournamentTabs'
+import CopyTokenButton from '@/components/admin/CopyTokenButton'
 
 export const metadata: Metadata = {
   title: 'Tournament',
@@ -116,7 +117,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       </div>
 
       {/* Leaderboard quick-access */}
-      <div style={{ marginTop: '1.5rem' }}>
+      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <a
           href={`/leaderboard/${id}`}
           target="_blank"
@@ -153,6 +154,31 @@ export default async function TournamentDetailPage({ params }: Props) {
             <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>↗</span>
           </div>
         </a>
+
+        {/* Scoring link for token-based access */}
+        {tournament.public_token && (
+          <div
+            className="card"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              padding: '1rem 1.25rem',
+            }}
+          >
+            <div style={{ fontSize: '1.5rem' }}>🔗</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.15rem' }}>
+                Player Scoring Link
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
+                Share with players — opens score entry at{' '}
+                <span style={{ color: 'var(--text-dim)' }}>/t/{tournament.public_token}</span>
+              </div>
+            </div>
+            <CopyTokenButton token={tournament.public_token} />
+          </div>
+        )}
       </div>
     </div>
   )

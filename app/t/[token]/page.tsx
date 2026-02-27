@@ -1,0 +1,152 @@
+import type { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
+import StablefordScoringApp from '@/components/scoring/StablefordScoringApp'
+import PoweredByFooter from '@/components/ui/PoweredByFooter'
+
+export const metadata: Metadata = {
+  title: 'Score Entry',
+}
+
+interface Props {
+  params: Promise<{ token: string }>
+}
+
+export default async function TokenScoringPage({ params }: Props) {
+  const { token } = await params
+  const supabase = await createClient()
+
+  // Validate token — find the tournament it belongs to
+  const { data: tournament } = await supabase
+    .from('tournaments')
+    .select('id, name, date, course, format, holes, status, league_id, public_token')
+    .eq('public_token', token)
+    .single()
+
+  if (!tournament) {
+    return <InvalidTokenView />
+  }
+
+  const [{ data: league }, { data: holes }, { data: players }, { data: initialScores }] =
+    await Promise.all([
+      supabase.from('leagues').select('name').eq('id', tournament.league_id).single(),
+      supabase
+        .from('holes')
+        .select('hole_number, par, yardage, handicap')
+        .eq('tournament_id', tournament.id)
+        .order('hole_number'),
+      supabase
+        .from('players')
+        .select('id, name, handicap')
+        .eq('tournament_id', tournament.id)
+        .order('name'),
+      supabase
+        .from('scores')
+        .select('player_id, hole_number, strokes')
+        .eq('tournament_id', tournament.id)
+        .not('player_id', 'is', null),
+    ])
+
+  return (
+    <StablefordScoringApp
+      tournament={{
+        id: tournament.id,
+        name: tournament.name,
+        date: tournament.date,
+        course: tournament.course,
+        format: tournament.format,
+        holeCount: tournament.holes,
+        status: tournament.status,
+      }}
+      leagueName={league?.name ?? ''}
+      holes={(holes ?? []).map(h => ({
+        number: h.hole_number,
+        par: h.par,
+        yardage: h.yardage,
+        handicap: h.handicap,
+      }))}
+      players={(players ?? []).map(p => ({
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap ?? 0,
+      }))}
+      initialScores={(initialScores ?? [])
+        .filter(s => s.player_id != null)
+        .map(s => ({
+          playerId: s.player_id!,
+          holeNumber: s.hole_number,
+          strokes: s.strokes,
+        }))}
+      tournamentId={tournament.id}
+    />
+  )
+}
+
+function InvalidTokenView() {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+      }}
+    >
+      <div style={{ textAlign: 'center', maxWidth: 400 }}>
+        {/* Logo */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginBottom: '2rem',
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--gold), #5a3e10)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem',
+            }}
+          >
+            ⛳
+          </div>
+          <span style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>
+            Lotus Links
+          </span>
+        </div>
+
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔗</div>
+        <div
+          style={{
+            fontFamily: 'var(--fd)',
+            fontSize: '1.5rem',
+            marginBottom: '0.5rem',
+            color: 'var(--text)',
+          }}
+        >
+          Invalid Scoring Link
+        </div>
+        <p
+          style={{
+            color: 'var(--text-muted)',
+            fontSize: '0.9rem',
+            lineHeight: 1.6,
+            marginBottom: '2rem',
+          }}
+        >
+          This link doesn&apos;t match any tournament. Ask your organizer for the correct scoring
+          link.
+        </p>
+        <PoweredByFooter />
+      </div>
+    </div>
+  )
+}

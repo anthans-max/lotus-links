@@ -7,6 +7,7 @@ export async function registerPlayers(data: {
   playerIds: string[]
   parentName: string
   parentPhone: string
+  parentEmail?: string
   pairingPreferences: Record<string, string[]> // playerId -> preferred player IDs
   willingToChaperone?: boolean
 }) {
@@ -20,6 +21,7 @@ export async function registerPlayers(data: {
         status: 'registered',
         parent_name: data.parentName.trim(),
         parent_phone: data.parentPhone.trim(),
+        parent_email: data.parentEmail?.trim() || null,
         registered_at: new Date().toISOString(),
         willing_to_chaperone: data.willingToChaperone ?? false,
       })
@@ -62,6 +64,7 @@ export async function addAndRegisterPlayer(data: {
   grade?: string
   parentName: string
   parentPhone: string
+  parentEmail?: string
 }) {
   const supabase = await createClient()
 
@@ -74,6 +77,7 @@ export async function addAndRegisterPlayer(data: {
       status: 'registered',
       parent_name: data.parentName.trim(),
       parent_phone: data.parentPhone.trim(),
+      parent_email: data.parentEmail?.trim() || null,
       registered_at: new Date().toISOString(),
     })
     .select('id')

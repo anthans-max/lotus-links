@@ -50,6 +50,7 @@ export default function RegistrationForm({
   // Contact info
   const [parentName, setParentName] = useState('')
   const [parentPhone, setParentPhone] = useState('')
+  const [parentEmail, setParentEmail] = useState('')
   const [willingToChaperone, setWillingToChaperone] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +129,7 @@ export default function RegistrationForm({
           playerIds: [...selectedIds],
           parentName,
           parentPhone,
+          parentEmail,
           pairingPreferences: pairingPrefs,
           willingToChaperone,
         })
@@ -645,7 +647,7 @@ export default function RegistrationForm({
               />
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <div className="label">Phone Number</div>
               <input
                 className="input"
@@ -653,6 +655,18 @@ export default function RegistrationForm({
                 type="tel"
                 value={parentPhone}
                 onChange={e => setParentPhone(e.target.value)}
+                style={{ fontSize: '1rem' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div className="label">Email Address <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></div>
+              <input
+                className="input"
+                placeholder="you@example.com"
+                type="email"
+                value={parentEmail}
+                onChange={e => setParentEmail(e.target.value)}
                 style={{ fontSize: '1rem' }}
               />
             </div>

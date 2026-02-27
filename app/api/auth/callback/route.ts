@@ -41,11 +41,26 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
       console.error('Code exchange failed:', error.message)
       return NextResponse.redirect(
         `${origin}/login?error=auth_callback_failed`
+      )
+    }
+
+    // Upsert user profile from Google OAuth metadata
+    const user = sessionData.user
+    if (user) {
+      const meta = user.user_metadata ?? {}
+      await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          email: user.email ?? null,
+          full_name: (meta.full_name ?? meta.name ?? null) as string | null,
+          avatar_url: (meta.avatar_url ?? meta.picture ?? null) as string | null,
+        },
+        { onConflict: 'id' }
       )
     }
 

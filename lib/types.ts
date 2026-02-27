@@ -111,6 +111,7 @@ export interface Tournament {
   notes: string | null
   shotgun_start: boolean
   leaderboard_public: boolean
+  public_token: string | null
   created_at: string
   // Legacy alias — old code references course_name
   course_name?: string
@@ -136,6 +137,7 @@ export interface Player {
   status: 'pre-registered' | 'registered' | 'checked_in'
   parent_name: string | null
   parent_phone: string | null
+  parent_email: string | null
   willing_to_chaperone: boolean
   registered_at: string | null
   created_at: string
@@ -173,7 +175,8 @@ export interface PairingPreference {
 export interface Score {
   id: string
   tournament_id: string
-  group_id: string
+  group_id: string | null
+  player_id: string | null
   hole_number: number
   strokes: number
   entered_by: string | null
@@ -198,4 +201,12 @@ export interface HoleWithScore extends Hole {
 
 export interface GroupWithPlayers extends Group {
   players: Player[]
+}
+
+export interface Profile {
+  id: string
+  email: string | null
+  full_name: string | null
+  avatar_url: string | null
+  created_at: string
 }
