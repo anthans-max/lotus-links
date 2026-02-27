@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Playfair_Display, Crimson_Pro, Outfit, DM_Mono } from 'next/font/google'
+import { Playfair_Display, Crimson_Pro, Outfit, DM_Mono, Syne } from 'next/font/google'
 import './globals.css'
 
 // Admin UI: Playfair Display headings + Crimson Pro body + DM Mono labels
@@ -21,6 +21,14 @@ const dmMono = DM_Mono({
   subsets: ['latin'],
   weight: ['300', '400'],
   variable: '--font-dm-mono',
+  display: 'swap',
+})
+
+// Lotus AI branding font
+const syne = Syne({
+  subsets: ['latin'],
+  weight: ['700'],
+  variable: '--font-syne',
   display: 'swap',
 })
 
@@ -54,7 +62,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${crimson.variable} ${dmMono.variable} ${outfit.variable}`}
+      className={`${playfair.variable} ${crimson.variable} ${dmMono.variable} ${outfit.variable} ${syne.variable}`}
     >
       <body>
         {children}
