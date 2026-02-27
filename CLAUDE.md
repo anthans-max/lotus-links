@@ -1,123 +1,143 @@
-# Lotus Links — Project Brief
+# CLAUDE.md
 
-Golf tournament management platform for WISH Charter School tournament.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current Phase
-MVP Phase 1 — WISH Charter School tournament (end of March 2026 deadline)
+## Project Overview
+
+Lotus Links — Golf tournament management platform for WISH Charter School tournament.
+MVP Phase 1 deadline: end of March 2026.
+
+## Development Commands
+
+```bash
+npm run dev      # Start dev server (localhost:3000)
+npm run build    # Production build
+npm run lint     # Run ESLint
+```
+
+No test suite — this project has no tests configured.
 
 ## Stack
-Next.js 14 (App Router), Tailwind CSS, Supabase, Vercel
 
-## Design
-- Match lotus-links.jsx and chaperone-scoreentry.jsx prototypes in /design-reference/
-- Dark forest green (#1a3c2a), aged gold (#b8960c / #d4af37), cream (#f5f0e8)
-- Playfair Display for headings, clean sans-serif for body
-- Dark theme throughout — light text on dark backgrounds
+- **Next.js 16** (App Router) + React 19 + TypeScript
+- **Tailwind CSS v4** — uses `@import "tailwindcss"` + `@theme` in `app/globals.css`. No `tailwind.config.js` exists.
+- **Supabase** — use `@supabase/ssr` ONLY. `@supabase/auth-helpers-nextjs` is deprecated and must not be used.
+- **Resend** — email via `resend` npm package, API route at `/api/email/send-scoring-link`
+- **Vercel** deployment via GitHub
 
-## Key Rules
-- **No red colors anywhere in the app UI** (use amber/gold for over par, warnings, destructive actions). League brand colors like WISH's red are only for league-specific branding accents.
-- Mobile-first on all screens (design at 375px first)
-- Do not build beyond MVP Phase 1 scope
-- All child table FKs CASCADE on delete except tournaments.season_id which is SET NULL
-- RLS is disabled on all Lotus Links tables (permissive for MVP)
-- Chaperone auth via group PIN (no login needed)
-- Scores save per-hole immediately via upsert (not full-card submit)
-- Supabase Realtime on scores table powers live leaderboard
+## Supabase Client Pattern
 
-## File Structure
+Always use the correct client for context:
+
+```ts
+// Server Components, API routes, layouts
+import { createClient } from '@/lib/supabase/server'
+const supabase = await createClient()
+
+// Client Components ('use client')
+import { createClient } from '@/lib/supabase/client'
+const supabase = createClient()
 ```
-app/
-  ├── globals.css
-  ├── layout.tsx
-  ├── page.tsx
-  ├── (admin)/
-  │   ├── layout.tsx
-  │   ├── login/page.tsx
-  │   └── dashboard/
-  │       ├── page.tsx
-  │       └── leagues/
-  │           ├── page.tsx
-  │           ├── new/page.tsx
-  │           └── [leagueId]/
-  │               ├── page.tsx
-  │               └── tournaments/
-  │                   ├── new/page.tsx
-  │                   └── [id]/
-  │                       ├── page.tsx
-  │                       ├── holes/page.tsx
-  │                       ├── players/page.tsx
-  │                       ├── groups/page.tsx
-  │                       └── scores/page.tsx
-  ├── (chaperone)/
-  │   ├── layout.tsx
-  │   └── score/[groupId]/page.tsx
-  ├── register/
-  │   └── [tournamentId]/page.tsx
-  ├── api/
-  │   ├── auth/callback/route.ts
-  │   └── email/send-scoring-link/route.ts
-  └── leaderboard/
-      ├── page.tsx
-      └── [tournamentId]/page.tsx
+
+Auth uses Google OAuth. Admin pages check `lib/auth.ts → checkLeagueAccess(leagueId)` for league-level access control. Super admin override via `NEXT_PUBLIC_SUPER_ADMIN_EMAIL`.
+
+There is **no middleware.ts** — route protection is done at the page/layout level.
+
+## Environment Variables
+
 ```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=       # Must be a long JWT (eyJ...), not sb_publishable_...
+NEXT_PUBLIC_SUPER_ADMIN_EMAIL=       # Email that bypasses league isolation
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+```
+
+## Design System
+
+### Rules
+- **No red colors anywhere** — use amber/gold for warnings, over-par, destructive actions. League brand reds are accent-only.
+- Mobile-first at 375px. Dark theme throughout.
+- Reference files in `/design-reference/` define the exact aesthetic — match them precisely.
+
+### Exact CSS Custom Properties (defined in `app/globals.css` `:root`)
+```css
+--bg: #0a120a;  --surface: #132013;  --surface2: #1a2e1a;  --surface3: #203020;
+--forest: #0d3d1a;
+--gold: #c8a84b;  --gold-light: #e6c96a;  --gold-dim: rgba(200,168,75,0.15);  --gold-border: rgba(200,168,75,0.25);
+--text: #f0ede6;  --text-muted: rgba(240,237,230,0.55);  --text-dim: rgba(240,237,230,0.28);
+--over: #d4a017;   /* over-par color — distinct from gold */
+--border: rgba(255,255,255,0.06);  --border2: rgba(255,255,255,0.1);
+```
+
+### Fonts (all set on `<html>` in `app/layout.tsx`)
+- `--fd` → Playfair Display (headings)
+- `--fb` → Crimson Pro (admin body)
+- Outfit → chaperone body
+- `--fm` → DM Mono (labels/mono)
+
+### Pre-built CSS Classes (use these, don't create custom variants)
+`globals.css` defines all component classes: `btn`, `btn-gold`, `btn-outline`, `btn-ghost`, `btn-sm`, `card`, `card-gold`, `card-hover`, `input`, `label`, `badge` (gold/green/red/blue/gray), `nav-tab`, `lb-row`, `sc-table`, `sc-birdie`, `sc-eagle`, `sc-bogey`, `sc-par`, `hole-pill`, `submit-btn`, `pin-digit`, `keypad-btn`, `g2`, `g3`, `g4`.
+
+## Key Architecture Decisions
+
+- **Scramble format only** — one team score per group per hole
+- **Chaperone auth** — group PIN only, no login. Direct URL: `/score/[groupId]`
+- **Scores** — upsert per-hole immediately (not full-card submit). UNIQUE on `(group_id, tournament_id, hole_number)`
+- **Leaderboard** — Supabase Realtime + 15s polling fallback. Gated by `leaderboard_public` flag
+- **Player status flow**: `pre-registered` → `registered` → `checked_in`
+- **Group auto-generation** — respects mutual pairing preferences first, then one-way (stored in `pairing_preferences` table)
+- **League isolation** — leagues filtered by `admin_email`; super admin sees all
+- **Logo upload** — Supabase Storage `logos` bucket, max 2MB (PNG/JPG/SVG/WEBP), handled in `lib/storage.ts`
+- **FK policy** — all child FKs CASCADE on delete, except `tournaments.season_id` which is SET NULL
+- **RLS** — disabled on all tables (permissive for MVP)
 
 ## DB Schema
 
 ### leagues
-id (uuid PK), name (text), admin_email (text), logo_url (text), primary_color (text default '#1a5c2a'), created_at (timestamptz)
+`id` (uuid PK), `name`, `admin_email`, `logo_url`, `primary_color` (default `#1a5c2a`), `created_at`, `updated_at`
 
 ### seasons
-id (uuid PK), league_id (uuid FK→leagues), name (text), start_date (date), end_date (date), points_system (text default 'fedex'), created_at (timestamptz)
+`id`, `league_id` FK→leagues, `name`, `start_date`, `end_date`, `points_system` (default `fedex`)
 
 ### tournaments
-id (uuid PK), league_id (uuid FK→leagues), season_id (uuid FK→seasons), name (text), date (date), course (text), format (text default 'Scramble'), holes (int default 18), status (text default 'upcoming'), course_source (text default 'manual'), tournament_type (text default 'real_course'), login_required (boolean default false), shotgun_start (boolean default false), leaderboard_public (boolean default false), notes (text), created_at (timestamptz)
+`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`
 
 ### holes
-id (uuid PK), tournament_id (uuid FK→tournaments), hole_number (int), par (int), yardage (int nullable), handicap (int nullable)
+`id`, `tournament_id` FK, `hole_number`, `par`, `yardage` (nullable), `handicap` (nullable)
 
 ### players
-id (uuid PK), tournament_id (uuid FK→tournaments), name (text), grade (text nullable), handicap (int default 0), skill_level (text nullable), status (text default 'pre-registered'), parent_name (text nullable), parent_phone (text nullable), registered_at (timestamptz nullable), created_at (timestamptz)
+`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0), `skill_level`, `status` (pre-registered/registered/checked_in), `parent_name`, `parent_phone`, `willing_to_chaperone` (boolean), `registered_at`
 
 ### groups
-id (uuid PK), tournament_id (uuid FK→tournaments), name (text), chaperone_name (text nullable), chaperone_email (text nullable), chaperone_phone (text nullable), pin (text), starting_hole (int default 1), tee_time (time nullable), current_hole (int default 1), status (text default 'not_started'), created_at (timestamptz)
+`id`, `tournament_id` FK, `name`, `chaperone_name`, `chaperone_email`, `chaperone_phone`, `pin`, `starting_hole` (default 1), `tee_time`, `current_hole` (default 1), `status` (not_started/in_progress/completed)
 
 ### group_players
-group_id (uuid FK→groups), player_id (uuid FK→players) — junction table
+`group_id` FK→groups, `player_id` FK→players (junction table)
 
 ### scores
-id (uuid PK), group_id (uuid FK→groups), tournament_id (uuid FK→tournaments), hole_number (int), strokes (int), entered_by (text nullable), submitted_at (timestamptz)
-UNIQUE constraint on (group_id, tournament_id, hole_number)
+`id`, `group_id` FK, `tournament_id` FK, `hole_number`, `strokes`, `entered_by`, `submitted_at`
+UNIQUE constraint on `(group_id, tournament_id, hole_number)`
 
 ### pairing_preferences
-id (uuid PK), tournament_id (uuid FK→tournaments), player_id (uuid FK→players), preferred_player_id (uuid FK→players), created_at (timestamptz)
-UNIQUE(player_id, preferred_player_id)
+`id`, `tournament_id` FK, `player_id` FK, `preferred_player_id` FK
+UNIQUE on `(player_id, preferred_player_id)`
 
-## Sprint Status
-- [x] Sprint 0: Scaffolding — Next.js, Tailwind, Supabase client, auth, basic routing
-- [x] Sprint 1: League setup, tournament creation, hole configuration
-- [x] Sprint 2: Player management, parent registration, group pairings
-- [x] Sprint 3: Chaperone score entry, leaderboard, check-in, admin score monitoring
-- [x] Sprint 4: Chaperone link sharing — copy/email scoring links, bulk send
-- [x] Sprint 5A: Tournament UX — tab navigation, edit player/group, clickable cards, delete button audit, card alignment
-- [x] Sprint 5B: Public leaderboard polish, registration volunteer, leaderboard links
-- [x] Sprint 5C: Admin infrastructure — delete/edit league, logo upload, color theming, league isolation, homepage
+## Route Map
 
-## Key Decisions
-- Scramble format only for MVP (one team score per group per hole)
-- Number of holes is a free input (1-18) — The Lakes at El Segundo has 10
-- Player status flow: pre-registered → registered → checked_in
-- Registration page is public (no auth required)
-- Pairing preferences stored in separate table, used for smart auto-group generation
-- Auto-generate groups respects mutual pairing preferences first, then one-way
-- Chaperone scoring page requires no auth — direct link via /score/[groupId]
-- Leaderboard is per-tournament at /leaderboard/[tournamentId], gated by leaderboard_public flag
-- Leaderboard uses Supabase Realtime + 15s polling fallback
-- Email via Resend SDK, API route at /api/email/send-scoring-link
-- RESEND_API_KEY and RESEND_FROM_EMAIL configured in Vercel env vars
-- Destructive actions (delete player/group) use amber/gold confirmation, NOT red
+```
+(admin)/login            → Google OAuth
+(admin)/dashboard        → league list
+(admin)/dashboard/leagues/[leagueId]
+  /tournaments/[id]      → overview tabs: Holes, Players, Groups, Scores
+(chaperone)/score/[groupId]  → PIN-gated mobile score entry
+/register/[tournamentId]     → public player registration (no auth)
+/leaderboard/[tournamentId]  → public live leaderboard
+/api/auth/callback           → OAuth code exchange
+/api/email/send-scoring-link → Resend email trigger
+```
 
-## Known Issues / Pre-Launch TODO
-- [x] DELETE GROUP button is red — FIXED: all destructive buttons now use amber/gold
-- [ ] Custom Resend domain needed before tournament day (currently onboarding@resend.dev, only delivers to verified account email)
+## Pre-Launch TODO
+
+- [ ] Custom Resend domain needed before tournament day (currently `onboarding@resend.dev`, only delivers to verified account email)
 - [ ] Leaderboard link on chaperone scoring success page
-- [x] Tournament overview cards (Holes/Players/Groups) vertical alignment — FIXED: uses g4 grid with stretch
