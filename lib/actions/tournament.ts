@@ -82,9 +82,10 @@ export async function updateTournament(
     date?: string
     course?: string
     format?: string
+    holes?: number
     status?: 'upcoming' | 'active' | 'completed'
     shotgun_start?: boolean
-    notes?: string
+    notes?: string | null
   }
 ) {
   const supabase = await createClient()

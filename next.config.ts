@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         has: [{ type: 'host', value: 'lotus-links.vercel.app' }],
-        destination: 'https://getlotusai.com/:path*',
+        destination: 'https://links.getlotusai.com/:path*',
         permanent: true,
       },
     ]

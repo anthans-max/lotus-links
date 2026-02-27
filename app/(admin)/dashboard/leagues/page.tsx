@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
+import LeagueList from '@/components/admin/LeagueList'
+import type { LeagueWithCount } from '@/components/admin/LeagueList'
 
 export const metadata: Metadata = {
   title: 'Leagues',
@@ -17,7 +19,6 @@ export default async function LeaguesPage() {
   const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
   const isSuperAdmin = user.email === superAdmin
 
-  // Fetch leagues — filter by admin_email unless super admin
   let query = supabase
     .from('leagues')
     .select('*, tournaments(id)')
@@ -29,7 +30,16 @@ export default async function LeaguesPage() {
 
   const { data: leagues } = await query
 
-  const leagueList = (leagues ?? []) as any[]
+  const leagueList: LeagueWithCount[] = (leagues ?? []).map((l: any) => ({
+    id: l.id,
+    name: l.name,
+    admin_email: l.admin_email,
+    logo_url: l.logo_url,
+    primary_color: l.primary_color,
+    created_at: l.created_at,
+    updated_at: l.updated_at,
+    tournamentCount: Array.isArray(l.tournaments) ? l.tournaments.length : 0,
+  }))
 
   return (
     <div className="section fade-up">
@@ -54,78 +64,7 @@ export default async function LeaguesPage() {
           }
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {leagueList.map((league: any) => {
-            const tournamentCount = Array.isArray(league.tournaments) ? league.tournaments.length : 0
-            const color = league.primary_color || 'var(--green)'
-            return (
-              <Link
-                key={league.id}
-                href={`/dashboard/leagues/${league.id}`}
-                className="card card-hover"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  cursor: 'pointer',
-                  borderLeft: `3px solid ${color}`,
-                }}
-              >
-                {/* Logo or color swatch */}
-                {league.logo_url ? (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'var(--surface2)',
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={league.logo_url}
-                      alt={`${league.name} logo`}
-                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      background: color,
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.1rem',
-                    }}
-                  >
-                    ⛳
-                  </div>
-                )}
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.15rem' }}>
-                    {league.name}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <span>{tournamentCount} tournament{tournamentCount !== 1 ? 's' : ''}</span>
-                    <span>Created {new Date(league.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                <span style={{ color: 'var(--text-dim)', fontSize: '1.2rem' }}>&rarr;</span>
-              </Link>
-            )
-          })}
-        </div>
+        <LeagueList leagues={leagueList} />
       )}
     </div>
   )

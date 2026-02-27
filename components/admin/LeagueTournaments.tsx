@@ -7,6 +7,7 @@ import { deleteTournament } from '@/lib/actions/tournament'
 import type { Tournament } from '@/lib/types'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
+import EditTournamentModal from '@/components/admin/EditTournamentModal'
 
 interface LeagueTournamentsProps {
   tournaments: Tournament[]
@@ -16,6 +17,7 @@ interface LeagueTournamentsProps {
 
 export default function LeagueTournaments({ tournaments, leagueId, leagueColor }: LeagueTournamentsProps) {
   const router = useRouter()
+  const [editTarget, setEditTarget] = useState<Tournament | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Tournament | null>(null)
   const [confirmName, setConfirmName] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -80,6 +82,12 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
                 Manage
               </Link>
               <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setEditTarget(t)}
+              >
+                Edit
+              </button>
+              <button
                 className="btn btn-ghost btn-sm"
                 style={{ color: 'var(--over)' }}
                 onClick={() => { setDeleteTarget(t); setConfirmName('') }}
@@ -113,6 +121,15 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
           placeholder={deleteTarget?.name}
         />
       </Modal>
+
+      {editTarget && (
+        <EditTournamentModal
+          key={editTarget.id}
+          open={true}
+          onClose={() => setEditTarget(null)}
+          tournament={editTarget}
+        />
+      )}
     </>
   )
 }
