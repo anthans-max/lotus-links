@@ -18,8 +18,9 @@ export default function PoweredByFooter() {
           src="/lotus-logo.png"
           alt="Lotus AI"
           style={{
-            height: 32,
-            width: 32,
+            height: 20,
+            width: 20,
+            objectFit: 'contain',
             borderRadius: 4,
             mixBlendMode: 'lighten',
           }}
@@ -27,11 +28,11 @@ export default function PoweredByFooter() {
         <span
           style={{
             fontFamily: 'var(--font-syne), sans-serif',
-            fontSize: '14px',
+            fontSize: '0.65rem',
             fontWeight: 700,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
-            color: '#ffffff',
+            color: 'var(--text-dim)',
           }}
         >
           Powered by Lotus AI
