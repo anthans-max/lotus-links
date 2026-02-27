@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminUpdateScore, toggleLeaderboardPublic } from '@/lib/actions/scores'
+import { getBaseUrl } from '@/lib/url'
 
 interface HoleInfo {
   number: number
@@ -144,9 +145,7 @@ export default function ScoresMonitor({
     })
   }
 
-  const leaderboardUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/leaderboard/${tournamentId}`
-    : `/leaderboard/${tournamentId}`
+  const leaderboardUrl = `${getBaseUrl()}/leaderboard/${tournamentId}`
 
   const [copiedLink, setCopiedLink] = useState(false)
   const handleCopyLink = () => {

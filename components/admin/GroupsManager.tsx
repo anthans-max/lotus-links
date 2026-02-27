@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Tournament, Player, Group, GroupPlayer, PairingPreference } from '@/lib/types'
+import { getBaseUrl } from '@/lib/url'
 import {
   createGroup,
   updateGroup,
@@ -211,7 +212,7 @@ export default function GroupsManager({
   }
 
   const copyLink = (groupId: string) => {
-    const url = `${window.location.origin}/score/${groupId}`
+    const url = `${getBaseUrl()}/score/${groupId}`
     navigator.clipboard.writeText(url)
     setCopiedLink(groupId)
     setTimeout(() => setCopiedLink(null), 1500)
@@ -228,7 +229,7 @@ export default function GroupsManager({
           mode: 'single',
           groupId,
           email,
-          baseUrl: window.location.origin,
+          baseUrl: getBaseUrl(),
         }),
       })
       const data = await res.json()
@@ -253,7 +254,7 @@ export default function GroupsManager({
         body: JSON.stringify({
           mode: 'bulk',
           tournamentId,
-          baseUrl: window.location.origin,
+          baseUrl: getBaseUrl(),
         }),
       })
       const data = await res.json()

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { getBaseUrl } from '@/lib/url'
 
 interface Props {
   token: string
@@ -10,7 +11,7 @@ export default function CopyTokenButton({ token }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    const url = `${window.location.origin}/t/${token}`
+    const url = `${getBaseUrl()}/t/${token}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Player } from '@/lib/types'
 import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn, updatePlayer } from '@/lib/actions/players'
 import CsvImportDialog from './CsvImportDialog'
+import { getBaseUrl } from '@/lib/url'
 
 interface PlayersManagerProps {
   tournamentId: string
@@ -136,7 +137,7 @@ export default function PlayersManager({
   }
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/register/${tournamentId}`
+    const url = `${getBaseUrl()}/register/${tournamentId}`
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
@@ -203,7 +204,7 @@ export default function PlayersManager({
                 wordBreak: 'break-all',
               }}
             >
-              {typeof window !== 'undefined' ? `${window.location.origin}/register/${tournamentId}` : `/register/${tournamentId}`}
+              {`${getBaseUrl()}/register/${tournamentId}`}
             </div>
           </div>
           <button
