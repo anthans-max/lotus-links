@@ -32,7 +32,7 @@ export default async function LeaderboardPage({ params }: Props) {
   // Fetch league
   const { data: league } = await supabase
     .from('leagues')
-    .select('name')
+    .select('name, primary_color')
     .eq('id', tournament.league_id)
     .single()
 
@@ -68,6 +68,7 @@ export default async function LeaderboardPage({ params }: Props) {
         status: tournament.status,
       }}
       leagueName={league?.name ?? ''}
+      leagueColor={league?.primary_color ?? undefined}
       holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par }))}
       groups={(groups ?? []).map(g => ({
         id: g.id,

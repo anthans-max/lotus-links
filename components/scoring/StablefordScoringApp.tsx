@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -38,6 +38,7 @@ interface ScoreEntry {
 interface Props {
   tournament: TournamentInfo
   leagueName: string
+  leagueColor?: string
   holes: HoleInfo[]
   players: PlayerInfo[]
   initialScores: ScoreEntry[]
@@ -78,11 +79,16 @@ function fmtPoints(pts: number) {
 export default function StablefordScoringApp({
   tournament,
   leagueName,
+  leagueColor,
   holes,
   players,
   initialScores,
   tournamentId,
 }: Props) {
+  const accentStyle = leagueColor
+    ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties)
+    : {}
+
   const supabase = useMemo(() => createClient(), [])
 
   const [phase, setPhase] = useState<'pick' | 'score'>('pick')
@@ -282,7 +288,7 @@ export default function StablefordScoringApp({
 
   if (phase === 'pick') {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', ...accentStyle }}>
         {/* Header */}
         <div
           style={{

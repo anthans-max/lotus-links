@@ -55,6 +55,7 @@ export default async function RegisterPage({ params }: Props) {
         format: tournament.format,
       }}
       leagueName={league?.name ?? ''}
+      leagueColor={league?.primary_color ?? undefined}
       players={players ?? []}
     />
   )

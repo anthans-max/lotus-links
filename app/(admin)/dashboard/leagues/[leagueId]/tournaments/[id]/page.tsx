@@ -1,3 +1,4 @@
+import React from 'react'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -25,7 +26,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }] = await Promise.all([
-    supabase.from('leagues').select('id, name').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
   ])
 
@@ -52,8 +53,10 @@ export default async function TournamentDetailPage({ params }: Props) {
     ? (await supabase.from('holes').select('par').eq('tournament_id', id)).data?.reduce((sum, h) => sum + h.par, 0) ?? 0
     : 0
 
+  const accentColor = (league as any).primary_color || '#1a5c2a'
+
   return (
-    <div className="section fade-up">
+    <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
         title={tournament.name}
         backHref={`/dashboard/leagues/${leagueId}`}

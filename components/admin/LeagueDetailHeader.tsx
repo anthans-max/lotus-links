@@ -24,7 +24,7 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
           gap: '1rem',
           marginBottom: '1.5rem',
           padding: '0.875rem 1.25rem',
-          borderLeft: `3px solid ${league.primary_color || 'var(--green)'}`,
+          borderLeft: '3px solid var(--league-accent)',
         }}
       >
         {/* Logo or color swatch */}
@@ -55,7 +55,7 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
               width: 32,
               height: 32,
               borderRadius: '50%',
-              background: league.primary_color || 'var(--green)',
+              background: 'var(--league-accent)',
               flexShrink: 0,
             }}
           />

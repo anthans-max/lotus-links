@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -36,6 +36,7 @@ interface ScoreData {
 interface LiveLeaderboardProps {
   tournament: TournamentInfo
   leagueName: string
+  leagueColor?: string
   holes: HoleInfo[]
   groups: GroupInfo[]
   initialScores: ScoreData[]
@@ -50,6 +51,7 @@ function fmtRelative(n: number) {
 export default function LiveLeaderboard({
   tournament,
   leagueName,
+  leagueColor,
   holes,
   groups,
   initialScores,
@@ -193,8 +195,10 @@ export default function LiveLeaderboard({
     }))
   }, [isCompleted])
 
+  const accentStyle = leagueColor ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties) : {}
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', position: 'relative', overflow: 'hidden', ...accentStyle }}>
       {/* Confetti for completed tournament */}
       {showConfetti && confettiItems.map(c => (
         <div key={c.id} className="confetti-p" style={{ left: c.left, top: '-10px', background: c.color, width: c.size, height: c.size, animationDelay: c.delay, position: 'fixed', zIndex: 50 }} />

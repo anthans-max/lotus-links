@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import React, { useState, useTransition, useMemo } from 'react'
 import { registerPlayers, addAndRegisterPlayer } from '@/lib/actions/registration'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -22,6 +22,7 @@ interface PlayerInfo {
 interface RegistrationFormProps {
   tournament: TournamentInfo
   leagueName: string
+  leagueColor?: string
   players: PlayerInfo[]
 }
 
@@ -30,8 +31,13 @@ type Step = 'select' | 'pairings' | 'contact' | 'done'
 export default function RegistrationForm({
   tournament,
   leagueName,
+  leagueColor,
   players: initialPlayers,
 }: RegistrationFormProps) {
+  const accentStyle = leagueColor
+    ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties)
+    : {}
+
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState<Step>('select')
 
@@ -163,7 +169,7 @@ export default function RegistrationForm({
   // ─── Confirmation screen ──────────────────────────────────────────────────────
   if (step === 'done') {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', ...accentStyle }}>
         <div style={{ textAlign: 'center', maxWidth: 420, width: '100%', animation: 'fadeUp 0.6s ease' }}>
           <div
             style={{
@@ -224,7 +230,7 @@ export default function RegistrationForm({
 
   // ─── Main registration form ────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', ...accentStyle }}>
       {/* Header */}
       <div
         style={{

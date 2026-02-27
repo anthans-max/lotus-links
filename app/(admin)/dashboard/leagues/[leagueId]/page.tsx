@@ -1,3 +1,4 @@
+import React from 'react'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -42,14 +43,16 @@ export default async function LeagueDetailPage({ params }: Props) {
     .eq('league_id', leagueId)
     .order('date', { ascending: false })
 
+  const accentColor = league.primary_color || '#1a5c2a'
+
   return (
-    <div className="section fade-up">
+    <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
         title={league.name}
         backHref="/dashboard/leagues"
         backLabel="Leagues"
         action={
-          <Link href={`/dashboard/leagues/${leagueId}/tournaments/new`} className="btn btn-gold btn-sm">
+          <Link href={`/dashboard/leagues/${leagueId}/tournaments/new`} className="btn btn-accent btn-sm">
             + New Tournament
           </Link>
         }
@@ -71,7 +74,7 @@ export default async function LeagueDetailPage({ params }: Props) {
           title="No Tournaments Yet"
           description="Create your first tournament to get started."
           action={
-            <Link href={`/dashboard/leagues/${leagueId}/tournaments/new`} className="btn btn-gold">
+            <Link href={`/dashboard/leagues/${leagueId}/tournaments/new`} className="btn btn-accent">
               Create Tournament
             </Link>
           }

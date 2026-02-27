@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { upsertScore, updateGroupProgress, submitScorecard } from '@/lib/actions/scores'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -28,6 +28,7 @@ interface ScoreEntryAppProps {
     leaderboardPublic: boolean
   }
   leagueName: string
+  leagueColor?: string
   holes: HoleInfo[]
   players: string[]
   existingScores: { holeNumber: number; strokes: number }[]
@@ -55,10 +56,15 @@ export default function ScoreEntryApp({
   group,
   tournament,
   leagueName,
+  leagueColor,
   holes,
   players,
   existingScores,
 }: ScoreEntryAppProps) {
+  const accentStyle = leagueColor
+    ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties)
+    : {}
+
   // Initialize scores from existing data
   const initialScores: (number | null)[] = holes.map(h => {
     const existing = existingScores.find(s => s.holeNumber === h.number)
@@ -198,7 +204,7 @@ export default function ScoreEntryApp({
   // ─── Confirm Screen ─────────────────────────────────────────────────────────
   if (screen === 'confirm') {
     return (
-      <div className="phone">
+      <div className="phone" style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem 1.5rem', animation: 'fadeUp 0.4s ease' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -243,7 +249,7 @@ export default function ScoreEntryApp({
   // ─── Scoring Screen ─────────────────────────────────────────────────────────
   if (screen === 'scoring') {
     return (
-      <div className="phone">
+      <div className="phone" style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Top bar with progress */}
@@ -388,7 +394,7 @@ export default function ScoreEntryApp({
   // ─── Review Screen ──────────────────────────────────────────────────────────
   if (screen === 'review') {
     return (
-      <div className="phone">
+      <div className="phone" style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem 1.25rem', animation: 'fadeUp 0.4s ease', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <button onClick={() => setScreen('scoring')} className="tap" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', alignSelf: 'flex-start', marginBottom: '1.25rem', padding: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

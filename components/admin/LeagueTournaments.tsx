@@ -46,7 +46,7 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
               padding: '0.875rem 1.25rem',
               cursor: 'pointer',
               transition: 'border-color 0.2s, background 0.2s',
-              borderLeft: leagueColor ? `3px solid ${leagueColor}` : undefined,
+              borderLeft: '3px solid var(--league-accent)',
             }}
             onClick={() => router.push(`/dashboard/leagues/${leagueId}/tournaments/${t.id}`)}
             onMouseEnter={e => {

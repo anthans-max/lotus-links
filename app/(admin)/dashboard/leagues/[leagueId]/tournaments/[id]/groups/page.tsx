@@ -1,3 +1,4 @@
+import React from 'react'
 import { redirect, notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
@@ -22,7 +23,7 @@ export default async function GroupsPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }] = await Promise.all([
-    supabase.from('leagues').select('id, name').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
     supabase.from('groups').select('*, group_players(*)').eq('tournament_id', id).order('created_at'),
@@ -31,8 +32,10 @@ export default async function GroupsPage({ params }: Props) {
 
   if (!league || !tournament) notFound()
 
+  const accentColor = (league as any).primary_color || '#1a5c2a'
+
   return (
-    <div className="section fade-up">
+    <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
         title="Groups"
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}

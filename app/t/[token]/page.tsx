@@ -28,7 +28,7 @@ export default async function TokenScoringPage({ params }: Props) {
 
   const [{ data: league }, { data: holes }, { data: players }, { data: initialScores }] =
     await Promise.all([
-      supabase.from('leagues').select('name').eq('id', tournament.league_id).single(),
+      supabase.from('leagues').select('name, primary_color').eq('id', tournament.league_id).single(),
       supabase
         .from('holes')
         .select('hole_number, par, yardage, handicap')
@@ -58,6 +58,7 @@ export default async function TokenScoringPage({ params }: Props) {
         status: tournament.status,
       }}
       leagueName={league?.name ?? ''}
+      leagueColor={league?.primary_color ?? undefined}
       holes={(holes ?? []).map(h => ({
         number: h.hole_number,
         par: h.par,
