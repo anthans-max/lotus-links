@@ -4,10 +4,12 @@ import { useState } from 'react'
 import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
 import EditTournamentModal from '@/components/admin/EditTournamentModal'
+import DeleteTournamentModal from '@/components/admin/DeleteTournamentModal'
 import type { Tournament } from '@/lib/types'
 
 interface TournamentInfoCardProps {
   tournament: Tournament
+  leagueId: string
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -19,8 +21,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function TournamentInfoCard({ tournament }: TournamentInfoCardProps) {
+export default function TournamentInfoCard({ tournament, leagueId }: TournamentInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
     <>
@@ -36,13 +39,15 @@ export default function TournamentInfoCard({ tournament }: TournamentInfoCardPro
               <span className="badge badge-gold">Shotgun</span>
             )}
           </div>
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => setEditOpen(true)}
-            style={{ flexShrink: 0 }}
-          >
-            Edit
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>
+              Edit
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setDeleteOpen(true)}
+              style={{ color: 'var(--over)' }}>
+              Delete
+            </button>
+          </div>
         </div>
         {tournament.notes && (
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
@@ -55,6 +60,14 @@ export default function TournamentInfoCard({ tournament }: TournamentInfoCardPro
         open={editOpen}
         onClose={() => setEditOpen(false)}
         tournament={tournament}
+      />
+
+      <DeleteTournamentModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        tournamentId={tournament.id}
+        tournamentName={tournament.name}
+        leagueId={leagueId}
       />
     </>
   )

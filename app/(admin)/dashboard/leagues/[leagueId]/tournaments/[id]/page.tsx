@@ -62,7 +62,7 @@ export default async function TournamentDetailPage({ params }: Props) {
         backLabel={league.name}
       />
 
-      <TournamentInfoCard tournament={tournament as any} />
+      <TournamentInfoCard tournament={tournament as any} leagueId={leagueId} />
 
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
 
