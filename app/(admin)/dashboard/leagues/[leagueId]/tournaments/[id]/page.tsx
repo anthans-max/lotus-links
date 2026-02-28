@@ -5,9 +5,8 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { checkLeagueAccess } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
-import Badge from '@/components/ui/Badge'
-import Card from '@/components/ui/Card'
 import TournamentTabs from '@/components/admin/TournamentTabs'
+import TournamentInfoCard from '@/components/admin/TournamentInfoCard'
 import CopyTokenButton from '@/components/admin/CopyTokenButton'
 
 export const metadata: Metadata = {
@@ -63,24 +62,7 @@ export default async function TournamentDetailPage({ params }: Props) {
         backLabel={league.name}
       />
 
-      {/* Tournament info */}
-      <Card style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center' }}>
-          <Badge status={tournament.status}>{tournament.status}</Badge>
-          <InfoItem label="Date" value={new Date(tournament.date).toLocaleDateString()} />
-          <InfoItem label="Course" value={tournament.course} />
-          <InfoItem label="Format" value={tournament.format} />
-          <InfoItem label="Holes" value={`${tournament.holes}`} />
-          {tournament.shotgun_start && (
-            <span className="badge badge-gold">Shotgun</span>
-          )}
-        </div>
-        {tournament.notes && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
-            {tournament.notes}
-          </p>
-        )}
-      </Card>
+      <TournamentInfoCard tournament={tournament as any} />
 
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
 
@@ -183,15 +165,6 @@ export default async function TournamentDetailPage({ params }: Props) {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div style={{ fontSize: '0.95rem' }}>{value}</div>
     </div>
   )
 }
