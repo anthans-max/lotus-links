@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -12,11 +12,22 @@ const NAV_ITEMS = [
 
 export default function AdminNavBar() {
   const [open, setOpen] = useState(false)
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null)
   const router = useRouter()
   const pathname = usePathname()
 
-  // Don't show nav on login page
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setIsAuthed(!!data.user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthed(!!session?.user)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Don't show nav on login page or for unauthenticated users
   if (pathname === '/login') return null
+  if (!isAuthed) return null
 
   const handleSignOut = async () => {
     const supabase = createClient()
