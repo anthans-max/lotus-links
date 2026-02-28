@@ -10,6 +10,7 @@ import type { Tournament } from '@/lib/types'
 interface TournamentInfoCardProps {
   tournament: Tournament
   leagueId: string
+  isAdmin?: boolean
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -21,7 +22,7 @@ function InfoItem({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function TournamentInfoCard({ tournament, leagueId }: TournamentInfoCardProps) {
+export default function TournamentInfoCard({ tournament, leagueId, isAdmin = false }: TournamentInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -39,15 +40,17 @@ export default function TournamentInfoCard({ tournament, leagueId }: TournamentI
               <span className="badge badge-gold">Shotgun</span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-            <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>
-              Edit
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setDeleteOpen(true)}
-              style={{ color: 'var(--over)' }}>
-              Delete
-            </button>
-          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>
+                Edit
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setDeleteOpen(true)}
+                style={{ color: 'var(--over)' }}>
+                Delete
+              </button>
+            </div>
+          )}
         </div>
         {tournament.notes && (
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
@@ -56,19 +59,23 @@ export default function TournamentInfoCard({ tournament, leagueId }: TournamentI
         )}
       </Card>
 
-      <EditTournamentModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        tournament={tournament}
-      />
+      {isAdmin && (
+        <>
+          <EditTournamentModal
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            tournament={tournament}
+          />
 
-      <DeleteTournamentModal
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        tournamentId={tournament.id}
-        tournamentName={tournament.name}
-        leagueId={leagueId}
-      />
+          <DeleteTournamentModal
+            open={deleteOpen}
+            onClose={() => setDeleteOpen(false)}
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            leagueId={leagueId}
+          />
+        </>
+      )}
     </>
   )
 }

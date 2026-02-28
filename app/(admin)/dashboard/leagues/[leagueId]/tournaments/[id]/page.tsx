@@ -20,8 +20,7 @@ interface Props {
 export default async function TournamentDetailPage({ params }: Props) {
   const { leagueId, id } = await params
   const { user, hasAccess } = await checkLeagueAccess(leagueId)
-  if (!user) redirect('/login')
-  if (!hasAccess) redirect('/dashboard/leagues')
+  const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }] = await Promise.all([
@@ -62,7 +61,7 @@ export default async function TournamentDetailPage({ params }: Props) {
         backLabel={league.name}
       />
 
-      <TournamentInfoCard tournament={tournament as any} leagueId={leagueId} />
+      <TournamentInfoCard tournament={tournament as any} leagueId={leagueId} isAdmin={isAdmin} />
 
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
 
