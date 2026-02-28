@@ -114,6 +114,18 @@ export interface Tournament {
   leaderboard_public: boolean
   public_token: string | null
   created_at: string
+  // Handicap fields (added in migration 011)
+  slope_rating: number | null
+  course_rating: number | null
+  // Configurable Stableford point values per outcome tier (null = use app defaults)
+  stableford_points_config: {
+    double_bogey_or_worse: number
+    bogey: number
+    par: number
+    birdie: number
+    eagle: number
+    albatross: number
+  } | null
   // Legacy alias — old code references course_name
   course_name?: string
   pin?: string | null

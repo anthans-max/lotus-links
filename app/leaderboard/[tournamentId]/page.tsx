@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import LiveLeaderboard from '@/components/leaderboard/LiveLeaderboard'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
+import { parseStablefordConfig } from '@/lib/scoring/stableford'
 
 export const metadata: Metadata = {
   title: 'Leaderboard',
@@ -17,7 +18,7 @@ export default async function LeaderboardPage({ params }: Props) {
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, name, date, course, format, holes, status, leaderboard_public, league_id')
+    .select('id, name, date, course, format, holes, status, leaderboard_public, league_id, slope_rating, course_rating, stableford_points_config')
     .eq('id', tournamentId)
     .single()
 
@@ -29,6 +30,8 @@ export default async function LeaderboardPage({ params }: Props) {
     return <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
   }
 
+  const isIndividual = tournament.format === 'Stableford' || tournament.format === 'Stroke Play'
+
   // Fetch league
   const { data: league } = await supabase
     .from('leagues')
@@ -36,25 +39,78 @@ export default async function LeaderboardPage({ params }: Props) {
     .eq('id', tournament.league_id)
     .single()
 
-  // Fetch holes for par data
+  // Fetch holes for par data + stroke indexes
   const { data: holes } = await supabase
     .from('holes')
-    .select('hole_number, par')
+    .select('hole_number, par, handicap')
     .eq('tournament_id', tournamentId)
     .order('hole_number')
 
-  // Fetch groups with players
-  const { data: groups } = await supabase
-    .from('groups')
-    .select('id, name, chaperone_name, current_hole, status')
-    .eq('tournament_id', tournamentId)
-    .order('name')
+  if (isIndividual) {
+    // Individual format: fetch players and per-player scores
+    const [{ data: players }, { data: scores }] = await Promise.all([
+      supabase
+        .from('players')
+        .select('id, name, handicap, handicap_index')
+        .eq('tournament_id', tournamentId)
+        .order('name'),
+      supabase
+        .from('scores')
+        .select('player_id, hole_number, strokes')
+        .eq('tournament_id', tournamentId)
+        .not('player_id', 'is', null),
+    ])
 
-  // Fetch all scores
-  const { data: scores } = await supabase
-    .from('scores')
-    .select('group_id, hole_number, strokes')
-    .eq('tournament_id', tournamentId)
+    const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
+
+    return (
+      <LiveLeaderboard
+        tournament={{
+          id: tournament.id,
+          name: tournament.name,
+          date: tournament.date,
+          course: tournament.course,
+          format: tournament.format,
+          holeCount: tournament.holes,
+          status: tournament.status,
+          slopeRating: tournament.slope_rating ?? 113,
+          courseRating: tournament.course_rating ?? null,
+          stablefordConfig,
+        }}
+        leagueName={league?.name ?? ''}
+        leagueColor={league?.primary_color ?? undefined}
+        holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
+        groups={[]}
+        initialScores={[]}
+        players={(players ?? []).map(p => ({
+          id: p.id,
+          name: p.name,
+          handicap: p.handicap ?? 0,
+          handicapIndex: (p as any).handicap_index ?? null,
+        }))}
+        initialPlayerScores={(scores ?? [])
+          .filter(s => s.player_id != null)
+          .map(s => ({
+            playerId: s.player_id!,
+            holeNumber: s.hole_number,
+            strokes: s.strokes,
+          }))}
+      />
+    )
+  }
+
+  // Group / scramble format
+  const [{ data: groups }, { data: scores }] = await Promise.all([
+    supabase
+      .from('groups')
+      .select('id, name, chaperone_name, current_hole, status')
+      .eq('tournament_id', tournamentId)
+      .order('name'),
+    supabase
+      .from('scores')
+      .select('group_id, hole_number, strokes')
+      .eq('tournament_id', tournamentId),
+  ])
 
   return (
     <LiveLeaderboard
@@ -66,10 +122,13 @@ export default async function LeaderboardPage({ params }: Props) {
         format: tournament.format,
         holeCount: tournament.holes,
         status: tournament.status,
+        slopeRating: 113,
+        courseRating: null,
+        stablefordConfig: parseStablefordConfig(null),
       }}
       leagueName={league?.name ?? ''}
       leagueColor={league?.primary_color ?? undefined}
-      holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par }))}
+      holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
       groups={(groups ?? []).map(g => ({
         id: g.id,
         name: g.name,
@@ -82,6 +141,8 @@ export default async function LeaderboardPage({ params }: Props) {
         holeNumber: s.hole_number,
         strokes: s.strokes,
       }))}
+      players={[]}
+      initialPlayerScores={[]}
     />
   )
 }
@@ -119,7 +180,6 @@ function ComingSoonView({ tournamentName, tournamentDate }: { tournamentName: st
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
       <div style={{ textAlign: 'center', maxWidth: 420, width: '100%' }}>
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), #5a3e10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>⛳</div>
           <span style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>Lotus Links</span>

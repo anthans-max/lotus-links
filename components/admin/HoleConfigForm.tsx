@@ -119,7 +119,7 @@ export default function HoleConfigForm({ tournamentId, leagueId, holeCount, exis
               <th>Hole</th>
               <th>Par</th>
               <th>Yardage</th>
-              <th>Handicap</th>
+              <th>SI</th>
             </tr>
           </thead>
           <tbody>

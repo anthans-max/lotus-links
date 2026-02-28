@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import StablefordScoringApp from '@/components/scoring/StablefordScoringApp'
+import { parseStablefordConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default async function TokenScoringPage({ params }: Props) {
   // Validate token — find the tournament it belongs to
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, name, date, course, format, holes, status, league_id, public_token')
+    .select('id, name, date, course, format, holes, status, league_id, public_token, slope_rating, course_rating, stableford_points_config')
     .eq('public_token', token)
     .single()
 
@@ -36,7 +37,7 @@ export default async function TokenScoringPage({ params }: Props) {
         .order('hole_number'),
       supabase
         .from('players')
-        .select('id, name, handicap')
+        .select('id, name, handicap, handicap_index')
         .eq('tournament_id', tournament.id)
         .order('name'),
       supabase
@@ -45,6 +46,8 @@ export default async function TokenScoringPage({ params }: Props) {
         .eq('tournament_id', tournament.id)
         .not('player_id', 'is', null),
     ])
+
+  const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
 
   return (
     <StablefordScoringApp
@@ -56,6 +59,9 @@ export default async function TokenScoringPage({ params }: Props) {
         format: tournament.format,
         holeCount: tournament.holes,
         status: tournament.status,
+        slopeRating: tournament.slope_rating ?? 113,
+        courseRating: tournament.course_rating ?? null,
+        stablefordConfig,
       }}
       leagueName={league?.name ?? ''}
       leagueColor={league?.primary_color ?? undefined}
@@ -69,6 +75,7 @@ export default async function TokenScoringPage({ params }: Props) {
         id: p.id,
         name: p.name,
         handicap: p.handicap ?? 0,
+        handicapIndex: (p as any).handicap_index ?? null,
       }))}
       initialScores={(initialScores ?? [])
         .filter(s => s.player_id != null)
@@ -96,27 +103,8 @@ function InvalidTokenView() {
     >
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
         {/* Logo */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            marginBottom: '2rem',
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--gold), #5a3e10)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.85rem',
-            }}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), #5a3e10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
             ⛳
           </div>
           <span style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>
@@ -125,26 +113,11 @@ function InvalidTokenView() {
         </div>
 
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔗</div>
-        <div
-          style={{
-            fontFamily: 'var(--fd)',
-            fontSize: '1.5rem',
-            marginBottom: '0.5rem',
-            color: 'var(--text)',
-          }}
-        >
+        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text)' }}>
           Invalid Scoring Link
         </div>
-        <p
-          style={{
-            color: 'var(--text-muted)',
-            fontSize: '0.9rem',
-            lineHeight: 1.6,
-            marginBottom: '2rem',
-          }}
-        >
-          This link doesn&apos;t match any tournament. Ask your organizer for the correct scoring
-          link.
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '2rem' }}>
+          This link doesn&apos;t match any tournament. Ask your organizer for the correct scoring link.
         </p>
         <PoweredByFooter />
       </div>

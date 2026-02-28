@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateTournament } from '@/lib/actions/tournament'
+import { DEFAULT_STABLEFORD_CONFIG, parseStablefordConfig, type StablefordPointsConfig } from '@/lib/scoring/stableford'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -14,6 +15,15 @@ interface EditTournamentModalProps {
   tournament: Tournament
 }
 
+const STABLEFORD_LABELS: { key: keyof StablefordPointsConfig; label: string }[] = [
+  { key: 'albatross',             label: 'Albatross (−3 or better)' },
+  { key: 'eagle',                 label: 'Eagle (−2)'               },
+  { key: 'birdie',                label: 'Birdie (−1)'              },
+  { key: 'par',                   label: 'Par (0)'                  },
+  { key: 'bogey',                 label: 'Bogey (+1)'               },
+  { key: 'double_bogey_or_worse', label: 'Double Bogey or worse'    },
+]
+
 export default function EditTournamentModal({ open, onClose, tournament }: EditTournamentModalProps) {
   const router = useRouter()
   const [name, setName] = useState(tournament.name)
@@ -23,8 +33,16 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
   const [holes, setHoles] = useState(String(tournament.holes))
   const [shotgunStart, setShotgunStart] = useState(tournament.shotgun_start)
   const [notes, setNotes] = useState(tournament.notes || '')
+  const [slopeRating, setSlopeRating] = useState(String(tournament.slope_rating ?? 113))
+  const [courseRating, setCourseRating] = useState(String(tournament.course_rating ?? ''))
+  const [sfConfig, setSfConfig] = useState<StablefordPointsConfig>(
+    parseStablefordConfig(tournament.stableford_points_config)
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const isHandicapFormat = format === 'Stableford' || format === 'Stroke Play'
+  const isStableford = format === 'Stableford'
 
   const handleSave = async () => {
     if (!name.trim() || !date || !course.trim()) {
@@ -44,6 +62,9 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
         holes: parseInt(holes),
         shotgun_start: shotgunStart,
         notes: notes.trim() || null,
+        slope_rating: isHandicapFormat && slopeRating ? parseFloat(slopeRating) : null,
+        course_rating: isHandicapFormat && courseRating ? parseFloat(courseRating) : null,
+        stableford_points_config: isStableford ? sfConfig : null,
       })
       router.refresh()
       onClose()
@@ -51,6 +72,11 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
       setError(err.message || 'Failed to update tournament')
       setLoading(false)
     }
+  }
+
+  const updateSfConfig = (key: keyof StablefordPointsConfig, raw: string) => {
+    const val = parseInt(raw)
+    setSfConfig(prev => ({ ...prev, [key]: isNaN(val) || val < 0 ? 0 : val }))
   }
 
   return (
@@ -94,10 +120,10 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
           value={format}
           onChange={e => setFormat(e.target.value)}
           options={[
-            { value: 'Scramble', label: 'Scramble' },
-            { value: 'Stableford', label: 'Stableford' },
+            { value: 'Scramble',    label: 'Scramble'    },
+            { value: 'Stableford',  label: 'Stableford'  },
             { value: 'Stroke Play', label: 'Stroke Play' },
-            { value: 'Match Play', label: 'Match Play' },
+            { value: 'Match Play',  label: 'Match Play'  },
           ]}
         />
 
@@ -149,6 +175,77 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
             style={{ resize: 'vertical', minHeight: 80 }}
           />
         </div>
+
+        {/* Handicap settings */}
+        {isHandicapFormat && (
+          <div style={{
+            background: 'var(--surface2)',
+            border: '1px solid var(--border2)',
+            borderRadius: 4,
+            padding: '1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+          }}>
+            <span className="label">Course Handicap Settings</span>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 100px', minWidth: 100 }}>
+                <Input
+                  id="edit-t-slope"
+                  label="Slope"
+                  type="number"
+                  min={55}
+                  max={155}
+                  value={slopeRating}
+                  onChange={e => setSlopeRating(e.target.value)}
+                  placeholder="113"
+                />
+              </div>
+              <div style={{ flex: '1 1 100px', minWidth: 100 }}>
+                <Input
+                  id="edit-t-rating"
+                  label="Course Rating"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={courseRating}
+                  onChange={e => setCourseRating(e.target.value)}
+                  placeholder="= par"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stableford points config */}
+        {isStableford && (
+          <div style={{
+            background: 'var(--surface2)',
+            border: '1px solid var(--gold-border)',
+            borderRadius: 4,
+            padding: '1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+          }}>
+            <span className="label">Stableford Points per Outcome</span>
+            {STABLEFORD_LABELS.map(({ key, label }) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text)', flex: 1 }}>{label}</span>
+                <input
+                  type="number"
+                  className="input"
+                  min={0}
+                  step={1}
+                  value={sfConfig[key]}
+                  onChange={e => updateSfConfig(key, e.target.value)}
+                  style={{ width: 64, minWidth: 64, textAlign: 'center', padding: '0.4rem 0.5rem', minHeight: 40 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {error && (
           <p style={{ color: 'var(--over)', fontSize: '0.8rem', fontFamily: 'var(--fm)' }}>

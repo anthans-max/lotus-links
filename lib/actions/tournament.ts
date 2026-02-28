@@ -13,6 +13,9 @@ export async function createTournament(formData: {
   holes: number
   shotgun_start: boolean
   notes?: string
+  slope_rating?: number | null
+  course_rating?: number | null
+  stableford_points_config?: object | null
 }) {
   const supabase = await createClient()
 
@@ -28,6 +31,9 @@ export async function createTournament(formData: {
       shotgun_start: formData.shotgun_start,
       notes: formData.notes || null,
       status: 'upcoming',
+      slope_rating: formData.slope_rating ?? null,
+      course_rating: formData.course_rating ?? null,
+      stableford_points_config: formData.stableford_points_config ?? null,
     })
     .select()
     .single()
@@ -86,6 +92,9 @@ export async function updateTournament(
     status?: 'upcoming' | 'active' | 'completed'
     shotgun_start?: boolean
     notes?: string | null
+    slope_rating?: number | null
+    course_rating?: number | null
+    stableford_points_config?: object | null
   }
 ) {
   const supabase = await createClient()

@@ -208,20 +208,20 @@ export default function ScoresMonitor({
       </div>
 
       {/* Stats overview */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: '1rem' }}>
+      <div className="g4" style={{ marginBottom: '1.5rem' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '1rem' }}>
           <div style={{ fontFamily: 'var(--fm)', fontSize: '1.5rem', color: 'var(--gold)' }}>{groups.length}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>Groups</div>
         </div>
-        <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: '1rem' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '1rem' }}>
           <div style={{ fontFamily: 'var(--fm)', fontSize: '1.5rem', color: '#4CAF50' }}>{activeGroups.length}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>In Progress</div>
         </div>
-        <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: '1rem' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '1rem' }}>
           <div style={{ fontFamily: 'var(--fm)', fontSize: '1.5rem', color: 'var(--gold)' }}>{completedGroups.length}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>Finished</div>
         </div>
-        <div className="card" style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: '1rem' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '1rem' }}>
           <div style={{ fontFamily: 'var(--fm)', fontSize: '1.5rem', color: 'var(--text-muted)' }}>Par {totalPar}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>{holes.length} holes</div>
         </div>
@@ -293,7 +293,7 @@ export default function ScoresMonitor({
               <div className="section-tag" style={{ marginBottom: '0.75rem' }}>Not Started</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {notStartedGroups.map(g => (
-                  <div key={g.id} className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div key={g.id} className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ fontSize: '0.9rem' }}>{g.name}</div>
                     {g.chaperoneName && (
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>{g.chaperoneName}</span>

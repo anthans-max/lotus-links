@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
+import { computeStablefordPoints, DEFAULT_STABLEFORD_CONFIG, type StablefordPointsConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -14,19 +16,23 @@ interface TournamentInfo {
   format: string
   holeCount: number
   status: string
+  slopeRating: number
+  courseRating: number | null
+  stablefordConfig: StablefordPointsConfig
 }
 
 interface HoleInfo {
   number: number
   par: number
   yardage: number | null
-  handicap: number | null
+  handicap: number | null  // stroke index
 }
 
 interface PlayerInfo {
   id: string
   name: string
-  handicap: number
+  handicap: number          // legacy integer (Course Handicap fallback)
+  handicapIndex: number | null  // USGA Handicap Index
 }
 
 interface ScoreEntry {
@@ -45,33 +51,30 @@ interface Props {
   tournamentId: string
 }
 
-// ─── Stableford math ─────────────────────────────────────────────────────────
-
-function getHandicapStrokes(
-  playerHandicap: number,
-  holeHandicap: number | null,
-  totalHoles: number
-): number {
-  if (holeHandicap == null || totalHoles === 0) return 0
-  const base = Math.floor(playerHandicap / totalHoles)
-  const remainder = playerHandicap % totalHoles
-  return base + (holeHandicap <= remainder ? 1 : 0)
-}
-
-function stablefordPoints(
-  grossStrokes: number,
-  par: number,
-  holeHandicap: number | null,
-  playerHandicap: number,
-  totalHoles: number
-): number {
-  const hcStrokes = getHandicapStrokes(playerHandicap, holeHandicap, totalHoles)
-  const netStrokes = grossStrokes - hcStrokes
-  return Math.max(0, par - netStrokes + 2)
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtPoints(pts: number) {
   return pts === 1 ? '1 pt' : `${pts} pts`
+}
+
+function fmtRelative(n: number) {
+  if (n === 0) return 'E'
+  if (n > 0) return `+${n}`
+  return String(n)
+}
+
+/** Compute a player's Course Handicap given tournament settings. */
+function resolveHandicap(player: PlayerInfo, tournament: TournamentInfo, totalPar: number): number {
+  if (player.handicapIndex != null) {
+    return computeCourseHandicap(
+      player.handicapIndex,
+      tournament.slopeRating,
+      tournament.courseRating ?? totalPar,
+      totalPar
+    )
+  }
+  // Fall back to legacy integer handicap
+  return player.handicap
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -90,6 +93,11 @@ export default function StablefordScoringApp({
     : {}
 
   const supabase = useMemo(() => createClient(), [])
+
+  const isStableford = tournament.format === 'Stableford'
+  const isStrokePlay = tournament.format === 'Stroke Play'
+
+  const totalPar = useMemo(() => holes.reduce((a, h) => a + h.par, 0), [holes])
 
   const [phase, setPhase] = useState<'pick' | 'score'>('pick')
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerInfo | null>(null)
@@ -117,6 +125,14 @@ export default function StablefordScoringApp({
     }
   })()
 
+  // ─── Course Handicap (cached per selected player) ─────────────────────────
+  const selectedCourseHandicap = useMemo(() => {
+    if (!selectedPlayer) return 0
+    return resolveHandicap(selectedPlayer, tournament, totalPar)
+  }, [selectedPlayer, tournament, totalPar])
+
+  const hasNoHandicap = selectedPlayer != null && selectedPlayer.handicapIndex == null && selectedPlayer.handicap === 0
+
   // ─── Realtime subscription ────────────────────────────────────────────────
   useEffect(() => {
     const channel = supabase
@@ -136,7 +152,7 @@ export default function StablefordScoringApp({
               hole_number: number
               strokes: number
             }
-            if (!row.player_id) return // skip scramble group scores
+            if (!row.player_id) return
             setAllScores(prev => {
               const filtered = prev.filter(
                 s => !(s.playerId === row.player_id && s.holeNumber === row.hole_number)
@@ -170,13 +186,11 @@ export default function StablefordScoringApp({
   const handleSelectPlayer = useCallback(
     (player: PlayerInfo) => {
       setSelectedPlayer(player)
-      // Pre-populate localScores from existing scores for this player
       const existing = allScores.filter(s => s.playerId === player.id)
       const prePopulated: Record<number, number> = {}
       existing.forEach(s => {
         prePopulated[s.holeNumber] = s.strokes
       })
-      // Default un-entered holes to par
       holes.forEach(h => {
         if (!prePopulated[h.number]) prePopulated[h.number] = h.par
       })
@@ -206,7 +220,6 @@ export default function StablefordScoringApp({
       for (const [holeNumStr, strokes] of holesToSave) {
         const holeNumber = parseInt(holeNumStr)
 
-        // SELECT first to determine INSERT vs UPDATE
         const { data: existing } = await supabase
           .from('scores')
           .select('id')
@@ -240,40 +253,40 @@ export default function StablefordScoringApp({
     }
   }, [selectedPlayer, saving, localScores, supabase, tournamentId])
 
-  // ─── Leaderboard ──────────────────────────────────────────────────────────
+  // ─── Per-hole derived values for the selected player ─────────────────────
 
-  const leaderboard = useMemo(() => {
-    return players
-      .map(p => {
-        const pScores = allScores.filter(s => s.playerId === p.id)
-        const totalPts = pScores.reduce((sum, s) => {
-          const hole = holes.find(h => h.number === s.holeNumber)
-          if (!hole) return sum
-          return sum + stablefordPoints(s.strokes, hole.par, hole.handicap, p.handicap, holes.length)
-        }, 0)
-        return { ...p, totalPts, holesCompleted: pScores.length }
-      })
-      .filter(p => p.holesCompleted > 0)
-      .sort((a, b) => {
-        if (b.totalPts !== a.totalPts) return b.totalPts - a.totalPts
-        return b.holesCompleted - a.holesCompleted
-      })
-  }, [players, allScores, holes])
+  const holeDerivations = useMemo(() => {
+    return holes.map(hole => {
+      const strokes = getStrokesOnHole(selectedCourseHandicap, hole.handicap, holes.length)
+      return { holeNumber: hole.number, strokesReceived: strokes }
+    })
+  }, [holes, selectedCourseHandicap])
 
-  // ─── My current total ─────────────────────────────────────────────────────
+  const getStrokesReceived = (holeNumber: number) =>
+    holeDerivations.find(d => d.holeNumber === holeNumber)?.strokesReceived ?? 0
 
-  const myTotalPts = useMemo(() => {
-    if (!selectedPlayer) return 0
-    return Object.entries(localScores).reduce((sum, [holeNumStr, strokes]) => {
+  // ─── Running totals for selected player ──────────────────────────────────
+
+  const myTotals = useMemo(() => {
+    let totalPts = 0
+    let totalGross = 0
+    let totalNet = 0
+
+    Object.entries(localScores).forEach(([holeNumStr, gross]) => {
       const holeNumber = parseInt(holeNumStr)
       const hole = holes.find(h => h.number === holeNumber)
-      if (!hole) return sum
-      return (
-        sum +
-        stablefordPoints(strokes, hole.par, hole.handicap, selectedPlayer.handicap, holes.length)
-      )
-    }, 0)
-  }, [selectedPlayer, localScores, holes])
+      if (!hole) return
+      const received = getStrokesReceived(holeNumber)
+      totalGross += gross
+      totalNet += gross - received
+      totalPts += computeStablefordPoints(gross, hole.par, received, tournament.stablefordConfig)
+    })
+
+    return { totalPts, totalGross, totalNet }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localScores, holes, holeDerivations, tournament.stablefordConfig])
+
+  const myNetRelative = myTotals.totalNet - totalPar
 
   const isDirty = useMemo(() => {
     if (!selectedPlayer) return false
@@ -283,6 +296,47 @@ export default function StablefordScoringApp({
         allScores.find(s => s.playerId === selectedPlayer.id && s.holeNumber === holeNumber)?.strokes !== strokes
     })
   }, [localScores, savedHoles, selectedPlayer, allScores])
+
+  // ─── Leaderboard computation ──────────────────────────────────────────────
+
+  const leaderboard = useMemo(() => {
+    return players
+      .map(p => {
+        const pScores = allScores.filter(s => s.playerId === p.id)
+        const pCourseHcp = resolveHandicap(p, tournament, totalPar)
+        let totalPts = 0
+        let totalGross = 0
+        let totalNet = 0
+
+        pScores.forEach(s => {
+          const hole = holes.find(h => h.number === s.holeNumber)
+          if (!hole) return
+          const received = getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+          totalGross += s.strokes
+          totalNet += s.strokes - received
+          totalPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
+        })
+
+        return {
+          ...p,
+          totalPts,
+          totalGross,
+          totalNet,
+          netRelative: totalNet - totalPar,
+          holesCompleted: pScores.length,
+        }
+      })
+      .filter(p => p.holesCompleted > 0)
+      .sort((a, b) => {
+        if (isStableford) {
+          if (b.totalPts !== a.totalPts) return b.totalPts - a.totalPts
+          return b.holesCompleted - a.holesCompleted
+        }
+        // Stroke Play: sort by net score (lowest first), then most holes played
+        if (a.netRelative !== b.netRelative) return a.netRelative - b.netRelative
+        return b.holesCompleted - a.holesCompleted
+      })
+  }, [players, allScores, holes, tournament, totalPar, isStableford])
 
   // ─── Render: Player Picker ────────────────────────────────────────────────
 
@@ -313,27 +367,8 @@ export default function StablefordScoringApp({
           </div>
 
           {/* Logo */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              marginBottom: '1.5rem',
-            }}
-          >
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--gold), #5a3e10)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.85rem',
-              }}
-            >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), #5a3e10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
               ⛳
             </div>
             <span style={{ fontFamily: 'var(--fd)', fontSize: '0.9rem', color: 'var(--gold)' }}>
@@ -361,35 +396,18 @@ export default function StablefordScoringApp({
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
             {formattedDate} &middot; {tournament.course}
           </div>
-          <span
-            className="badge badge-gold"
-            style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-          >
+          <span className="badge badge-gold" style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}>
             {tournament.format}
           </span>
         </div>
 
         {/* Player picker */}
         <div style={{ maxWidth: 480, margin: '0 auto', padding: '1.5rem 1.25rem' }}>
-          <div
-            style={{
-              fontFamily: 'var(--fd)',
-              fontSize: '1.25rem',
-              marginBottom: '0.35rem',
-            }}
-          >
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', marginBottom: '0.35rem' }}>
             Who&apos;s scoring?
           </div>
-          <p
-            style={{
-              fontSize: '0.82rem',
-              color: 'var(--text-muted)',
-              marginBottom: '1.25rem',
-              lineHeight: 1.5,
-            }}
-          >
-            Select your name to open your scorecard. You can also enter scores on behalf of
-            another player by switching names.
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+            Select your name to open your scorecard.
           </p>
 
           <input
@@ -402,10 +420,7 @@ export default function StablefordScoringApp({
           />
 
           {players.length === 0 ? (
-            <div
-              className="card"
-              style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}
-            >
+            <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏌️</div>
               <div style={{ fontSize: '0.9rem' }}>
                 No players have been added to this tournament yet. Contact the organizer.
@@ -420,15 +435,29 @@ export default function StablefordScoringApp({
               {filteredPlayers.map(p => {
                 const pScores = allScores.filter(s => s.playerId === p.id)
                 const hasScores = pScores.length > 0
-                const totalPts = hasScores
-                  ? pScores.reduce((sum, s) => {
+                const pCourseHcp = resolveHandicap(p, tournament, totalPar)
+                let displayVal = 0
+                if (hasScores) {
+                  if (isStableford) {
+                    displayVal = pScores.reduce((sum, s) => {
                       const hole = holes.find(h => h.number === s.holeNumber)
                       if (!hole) return sum
-                      return (
-                        sum + stablefordPoints(s.strokes, hole.par, hole.handicap, p.handicap, holes.length)
-                      )
+                      const received = getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+                      return sum + computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
                     }, 0)
-                  : 0
+                  } else {
+                    const netTotal = pScores.reduce((sum, s) => {
+                      const hole = holes.find(h => h.number === s.holeNumber)
+                      if (!hole) return sum
+                      return sum + s.strokes - getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+                    }, 0)
+                    const parSoFar = pScores.reduce((sum, s) => {
+                      const hole = holes.find(h => h.number === s.holeNumber)
+                      return sum + (hole?.par ?? 0)
+                    }, 0)
+                    displayVal = netTotal - parSoFar
+                  }
+                }
 
                 return (
                   <button
@@ -471,50 +500,33 @@ export default function StablefordScoringApp({
                         flexShrink: 0,
                       }}
                     >
-                      {p.name
-                        .split(' ')
-                        .map(n => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
+                      {p.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>{p.name}</div>
-                      <div
-                        style={{
-                          fontSize: '0.7rem',
-                          color: 'var(--text-dim)',
-                          fontFamily: 'var(--fm)',
-                          marginTop: '0.1rem',
-                        }}
-                      >
-                        HCP {p.handicap}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        {p.name}
+                        {p.handicapIndex == null && (
+                          <span title="No Handicap Index — treated as scratch" style={{ fontSize: '0.7rem', color: 'var(--over)', fontFamily: 'var(--fm)' }}>
+                            ⚠ scratch
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginTop: '0.1rem' }}>
+                        HCP {p.handicapIndex != null ? p.handicapIndex : p.handicap}
                         {hasScores ? ` · ${pScores.length}/${holes.length} holes` : ''}
                       </div>
                     </div>
                     {hasScores && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div
-                          style={{
-                            fontFamily: 'var(--fd)',
-                            fontSize: '1.1rem',
-                            color: 'var(--gold)',
-                          }}
-                        >
-                          {totalPts}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', color: isStableford ? 'var(--gold)' : (displayVal <= 0 ? '#4CAF50' : 'var(--over)') }}>
+                          {isStableford ? displayVal : fmtRelative(displayVal)}
                         </div>
-                        <div
-                          style={{
-                            fontSize: '0.6rem',
-                            color: 'var(--text-dim)',
-                            fontFamily: 'var(--fm)',
-                          }}
-                        >
-                          pts
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
+                          {isStableford ? 'pts' : 'net'}
                         </div>
                       </div>
                     )}
-                    <span style={{ fontSize: '1rem', color: 'var(--text-dim)' }}>›</span>
+                    <span style={{ fontSize: '1rem', color: 'var(--text-dim)', flexShrink: 0 }}>›</span>
                   </button>
                 )
               })}
@@ -531,6 +543,7 @@ export default function StablefordScoringApp({
                 leaderboard={leaderboard}
                 holes={holes}
                 highlightPlayerId={null}
+                isStableford={isStableford}
               />
             </div>
           )}
@@ -548,7 +561,7 @@ export default function StablefordScoringApp({
   const holeCount = holes.length
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', ...accentStyle }}>
       {/* Sticky top bar */}
       <div
         style={{
@@ -580,28 +593,21 @@ export default function StablefordScoringApp({
             flexShrink: 0,
           }}
         >
-          {selectedPlayer!.name
-            .split(' ')
-            .map(n => n[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()}
+          {selectedPlayer!.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              color: 'var(--text)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             {selectedPlayer!.name}
+            {hasNoHandicap && (
+              <span title="No Handicap Index — scoring as scratch" style={{ fontSize: '0.65rem', color: 'var(--over)', fontFamily: 'var(--fm)' }}>
+                ⚠
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
-            HCP {selectedPlayer!.handicap} &middot; {myTotalPts} pts
+            {isStableford
+              ? `${fmtPoints(myTotals.totalPts)} · HCP ${selectedCourseHandicap}`
+              : `Net ${fmtRelative(myNetRelative)} · HCP ${selectedCourseHandicap}`}
           </div>
         </div>
         <button
@@ -626,14 +632,7 @@ export default function StablefordScoringApp({
             {leagueName}
           </div>
         )}
-        <div
-          style={{
-            fontFamily: 'var(--fd)',
-            fontSize: '1.25rem',
-            color: 'var(--text)',
-            marginBottom: '0.25rem',
-          }}
-        >
+        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', color: 'var(--text)', marginBottom: '0.25rem' }}>
           {tournament.name}
         </div>
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -660,6 +659,27 @@ export default function StablefordScoringApp({
           </div>
         )}
 
+        {/* No handicap warning */}
+        {hasNoHandicap && (
+          <div
+            style={{
+              background: 'var(--over-dim)',
+              border: '1px solid var(--over-border)',
+              borderRadius: 4,
+              padding: '0.6rem 0.875rem',
+              marginBottom: '1rem',
+              fontSize: '0.78rem',
+              color: 'var(--over)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <span>⚠</span>
+            <span>No Handicap Index on file — scoring as scratch (0 handicap).</span>
+          </div>
+        )}
+
         {/* Scorecard */}
         <div
           style={{
@@ -674,102 +694,65 @@ export default function StablefordScoringApp({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '48px 1fr auto auto',
-              gap: '0.5rem',
+              gridTemplateColumns: '40px 1fr auto auto',
+              gap: '0.4rem',
               alignItems: 'center',
               padding: '0.6rem 0.75rem',
               background: 'var(--forest)',
               borderBottom: '1px solid var(--border)',
             }}
           >
-            <div
-              style={{
-                fontSize: '0.58rem',
-                color: 'rgba(240,237,230,0.5)',
-                fontFamily: 'var(--fm)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Hole
-            </div>
-            <div
-              style={{
-                fontSize: '0.58rem',
-                color: 'rgba(240,237,230,0.5)',
-                fontFamily: 'var(--fm)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Info
-            </div>
-            <div
-              style={{
-                fontSize: '0.58rem',
-                color: 'rgba(240,237,230,0.5)',
-                fontFamily: 'var(--fm)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                textAlign: 'center',
-                minWidth: 100,
-              }}
-            >
-              Strokes
-            </div>
-            <div
-              style={{
-                fontSize: '0.58rem',
-                color: 'rgba(240,237,230,0.5)',
-                fontFamily: 'var(--fm)',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                textAlign: 'right',
-                minWidth: 44,
-              }}
-            >
-              Pts
-            </div>
+            {['Hole', 'Info', 'Strokes', isStableford ? 'Pts' : 'Net'].map((h, i) => (
+              <div
+                key={h}
+                style={{
+                  fontSize: '0.58rem',
+                  color: 'rgba(240,237,230,0.5)',
+                  fontFamily: 'var(--fm)',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  textAlign: i >= 2 ? 'center' : 'left',
+                  minWidth: i === 2 ? 96 : i === 3 ? 36 : undefined,
+                }}
+              >
+                {h}
+              </div>
+            ))}
           </div>
 
           {/* Hole rows */}
           {holes.map((hole, idx) => {
-            const strokes = localScores[hole.number] ?? hole.par
-            const pts = stablefordPoints(
-              strokes,
-              hole.par,
-              hole.handicap,
-              selectedPlayer!.handicap,
-              holeCount
-            )
+            const gross = localScores[hole.number] ?? hole.par
+            const received = getStrokesReceived(hole.number)
+            const net = gross - received
+            const netRelative = net - hole.par
+            const pts = computeStablefordPoints(gross, hole.par, received, tournament.stablefordConfig)
             const isSaved = savedHoles.has(hole.number)
+
             const ptsColor =
-              pts >= 4
-                ? '#4CAF50'
-                : pts === 3
-                ? '#4CAF50'
-                : pts === 2
-                ? 'var(--text)'
-                : pts === 1
-                ? 'var(--text-dim)'
-                : 'var(--over)'
+              pts >= 5 ? '#4CAF50' :
+              pts >= 3 ? '#4CAF50' :
+              pts === 2 ? 'var(--text)' :
+              pts === 1 ? 'var(--text-dim)' :
+              'var(--over)'
+
+            const netColor = netRelative < 0 ? '#4CAF50' : netRelative > 0 ? 'var(--over)' : 'var(--text-muted)'
 
             return (
               <div
                 key={hole.number}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '48px 1fr auto auto',
-                  gap: '0.5rem',
+                  gridTemplateColumns: '40px 1fr auto auto',
+                  gap: '0.4rem',
                   alignItems: 'center',
                   padding: '0.5rem 0.75rem',
-                  borderBottom:
-                    idx < holes.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: idx < holes.length - 1 ? '1px solid var(--border)' : 'none',
                   background: isSaved ? 'transparent' : 'rgba(200,168,75,0.03)',
                 }}
               >
                 {/* Hole number */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
                   <div
                     style={{
                       width: 28,
@@ -784,6 +767,7 @@ export default function StablefordScoringApp({
                       fontFamily: 'var(--fm)',
                       color: isSaved ? 'var(--text-muted)' : 'var(--gold)',
                       fontWeight: 600,
+                      flexShrink: 0,
                     }}
                   >
                     {hole.number}
@@ -792,12 +776,12 @@ export default function StablefordScoringApp({
 
                 {/* Hole info */}
                 <div>
-                  <div
-                    style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}
-                  >
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
                     Par {hole.par}
                     {hole.yardage ? ` · ${hole.yardage}yd` : ''}
-                    {hole.handicap ? ` · HCP ${hole.handicap}` : ''}
+                    {received > 0 && (
+                      <span style={{ color: 'var(--gold)', marginLeft: '0.3rem' }}>+{received}hcp</span>
+                    )}
                   </div>
                 </div>
 
@@ -806,8 +790,7 @@ export default function StablefordScoringApp({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0',
-                    minWidth: 100,
+                    minWidth: 96,
                     justifyContent: 'center',
                   }}
                 >
@@ -840,7 +823,7 @@ export default function StablefordScoringApp({
                   </button>
                   <div
                     style={{
-                      width: 36,
+                      width: 32,
                       height: 32,
                       display: 'flex',
                       alignItems: 'center',
@@ -852,9 +835,15 @@ export default function StablefordScoringApp({
                       fontSize: '1rem',
                       fontWeight: 600,
                       color: 'var(--text)',
+                      flexDirection: 'column',
                     }}
                   >
-                    {strokes}
+                    <span>{gross}</span>
+                    {isStrokePlay && received > 0 && (
+                      <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', lineHeight: 1 }}>
+                        net {net}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() =>
@@ -885,23 +874,17 @@ export default function StablefordScoringApp({
                   </button>
                 </div>
 
-                {/* Stableford points */}
-                <div
-                  style={{
-                    textAlign: 'right',
-                    minWidth: 44,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--fd)',
-                      fontSize: '1.1rem',
-                      fontWeight: 600,
-                      color: ptsColor,
-                    }}
-                  >
-                    {pts}
-                  </span>
+                {/* Points or Net score */}
+                <div style={{ textAlign: 'center', minWidth: 36 }}>
+                  {isStableford ? (
+                    <span style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', fontWeight: 600, color: ptsColor }}>
+                      {pts}
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily: 'var(--fd)', fontSize: '1rem', fontWeight: 600, color: netColor }}>
+                      {fmtRelative(netRelative)}
+                    </span>
+                  )}
                 </div>
               </div>
             )
@@ -911,8 +894,8 @@ export default function StablefordScoringApp({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '48px 1fr auto auto',
-              gap: '0.5rem',
+              gridTemplateColumns: '40px 1fr auto auto',
+              gap: '0.4rem',
               alignItems: 'center',
               padding: '0.75rem',
               background: 'var(--forest)',
@@ -920,38 +903,26 @@ export default function StablefordScoringApp({
             }}
           >
             <div />
-            <div
-              style={{
-                fontSize: '0.72rem',
-                color: 'rgba(240,237,230,0.6)',
-                fontFamily: 'var(--fm)',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Total ({Object.keys(localScores).length}/{holeCount} holes)
+            <div style={{ fontSize: '0.72rem', color: 'rgba(240,237,230,0.6)', fontFamily: 'var(--fm)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              Total ({Object.keys(localScores).length}/{holeCount})
             </div>
-            <div style={{ minWidth: 100 }} />
-            <div style={{ textAlign: 'right', minWidth: 44 }}>
-              <span
-                style={{
-                  fontFamily: 'var(--fd)',
-                  fontSize: '1.25rem',
-                  fontWeight: 700,
-                  color: 'var(--gold)',
-                }}
-              >
-                {myTotalPts}
-              </span>
-              <div
-                style={{
-                  fontSize: '0.58rem',
-                  color: 'rgba(240,237,230,0.4)',
-                  fontFamily: 'var(--fm)',
-                }}
-              >
-                pts
-              </div>
+            <div style={{ minWidth: 96 }} />
+            <div style={{ textAlign: 'center', minWidth: 36 }}>
+              {isStableford ? (
+                <>
+                  <span style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 700, color: 'var(--gold)' }}>
+                    {myTotals.totalPts}
+                  </span>
+                  <div style={{ fontSize: '0.58rem', color: 'rgba(240,237,230,0.4)', fontFamily: 'var(--fm)' }}>pts</div>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 700, color: myNetRelative < 0 ? '#4CAF50' : myNetRelative > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                    {fmtRelative(myNetRelative)}
+                  </span>
+                  <div style={{ fontSize: '0.58rem', color: 'rgba(240,237,230,0.4)', fontFamily: 'var(--fm)' }}>net</div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -966,18 +937,15 @@ export default function StablefordScoringApp({
           {saving
             ? 'Saving...'
             : isDirty
-            ? `Save Scores (${fmtPoints(myTotalPts)})`
-            : `Scores Saved ✓ (${fmtPoints(myTotalPts)})`}
+            ? isStableford
+              ? `Save Scores (${fmtPoints(myTotals.totalPts)})`
+              : `Save Scores (Net ${fmtRelative(myNetRelative)})`
+            : isStableford
+            ? `Scores Saved ✓ (${fmtPoints(myTotals.totalPts)})`
+            : `Scores Saved ✓ (Net ${fmtRelative(myNetRelative)})`}
         </button>
         {isDirty && (
-          <div
-            style={{
-              fontSize: '0.72rem',
-              color: 'var(--text-dim)',
-              textAlign: 'center',
-              marginBottom: '1.5rem',
-            }}
-          >
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textAlign: 'center', marginBottom: '1.5rem' }}>
             Unsaved changes — tap Save to update the leaderboard
           </div>
         )}
@@ -988,15 +956,7 @@ export default function StablefordScoringApp({
             Live Leaderboard
           </div>
           {leaderboard.length === 0 ? (
-            <div
-              className="card"
-              style={{
-                textAlign: 'center',
-                padding: '1.5rem',
-                color: 'var(--text-muted)',
-                fontSize: '0.88rem',
-              }}
-            >
+            <div className="card" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
               Scores will appear here once players save their scorecards.
             </div>
           ) : (
@@ -1004,6 +964,7 @@ export default function StablefordScoringApp({
               leaderboard={leaderboard}
               holes={holes}
               highlightPlayerId={selectedPlayer?.id ?? null}
+              isStableford={isStableford}
             />
           )}
         </div>
@@ -1022,7 +983,11 @@ interface LeaderboardEntry {
   id: string
   name: string
   handicap: number
+  handicapIndex: number | null
   totalPts: number
+  totalGross: number
+  totalNet: number
+  netRelative: number
   holesCompleted: number
 }
 
@@ -1030,10 +995,12 @@ function LeaderboardSection({
   leaderboard,
   holes,
   highlightPlayerId,
+  isStableford,
 }: {
   leaderboard: LeaderboardEntry[]
   holes: HoleInfo[]
   highlightPlayerId: string | null
+  isStableford: boolean
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -1047,7 +1014,7 @@ function LeaderboardSection({
           padding: '0.4rem 0.75rem',
         }}
       >
-        {(['Pos', 'Player', 'Thru', 'Pts'] as const).map((h, i) => (
+        {(['Pos', 'Player', 'Thru', isStableford ? 'Pts' : 'Net'] as const).map((h, i) => (
           <div
             key={h}
             style={{
@@ -1100,22 +1067,8 @@ function LeaderboardSection({
                 fontSize: '0.72rem',
                 fontFamily: 'var(--fm)',
                 fontWeight: 700,
-                background:
-                  i === 0
-                    ? 'var(--gold)'
-                    : i === 1
-                    ? 'rgba(192,192,192,0.3)'
-                    : i === 2
-                    ? 'rgba(180,120,60,0.3)'
-                    : 'var(--surface2)',
-                color:
-                  i === 0
-                    ? '#0a120a'
-                    : i === 1
-                    ? '#d0d0d0'
-                    : i === 2
-                    ? '#c87830'
-                    : 'var(--text-dim)',
+                background: i === 0 ? 'var(--gold)' : i === 1 ? 'rgba(192,192,192,0.3)' : i === 2 ? 'rgba(180,120,60,0.3)' : 'var(--surface2)',
+                color: i === 0 ? '#0a120a' : i === 1 ? '#d0d0d0' : i === 2 ? '#c87830' : 'var(--text-dim)',
               }}
             >
               {i + 1}
@@ -1123,64 +1076,38 @@ function LeaderboardSection({
 
             {/* Player */}
             <div>
-              <div
-                style={{
-                  fontSize: '0.9rem',
-                  color: isMe ? 'var(--gold)' : 'var(--text)',
-                  fontWeight: isMe || isLeader ? 600 : 400,
-                }}
-              >
-                {entry.name}
-                {isMe && (
-                  <span
-                    style={{
-                      marginLeft: '0.4rem',
-                      fontSize: '0.6rem',
-                      fontFamily: 'var(--fm)',
-                      color: 'var(--gold)',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    (you)
-                  </span>
-                )}
+              <div style={{ fontSize: '0.9rem', color: isMe ? 'var(--gold)' : 'var(--text)', fontWeight: isMe || isLeader ? 600 : 400, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
+                {isMe && <span style={{ marginLeft: '0.2rem', fontSize: '0.6rem', fontFamily: 'var(--fm)', color: 'var(--gold)' }}>(you)</span>}
               </div>
               <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
-                HCP {entry.handicap}
+                HCP {entry.handicapIndex ?? entry.handicap}
+                {!isStableford && ` · gross ${entry.totalGross}`}
               </div>
             </div>
 
             {/* Holes */}
             <div style={{ textAlign: 'center' }}>
               {isFinished ? (
-                <span className="badge badge-gold" style={{ fontSize: '0.58rem' }}>
-                  F
-                </span>
+                <span className="badge badge-gold" style={{ fontSize: '0.58rem' }}>F</span>
               ) : (
-                <span
-                  style={{
-                    fontSize: '0.78rem',
-                    color: 'var(--text-muted)',
-                    fontFamily: 'var(--fm)',
-                  }}
-                >
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
                   {entry.holesCompleted}/{holes.length}
                 </span>
               )}
             </div>
 
-            {/* Points */}
+            {/* Score */}
             <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  fontFamily: 'var(--fd)',
-                  fontSize: '1.2rem',
-                  fontWeight: 600,
-                  color: isLeader ? 'var(--gold)' : 'var(--text)',
-                }}
-              >
-                {entry.totalPts}
-              </div>
+              {isStableford ? (
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '1.2rem', fontWeight: 600, color: isLeader ? 'var(--gold)' : 'var(--text)' }}>
+                  {entry.totalPts}
+                </div>
+              ) : (
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', fontWeight: 600, color: entry.netRelative < 0 ? '#4CAF50' : entry.netRelative > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                  {fmtRelative(entry.netRelative)}
+                </div>
+              )}
             </div>
           </div>
         )
