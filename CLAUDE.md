@@ -49,6 +49,7 @@ There is **no middleware.ts** — route protection is done at the page/layout le
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=       # Must be a long JWT (eyJ...), not sb_publishable_...
 NEXT_PUBLIC_SUPER_ADMIN_EMAIL=       # Email that bypasses league isolation
+NEXT_PUBLIC_APP_URL=                 # Canonical domain (e.g. https://links.getlotusai.com); used by lib/url.ts getBaseUrl()
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 ```
@@ -81,9 +82,10 @@ RESEND_FROM_EMAIL=
 
 ## Key Architecture Decisions
 
-- **Scramble format only** — one team score per group per hole
+- **Two scoring modes**: (1) Scramble — one team score per group per hole via chaperone at `/score/[groupId]`; (2) Stableford/individual — per-player per-hole scores via public token link at `/t/[token]` using `StablefordScoringApp`
 - **Chaperone auth** — group PIN only, no login. Direct URL: `/score/[groupId]`
-- **Scores** — upsert per-hole immediately (not full-card submit). UNIQUE on `(group_id, tournament_id, hole_number)`
+- **Scores** — upsert per-hole immediately (not full-card submit). Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
+- **Server Actions** — all DB mutations go through `lib/actions/*.ts` files marked `'use server'`. Pages/components import these directly (no separate API routes for mutations)
 - **Leaderboard** — Supabase Realtime + 15s polling fallback. Gated by `leaderboard_public` flag
 - **Player status flow**: `pre-registered` → `registered` → `checked_in`
 - **Group auto-generation** — respects mutual pairing preferences first, then one-way (stored in `pairing_preferences` table)
@@ -101,13 +103,13 @@ RESEND_FROM_EMAIL=
 `id`, `league_id` FK→leagues, `name`, `start_date`, `end_date`, `points_system` (default `fedex`)
 
 ### tournaments
-`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`
+`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`, `public_token` (uuid, auto-generated — used for `/t/[token]` scoring link)
 
 ### holes
 `id`, `tournament_id` FK, `hole_number`, `par`, `yardage` (nullable), `handicap` (nullable)
 
 ### players
-`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0), `skill_level`, `status` (pre-registered/registered/checked_in), `parent_name`, `parent_phone`, `willing_to_chaperone` (boolean), `registered_at`
+`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0), `skill_level`, `status` (pre-registered/registered/checked_in), `parent_name`, `parent_phone`, `parent_email`, `willing_to_chaperone` (boolean), `registered_at`
 
 ### groups
 `id`, `tournament_id` FK, `name`, `chaperone_name`, `chaperone_email`, `chaperone_phone`, `pin`, `starting_hole` (default 1), `tee_time`, `current_hole` (default 1), `status` (not_started/in_progress/completed)
@@ -116,8 +118,8 @@ RESEND_FROM_EMAIL=
 `group_id` FK→groups, `player_id` FK→players (junction table)
 
 ### scores
-`id`, `group_id` FK, `tournament_id` FK, `hole_number`, `strokes`, `entered_by`, `submitted_at`
-UNIQUE constraint on `(group_id, tournament_id, hole_number)`
+`id`, `group_id` FK (nullable — null for individual scores), `player_id` FK→players (nullable — null for scramble scores), `tournament_id` FK, `hole_number`, `strokes`, `entered_by`, `submitted_at`
+Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
 
 ### pairing_preferences
 `id`, `tournament_id` FK, `player_id` FK, `preferred_player_id` FK
@@ -126,16 +128,19 @@ UNIQUE on `(player_id, preferred_player_id)`
 ## Route Map
 
 ```
-(admin)/login            → Google OAuth
-(admin)/dashboard        → league list
+(admin)/login                → Google OAuth
+(admin)/dashboard            → league list
 (admin)/dashboard/leagues/[leagueId]
-  /tournaments/[id]      → overview tabs: Holes, Players, Groups, Scores
-(chaperone)/score/[groupId]  → PIN-gated mobile score entry
+  /tournaments/[id]          → overview tabs: Holes, Players, Groups, Scores
+(chaperone)/score/[groupId]  → PIN-gated mobile scramble score entry
+/t/[token]                   → public token-based Stableford/individual scoring (StablefordScoringApp)
 /register/[tournamentId]     → public player registration (no auth)
 /leaderboard/[tournamentId]  → public live leaderboard
 /api/auth/callback           → OAuth code exchange
 /api/email/send-scoring-link → Resend email trigger
 ```
+
+Migrations live in `supabase/migrations/` — numbered sequentially (001–009). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
 
 ## Pre-Launch TODO
 
