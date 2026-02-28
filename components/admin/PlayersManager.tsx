@@ -29,6 +29,8 @@ export default function PlayersManager({
   const [showCsv, setShowCsv] = useState(false)
   const [newName, setNewName] = useState('')
   const [newGrade, setNewGrade] = useState('')
+  const [newHandicapIndex, setNewHandicapIndex] = useState('')
+  const [newSkillLevel, setNewSkillLevel] = useState('')
   const [bulkText, setBulkText] = useState('')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'grade' | 'status'>('name')
@@ -74,9 +76,19 @@ export default function PlayersManager({
     setError(null)
     startTransition(async () => {
       try {
-        await addPlayer(tournamentId, newName, newGrade)
+        if (isWish) {
+          await addPlayer(tournamentId, newName, newGrade)
+        } else {
+          const hdcpIdx = newHandicapIndex !== '' ? parseFloat(newHandicapIndex) : null
+          await addPlayer(tournamentId, newName, undefined, {
+            handicap_index: hdcpIdx != null && !isNaN(hdcpIdx) ? hdcpIdx : null,
+            skill_level: newSkillLevel || null,
+          })
+        }
         setNewName('')
         setNewGrade('')
+        setNewHandicapIndex('')
+        setNewSkillLevel('')
         setShowAdd(false)
         setSuccess('Player added')
         setTimeout(() => setSuccess(null), 2000)
@@ -205,7 +217,7 @@ export default function PlayersManager({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', marginBottom: '0.25rem' }}>
-              Parent Registration Link
+              {isWish ? 'Parent Registration Link' : 'Registration Link'}
             </div>
             <div
               style={{
@@ -318,24 +330,58 @@ export default function PlayersManager({
               <div className="label">Full Name</div>
               <input
                 className="input"
-                placeholder="Student name"
+                placeholder="Player name"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 autoFocus
               />
             </div>
-            <div>
-              <div className="label">Grade (optional)</div>
-              <input
-                className="input"
-                placeholder="e.g. 5th"
-                value={newGrade}
-                onChange={e => setNewGrade(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAdd()}
-              />
-            </div>
+            {isWish ? (
+              <div>
+                <div className="label">Grade (optional)</div>
+                <input
+                  className="input"
+                  placeholder="e.g. 5th"
+                  value={newGrade}
+                  onChange={e => setNewGrade(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+              </div>
+            ) : (
+              <div>
+                <div className="label">Handicap Index (optional)</div>
+                <input
+                  className="input"
+                  type="number"
+                  min="-10"
+                  max="54"
+                  step="0.1"
+                  placeholder="e.g. 12.4"
+                  value={newHandicapIndex}
+                  onChange={e => setNewHandicapIndex(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+              </div>
+            )}
           </div>
+          {!isWish && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div className="label">Skill Level (optional)</div>
+              <select
+                className="input"
+                value={newSkillLevel}
+                onChange={e => setNewSkillLevel(e.target.value)}
+                style={{ width: '100%' }}
+              >
+                <option value="">— Select skill level —</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-gold" onClick={handleAdd} disabled={isPending}>
               {isPending ? 'Adding...' : 'Add Player'}
@@ -424,7 +470,7 @@ export default function PlayersManager({
                     'Player',
                     isWish ? 'Grade' : 'Hdcp / Skill',
                     'Status',
-                    'Parent',
+                    ...(isWish ? ['Parent'] : []),
                     'Pairings',
                     '',
                   ].map(h => (
@@ -496,7 +542,7 @@ export default function PlayersManager({
                           </div>
                         )}
                       </td>
-                      <td colSpan={4} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                      <td colSpan={isWish ? 4 : 3} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
                           <button
                             className="btn btn-gold btn-sm"
@@ -588,23 +634,25 @@ export default function PlayersManager({
                           )}
                         </div>
                       </td>
-                      <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        <div>{p.parent_name || '—'}</div>
-                        {p.registration_comments && (
-                          <div style={{
-                            fontSize: '0.72rem',
-                            color: 'var(--gold)',
-                            fontFamily: 'var(--fm)',
-                            marginTop: '0.2rem',
-                            maxWidth: 180,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }} title={p.registration_comments}>
-                            💬 {p.registration_comments}
-                          </div>
-                        )}
-                      </td>
+                      {isWish && (
+                        <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          <div>{p.parent_name || '—'}</div>
+                          {p.registration_comments && (
+                            <div style={{
+                              fontSize: '0.72rem',
+                              color: 'var(--gold)',
+                              fontFamily: 'var(--fm)',
+                              marginTop: '0.2rem',
+                              maxWidth: 180,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }} title={p.registration_comments}>
+                              💬 {p.registration_comments}
+                            </div>
+                          )}
+                        </td>
+                      )}
                       <td style={{ padding: '0.65rem 0.75rem' }}>
                         {(prefCountMap.get(p.id) ?? 0) > 0 ? (
                           <span className="badge badge-blue">
