@@ -67,9 +67,21 @@ async function fetchTournamentContext(tournamentId: string): Promise<string> {
   try {
     const supabase = await createClient()
 
+    type GroupRow = {
+      id: string
+      name: string
+      tee_time: string | null
+      starting_hole: number | null
+      chaperone_name: string | null
+      current_hole: number | null
+      status: string | null
+      group_players: Array<{ player_id: string; players: { name: string } | null }>
+    }
+
     const [
       { data: tournament },
       { data: groups },
+      { data: players },
       { data: scores },
       { data: holes },
     ] = await Promise.all([
@@ -80,9 +92,14 @@ async function fetchTournamentContext(tournamentId: string): Promise<string> {
         .single(),
       supabase
         .from('groups')
-        .select('id, name, tee_time, current_hole, status')
+        .select('id, name, tee_time, starting_hole, chaperone_name, current_hole, status, group_players(player_id, players(name))')
         .eq('tournament_id', tournamentId)
-        .order('tee_time', { nullsFirst: false }),
+        .order('tee_time', { nullsFirst: false }) as unknown as Promise<{ data: GroupRow[] | null }>,
+      supabase
+        .from('players')
+        .select('id, name, handicap, skill_level, grade')
+        .eq('tournament_id', tournamentId)
+        .order('name'),
       supabase
         .from('scores')
         .select('group_id, player_id, hole_number, strokes')
@@ -97,66 +114,122 @@ async function fetchTournamentContext(tournamentId: string): Promise<string> {
     if (!tournament) return 'No tournament context available.'
 
     const totalPar = (holes ?? []).reduce((s, h) => s + h.par, 0)
+    const groupList = groups ?? []
+    const playerList = players ?? []
+    const scoreList = scores ?? []
 
-    let ctx = `Tournament: ${tournament.name}\n`
-    ctx += `Format: ${tournament.format}\n`
-    ctx += `Date: ${new Date(tournament.date + 'T12:00:00').toLocaleDateString('en-US', {
+    // ── Header ──
+    let ctx = `TOURNAMENT: ${tournament.name}\n`
+    ctx += `DATE: ${new Date(tournament.date + 'T12:00:00').toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     })}\n`
-    ctx += `Course: ${tournament.course}\n`
-    ctx += `Holes: ${tournament.holes}, Total Par: ${totalPar || 'N/A'}\n`
+    ctx += `COURSE: ${tournament.course}\n`
+    ctx += `FORMAT: ${tournament.format}\n`
+    ctx += `HOLES: ${tournament.holes} | PAR: ${totalPar || 'N/A'}\n`
 
     if (tournament.slope_rating) {
-      ctx += `Course Slope: ${tournament.slope_rating}, Course Rating: ${tournament.course_rating ?? 'N/A'}\n`
+      ctx += `Course Slope: ${tournament.slope_rating} | Course Rating: ${tournament.course_rating ?? 'N/A'}\n`
     }
 
     if (tournament.stableford_points_config) {
       const p = tournament.stableford_points_config as Record<string, number>
-      ctx += `\nStableford Points:\n`
-      ctx += `  Double bogey or worse: ${p.double_bogey_or_worse ?? 0} pts\n`
-      ctx += `  Bogey: ${p.bogey ?? 1} pts\n`
-      ctx += `  Par: ${p.par ?? 3} pts\n`
-      ctx += `  Birdie: ${p.birdie ?? 5} pts\n`
-      ctx += `  Eagle: ${p.eagle ?? 10} pts\n`
-      ctx += `  Albatross: ${p.albatross ?? 20} pts\n`
+      ctx += `STABLEFORD POINTS: double bogey or worse=${p.double_bogey_or_worse ?? 0}, bogey=${p.bogey ?? 1}, par=${p.par ?? 3}, birdie=${p.birdie ?? 5}, eagle=${p.eagle ?? 10}, albatross=${p.albatross ?? 20}\n`
     }
 
-    // Tee times
-    const withTimes = (groups ?? []).filter(g => g.tee_time)
+    // ── Players ──
+    ctx += `\nPLAYERS (${playerList.length} total):\n`
+    if (playerList.length <= 30) {
+      for (const p of playerList) {
+        const details: string[] = []
+        if (p.grade) details.push(`Grade ${p.grade}`)
+        if (p.skill_level) details.push(p.skill_level)
+        if (p.handicap != null && p.handicap > 0) details.push(`HCP ${p.handicap}`)
+        ctx += `- ${p.name}${details.length ? ` (${details.join(', ')})` : ''}\n`
+      }
+    } else {
+      ctx += `(${playerList.length} players registered)\n`
+    }
+
+    // ── Groups & Pairings ──
+    if (groupList.length > 0) {
+      ctx += `\nGROUPS & PAIRINGS:\n`
+      for (const g of groupList) {
+        const memberNames = (g.group_players ?? [])
+          .map(gp => gp.players?.name)
+          .filter((n): n is string => Boolean(n))
+          .join(', ')
+
+        const meta: string[] = []
+        if (g.tee_time) {
+          meta.push(`Tee: ${new Date(g.tee_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`)
+        }
+        if (g.starting_hole) meta.push(`Hole ${g.starting_hole}`)
+        const chaperone = g.chaperone_name ? ` | Chaperone: ${g.chaperone_name}` : ''
+        const metaStr = meta.length ? ` (${meta.join(', ')})` : ''
+
+        ctx += `- ${g.name}${metaStr}: ${memberNames || 'No players assigned'}${chaperone}\n`
+      }
+    }
+
+    // ── Tee Times (sorted, dedicated section for easy lookup) ──
+    const withTimes = groupList.filter(g => g.tee_time)
     if (withTimes.length > 0) {
-      ctx += `\nTee Times:\n`
-      for (const g of withTimes.slice(0, 12)) {
-        const t = new Date(g.tee_time!).toLocaleTimeString('en-US', {
-          hour: 'numeric', minute: '2-digit', hour12: true,
-        })
-        ctx += `  ${g.name}: ${t}\n`
+      ctx += `\nTEE TIMES:\n`
+      for (const g of withTimes) {
+        const t = new Date(g.tee_time!).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+        ctx += `- ${g.name}: ${t} (starting hole ${g.starting_hole ?? 1})\n`
       }
     }
 
-    // Live leaderboard (group totals)
-    if ((scores ?? []).length > 0 && (groups ?? []).length > 0) {
+    // ── Leaderboard ──
+    if (scoreList.length > 0) {
+      // Scramble: scores keyed by group_id (player_id is null)
       const byGroup = new Map<string, number>()
-      for (const s of scores ?? []) {
-        if (s.group_id) byGroup.set(s.group_id, (byGroup.get(s.group_id) ?? 0) + s.strokes)
-      }
-      const ranked = (groups ?? [])
-        .filter(g => byGroup.has(g.id))
-        .map(g => ({ name: g.name, total: byGroup.get(g.id)!, hole: g.current_hole ?? 1 }))
-        .sort((a, b) => a.total - b.total)
-        .slice(0, 5)
+      // Individual: scores keyed by player_id
+      const byPlayer = new Map<string, number>()
 
-      if (ranked.length > 0) {
-        ctx += `\nCurrent Leaderboard (Top 5):\n`
+      for (const s of scoreList) {
+        if (s.group_id && !s.player_id) {
+          byGroup.set(s.group_id, (byGroup.get(s.group_id) ?? 0) + s.strokes)
+        } else if (s.player_id) {
+          byPlayer.set(s.player_id, (byPlayer.get(s.player_id) ?? 0) + s.strokes)
+        }
+      }
+
+      if (byGroup.size > 0) {
+        const ranked = groupList
+          .filter(g => byGroup.has(g.id))
+          .map(g => ({ name: g.name, total: byGroup.get(g.id)!, hole: g.current_hole ?? 1 }))
+          .sort((a, b) => a.total - b.total)
+          .slice(0, 10)
+
+        ctx += `\nLEADERBOARD (scoring in progress):\n`
         ranked.forEach((r, i) => {
           const diff = totalPar > 0 ? r.total - totalPar : null
-          const par = diff === null ? '' : ` (${diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`})`
-          ctx += `  ${i + 1}. ${r.name} — ${r.total} strokes${par}, through hole ${r.hole}\n`
+          const rel = diff === null ? '' : ` (${diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`})`
+          ctx += `${i + 1}. ${r.name} — ${r.total} strokes${rel}, through hole ${r.hole}\n`
+        })
+      } else if (byPlayer.size > 0) {
+        const playerMap = new Map(playerList.map(p => [p.id, p.name]))
+        const ranked = Array.from(byPlayer.entries())
+          .map(([id, total]) => ({ name: playerMap.get(id) ?? 'Unknown', total }))
+          .sort((a, b) => a.total - b.total)
+          .slice(0, 10)
+
+        ctx += `\nLEADERBOARD (scoring in progress):\n`
+        ranked.forEach((r, i) => {
+          const diff = totalPar > 0 ? r.total - totalPar : null
+          const rel = diff === null ? '' : ` (${diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`})`
+          ctx += `${i + 1}. ${r.name} — ${r.total} strokes${rel}\n`
         })
       }
+    } else {
+      ctx += `\nLEADERBOARD: Scoring has not started yet.\n`
     }
 
     return ctx
-  } catch {
+  } catch (err) {
+    console.error('[chat] fetchTournamentContext error:', err)
     return 'Tournament context temporarily unavailable.'
   }
 }
@@ -173,6 +246,13 @@ You are strictly limited to the following topics:
 - Information about the current tournament (use the context provided below)
 - Tee times and pairings for the current tournament
 - Leaderboard and scoring questions for the current tournament
+
+You have access to the complete player list, group pairings, tee times, and current leaderboard in the context below. Use this data to answer specific questions:
+- "Who is [name] paired with?" → find their group in GROUPS & PAIRINGS and list the other players in that group
+- "How many players are in the tournament?" → report the count from the PLAYERS section
+- "When does [group] tee off?" → find their entry in TEE TIMES or GROUPS & PAIRINGS
+- "Who is leading?" → report standings from the LEADERBOARD section
+If a player or group name is not found in the data, say so clearly rather than guessing.
 
 If a user asks about anything outside of golf or this tournament, respond:
 "I'm set up to help with golf scoring and this tournament. For anything else, please ask a tournament official or league admin!"
