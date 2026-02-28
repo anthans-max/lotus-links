@@ -165,6 +165,13 @@ export default function RegistrationForm({
     }
   })()
 
+  const calendarUrl = (() => {
+    const d = tournament.date.replace(/-/g, '')
+    const title = encodeURIComponent(tournament.name)
+    const location = encodeURIComponent(tournament.course)
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${d}/${d}&location=${location}`
+  })()
+
   // ─── Confirmation screen ──────────────────────────────────────────────────────
   if (step === 'done') {
     return (
@@ -229,6 +236,16 @@ export default function RegistrationForm({
             }}
           >
             View Tournament Details &rarr;
+          </a>
+
+          <a
+            href={calendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline"
+            style={{ width: '100%', marginBottom: '1rem' }}
+          >
+            Add to Google Calendar
           </a>
 
           <PoweredByFooter />
