@@ -175,6 +175,7 @@ export default function StablefordScoringApp({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [confetti, setConfetti] = useState<ConfettiItem[]>([])
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [useGross, setUseGross] = useState(false)
 
   // ─── Theme ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -319,21 +320,21 @@ export default function StablefordScoringApp({
   const getPlayerPts = useCallback((playerId: string, holeNumber: number): number => {
     const hole = holes.find(h => h.number === holeNumber)
     if (!hole) return 0
-    const received = getPlayerStrokesOnHole(playerId, holeNumber)
+    const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, holeNumber)
     const strokes = allDraftScores[playerId]?.[holeNumber] ?? hole.par
     return computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
-  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig])
+  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross])
 
   const getPlayerRunningTotal = useCallback((playerId: string): number => {
     let pts = 0
     for (const hole of holes) {
       const strokes = allDraftScores[playerId]?.[hole.number]
       if (strokes === undefined) continue
-      const received = getPlayerStrokesOnHole(playerId, hole.number)
+      const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, hole.number)
       pts += computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
     }
     return pts
-  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig])
+  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross])
 
   // ─── Stableford group: set score ───────────────────────────────────────────
   const setPlayerScore = useCallback((playerId: string, holeNumber: number, strokes: number) => {
@@ -472,7 +473,7 @@ export default function StablefordScoringApp({
         pScores.forEach(s => {
           const hole = holes.find(h => h.number === s.holeNumber)
           if (!hole) return
-          const received = getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+          const received = useGross ? 0 : getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
           totalGross += s.strokes
           totalNet += s.strokes - received
           totalPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
@@ -488,7 +489,7 @@ export default function StablefordScoringApp({
         if (a.netRelative !== b.netRelative) return a.netRelative - b.netRelative
         return b.holesCompleted - a.holesCompleted
       })
-  }, [players, allScores, holes, tournament, totalPar, isStableford])
+  }, [players, allScores, holes, tournament, totalPar, isStableford, useGross])
 
   // ─── Icons & StatusBar ─────────────────────────────────────────────────────
   const SunIcon = () => (
@@ -565,6 +566,25 @@ export default function StablefordScoringApp({
           <span className="badge badge-gold" style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}>
             {tournament.format}
           </span>
+
+          {isStableford && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
+              <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
+                <button
+                  onClick={() => setUseGross(false)}
+                  style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: !useGross ? 'var(--gold)' : 'transparent', color: !useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+                >
+                  Net (Handicap)
+                </button>
+                <button
+                  onClick={() => setUseGross(true)}
+                  style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--gold-border)', background: useGross ? 'var(--gold)' : 'transparent', color: useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+                >
+                  Gross
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Player picker */}
@@ -608,7 +628,7 @@ export default function StablefordScoringApp({
                     displayVal = pScores.reduce((sum, s) => {
                       const hole = holes.find(h => h.number === s.holeNumber)
                       if (!hole) return sum
-                      const received = getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+                      const received = useGross ? 0 : getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
                       return sum + computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
                     }, 0)
                   } else {
@@ -833,6 +853,24 @@ export default function StablefordScoringApp({
       <div className={phoneClass} style={accentStyle}>
         <StatusBar />
 
+        {/* Gross/Net toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
+            <button
+              onClick={() => setUseGross(false)}
+              style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: !useGross ? 'var(--gold)' : 'transparent', color: !useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+            >
+              Net (Handicap)
+            </button>
+            <button
+              onClick={() => setUseGross(true)}
+              style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--gold-border)', background: useGross ? 'var(--gold)' : 'transparent', color: useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+            >
+              Gross
+            </button>
+          </div>
+        </div>
+
         {/* Progress bar + hole counter */}
         <div style={{ padding: '0.6rem 1.25rem 0.5rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
@@ -936,7 +974,7 @@ export default function StablefordScoringApp({
                         {player.name.split(' ')[0]}
                         {isScorer && <span style={{ fontSize: '0.56rem', fontFamily: 'var(--fm)', color: 'var(--gold)', marginLeft: '0.3rem' }}>(you)</span>}
                       </div>
-                      {received > 0 && (
+                      {received > 0 && !useGross && (
                         <div style={{ fontSize: '0.6rem', color: 'var(--gold)', fontFamily: 'var(--fm)', marginTop: '0.05rem', lineHeight: 1 }}>
                           +{received}hcp
                         </div>

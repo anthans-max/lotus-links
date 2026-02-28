@@ -106,6 +106,7 @@ export default function LiveLeaderboard({
   const isCompleted = tournament.status === 'completed'
   const [showConfetti, setShowConfetti] = useState(false)
   const confettiShown = useRef(false)
+  const [useGross, setUseGross] = useState(false)
 
   const isStableford = tournament.format === 'Stableford'
   const isIndividual = tournament.format === 'Stableford' || tournament.format === 'Stroke Play'
@@ -231,7 +232,8 @@ export default function LiveLeaderboard({
     return players.map(p => {
       const pScores = playerScores.filter(s => s.playerId === p.id)
       const pCourseHcp = resolveHandicap(p, tournament, totalPar)
-      let totalPts = 0
+      let netPts = 0
+      let grossPts = 0
       let totalGross = 0
       let totalNet = 0
 
@@ -241,14 +243,18 @@ export default function LiveLeaderboard({
         const received = getStrokesOnHole(pCourseHcp, hole.strokeIndex ?? null, holes.length)
         totalGross += s.strokes
         totalNet += s.strokes - received
-        totalPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
+        netPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
+        grossPts += computeStablefordPoints(s.strokes, hole.par, 0, tournament.stablefordConfig)
       })
 
       const netRelative = totalNet - totalPar
+      const totalPts = useGross ? grossPts : netPts
 
       return {
         ...p,
         totalPts,
+        netPts,
+        grossPts,
         totalGross,
         totalNet,
         netRelative,
@@ -264,7 +270,7 @@ export default function LiveLeaderboard({
         if (a.netRelative !== b.netRelative) return a.netRelative - b.netRelative
         return b.holesCompleted - a.holesCompleted
       })
-  }, [players, playerScores, holes, tournament, totalPar, isIndividual, isStableford])
+  }, [players, playerScores, holes, tournament, totalPar, isIndividual, isStableford, useGross])
 
   const notStartedGroups = groups.filter(g => {
     const hasScores = groupScores.some(s => s.groupId === g.id)
@@ -357,6 +363,25 @@ export default function LiveLeaderboard({
             </span>
           )}
         </div>
+
+        {isStableford && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
+            <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
+              <button
+                onClick={() => setUseGross(false)}
+                style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: !useGross ? 'var(--gold)' : 'transparent', color: !useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+              >
+                Net (Handicap)
+              </button>
+              <button
+                onClick={() => setUseGross(true)}
+                style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--gold-border)', background: useGross ? 'var(--gold)' : 'transparent', color: useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+              >
+                Gross
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Leaderboard table */}
@@ -410,6 +435,11 @@ export default function LiveLeaderboard({
         ) : isIndividual ? (
           /* ─── Individual player leaderboard ─────────────────────────── */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {isStableford && (
+              <div style={{ textAlign: 'center', fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.75rem' }}>
+                {useGross ? 'Gross Leaderboard (No Handicap)' : 'Net Leaderboard (Handicap Adjusted)'}
+              </div>
+            )}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '36px 1fr 60px 70px',
@@ -464,6 +494,8 @@ export default function LiveLeaderboard({
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
                       HCP {entry.handicapIndex ?? entry.handicap}
                       {!isStableford && ` · gross ${entry.totalGross}`}
+                      {isStableford && useGross && entry.netPts !== entry.grossPts && <span style={{ marginLeft: '0.3rem' }}>· {entry.netPts} net</span>}
+                      {isStableford && !useGross && entry.netPts !== entry.grossPts && <span style={{ marginLeft: '0.3rem' }}>· {entry.grossPts} gross</span>}
                     </div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
