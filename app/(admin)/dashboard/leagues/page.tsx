@@ -36,6 +36,7 @@ export default async function LeaguesPage() {
     admin_email: l.admin_email,
     logo_url: l.logo_url,
     primary_color: l.primary_color,
+    league_type: l.league_type ?? 'standard',
     created_at: l.created_at,
     updated_at: l.updated_at,
     tournamentCount: Array.isArray(l.tournaments) ? l.tournaments.length : 0,

@@ -31,10 +31,10 @@ export default async function RegisterPage({ params }: Props) {
     return <ClosedView tournamentName={tournament.name} />
   }
 
-  // Fetch league for branding
+  // Fetch league for branding and WISH gating
   const { data: league } = await supabase
     .from('leagues')
-    .select('name, primary_color')
+    .select('name, primary_color, league_type')
     .eq('id', tournament.league_id)
     .single()
 
@@ -44,6 +44,8 @@ export default async function RegisterPage({ params }: Props) {
     .select('id, name, grade, status')
     .eq('tournament_id', tournamentId)
     .order('name')
+
+  const isWish = league?.league_type === 'wish'
 
   return (
     <RegistrationForm
@@ -57,6 +59,7 @@ export default async function RegisterPage({ params }: Props) {
       leagueName={league?.name ?? ''}
       leagueColor={league?.primary_color ?? undefined}
       players={players ?? []}
+      isWish={isWish}
     />
   )
 }

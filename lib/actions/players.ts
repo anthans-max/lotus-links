@@ -70,7 +70,7 @@ export async function bulkAddPlayers(
 
 export async function updatePlayer(
   playerId: string,
-  updates: { name?: string; grade?: string | null; handicap?: number; skill_level?: string | null }
+  updates: { name?: string; grade?: string | null; handicap?: number; handicap_index?: number | null; skill_level?: string | null }
 ) {
   const supabase = await createClient()
 
@@ -78,6 +78,7 @@ export async function updatePlayer(
   if (updates.name !== undefined) cleaned.name = updates.name.trim()
   if (updates.grade !== undefined) cleaned.grade = updates.grade?.trim() || null
   if (updates.handicap !== undefined) cleaned.handicap = updates.handicap
+  if (updates.handicap_index !== undefined) cleaned.handicap_index = updates.handicap_index
   if (updates.skill_level !== undefined) cleaned.skill_level = updates.skill_level?.trim() || null
 
   const { error } = await supabase

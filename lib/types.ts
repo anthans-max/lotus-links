@@ -80,6 +80,7 @@ export interface League {
   admin_email: string
   logo_url: string | null
   primary_color: string
+  league_type: string   // 'standard' | 'wish'
   created_at: string
   updated_at: string
 }
@@ -133,12 +134,14 @@ export interface Player {
   name: string
   grade?: string | null
   handicap: number
+  handicap_index: number | null
   skill_level: string | null
   status: 'pre-registered' | 'registered' | 'checked_in'
   parent_name: string | null
   parent_phone: string | null
   parent_email: string | null
   willing_to_chaperone: boolean
+  registration_comments: string | null
   registered_at: string | null
   created_at: string
 }

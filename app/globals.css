@@ -262,6 +262,20 @@ select.input { cursor: pointer; }
 
 /* ─── Chaperone: phone shell ────────────────────────────────────────────────── */
 .phone { max-width: 390px; margin: 0 auto; min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; position: relative; overflow: hidden; }
+
+/* ─── Scoring page: light mode — overrides CSS vars within .phone scope only ── */
+.phone.light-mode {
+  --bg:          #f4f1e8;
+  --surface:     #ffffff;
+  --surface2:    #ede9dd;
+  --surface3:    #e2ddd0;
+  --border:      rgba(0,0,0,0.08);
+  --border2:     rgba(0,0,0,0.14);
+  --text:        #1c1a14;
+  --text-muted:  rgba(28,26,20,0.62);
+  --text-dim:    rgba(28,26,20,0.38);
+  background: var(--bg);
+}
 .tap { -webkit-tap-highlight-color: transparent; cursor: pointer; user-select: none; }
 
 /* ─── Chaperone: score stepper ──────────────────────────────────────────────── */

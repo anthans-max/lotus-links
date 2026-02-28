@@ -24,6 +24,7 @@ interface RegistrationFormProps {
   leagueName: string
   leagueColor?: string
   players: PlayerInfo[]
+  isWish?: boolean
 }
 
 type Step = 'select' | 'pairings' | 'contact' | 'done'
@@ -33,6 +34,7 @@ export default function RegistrationForm({
   leagueName,
   leagueColor,
   players: initialPlayers,
+  isWish = false,
 }: RegistrationFormProps) {
   const accentStyle = leagueColor
     ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties)
@@ -58,6 +60,8 @@ export default function RegistrationForm({
   const [parentPhone, setParentPhone] = useState('')
   const [parentEmail, setParentEmail] = useState('')
   const [willingToChaperone, setWillingToChaperone] = useState(false)
+  const [comments, setComments] = useState('')
+  const COMMENTS_MAX = 500
 
   const [error, setError] = useState<string | null>(null)
 
@@ -138,6 +142,7 @@ export default function RegistrationForm({
           parentEmail,
           pairingPreferences: pairingPrefs,
           willingToChaperone,
+          registrationComments: isWish ? comments : undefined,
         })
         setStep('done')
       } catch (e) {
@@ -211,6 +216,26 @@ export default function RegistrationForm({
               {tournament.format} Format
             </div>
           </div>
+
+          <a
+            href={`/leaderboard/${tournament.id}`}
+            className="btn"
+            style={{
+              width: '100%',
+              marginBottom: '0.75rem',
+              background: 'var(--forest)',
+              color: '#f0ede6',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              fontFamily: 'var(--fd)',
+              letterSpacing: '0.02em',
+              textTransform: 'none',
+              fontWeight: 500,
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            View Tournament Page &rarr;
+          </a>
 
           <a
             href={calendarUrl}
@@ -732,6 +757,35 @@ export default function RegistrationForm({
                 </div>
               </button>
             </div>
+
+            {/* WISH-only: special requests / comments */}
+            {isWish && (
+              <div style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.3s ease 0.15s both' }}>
+                <div className="label">
+                  Special Requests or Preferences{' '}
+                  <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span>
+                </div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  maxLength={COMMENTS_MAX}
+                  placeholder="e.g. earlier tee time preferred, mobility considerations, etc."
+                  value={comments}
+                  onChange={e => setComments(e.target.value)}
+                  style={{ resize: 'none', fontSize: '0.95rem', lineHeight: 1.6 }}
+                />
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  fontSize: '0.68rem',
+                  fontFamily: 'var(--fm)',
+                  color: comments.length > COMMENTS_MAX * 0.9 ? 'var(--over)' : 'var(--text-dim)',
+                  marginTop: '0.25rem',
+                }}>
+                  {comments.length} / {COMMENTS_MAX}
+                </div>
+              </div>
+            )}
 
             {/* Summary */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>

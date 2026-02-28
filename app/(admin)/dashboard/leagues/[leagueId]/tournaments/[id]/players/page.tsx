@@ -23,7 +23,7 @@ export default async function PlayersPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: players }] = await Promise.all([
-    supabase.from('leagues').select('id, name, primary_color').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color, league_type').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
   ])
@@ -37,6 +37,7 @@ export default async function PlayersPage({ params }: Props) {
     .eq('tournament_id', id)
 
   const accentColor = (league as any).primary_color || '#1a5c2a'
+  const isWish = (league as any).league_type === 'wish'
 
   return (
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
@@ -51,6 +52,7 @@ export default async function PlayersPage({ params }: Props) {
         leagueId={leagueId}
         players={players ?? []}
         pairingPrefs={pairingPrefs ?? []}
+        isWish={isWish}
       />
     </div>
   )

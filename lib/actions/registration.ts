@@ -10,6 +10,7 @@ export async function registerPlayers(data: {
   parentEmail?: string
   pairingPreferences: Record<string, string[]> // playerId -> preferred player IDs
   willingToChaperone?: boolean
+  registrationComments?: string
 }) {
   const supabase = await createClient()
 
@@ -24,6 +25,7 @@ export async function registerPlayers(data: {
         parent_email: data.parentEmail?.trim() || null,
         registered_at: new Date().toISOString(),
         willing_to_chaperone: data.willingToChaperone ?? false,
+        registration_comments: data.registrationComments?.trim() || null,
       })
       .eq('id', playerId)
 

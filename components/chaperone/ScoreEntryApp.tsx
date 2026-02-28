@@ -84,6 +84,25 @@ export default function ScoreEntryApp({
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [confetti, setConfetti] = useState<{ id: number; left: string; color: string; delay: string; size: string }[]>([])
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('scoringTheme')
+      if (saved === 'light' || saved === 'dark') setTheme(saved)
+    } catch { /* localStorage unavailable */ }
+  }, [])
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      try { localStorage.setItem('scoringTheme', next) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  const phoneClass = `phone${theme === 'light' ? ' light-mode' : ''}`
 
   const h = holes[holeIdx]
   const currentScore = scores[holeIdx] ?? h.par
@@ -187,16 +206,59 @@ export default function ScoreEntryApp({
   const finalRel = finalTotalScore - fullTotalPar
 
   // ─── Status bar (always visible) ──────────────────────────────────────────────
+  const SunIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  )
+  const MoonIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  )
+
   const StatusBar = () => (
-    <div style={{ height: 44, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', flexShrink: 0 }}>
+    <div style={{ height: 44, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1rem', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,var(--gold),#5a3e10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem' }}>⛳</div>
         <div style={{ fontFamily: 'var(--fd)', fontSize: '0.78rem', color: 'var(--text)' }}>Lotus Links</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontFamily: 'var(--font-outfit, sans-serif)' }}>{leagueName} &middot; {tournament.course}</div>
-        <a href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1 }} title="View Leaderboard">🏆</a>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--font-outfit, sans-serif)', marginRight: '0.25rem' }}>{leagueName}</div>
+        {/* Light/Dark toggle */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            background: 'none',
+            border: '1px solid var(--border2)',
+            borderRadius: 6,
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.25rem',
+            minWidth: 44,
+            minHeight: 44,
+            padding: '0 0.5rem',
+            fontSize: '0.6rem',
+            fontFamily: 'var(--fm)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            WebkitTapHighlightColor: 'transparent',
+            transition: 'color 0.2s, border-color 0.2s',
+          }}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          <span style={{ display: 'none' }}>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+        </button>
+        <a href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</a>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite', flexShrink: 0 }} />
       </div>
     </div>
   )
@@ -204,7 +266,7 @@ export default function ScoreEntryApp({
   // ─── Confirm Screen ─────────────────────────────────────────────────────────
   if (screen === 'confirm') {
     return (
-      <div className="phone" style={accentStyle}>
+      <div className={phoneClass} style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem 1.5rem', animation: 'fadeUp 0.4s ease' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -249,7 +311,7 @@ export default function ScoreEntryApp({
   // ─── Scoring Screen ─────────────────────────────────────────────────────────
   if (screen === 'scoring') {
     return (
-      <div className="phone" style={accentStyle}>
+      <div className={phoneClass} style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Top bar with progress */}
@@ -394,7 +456,7 @@ export default function ScoreEntryApp({
   // ─── Review Screen ──────────────────────────────────────────────────────────
   if (screen === 'review') {
     return (
-      <div className="phone" style={accentStyle}>
+      <div className={phoneClass} style={accentStyle}>
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem 1.25rem', animation: 'fadeUp 0.4s ease', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <button onClick={() => setScreen('scoring')} className="tap" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', alignSelf: 'flex-start', marginBottom: '1.25rem', padding: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -462,7 +524,7 @@ export default function ScoreEntryApp({
 
   // ─── Success Screen ─────────────────────────────────────────────────────────
   return (
-    <div className="phone">
+    <div className={phoneClass} style={accentStyle}>
       <StatusBar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem', textAlign: 'center', animation: 'fadeUp 0.5s ease', position: 'relative', overflow: 'hidden' }}>
         {confetti.map(c => (

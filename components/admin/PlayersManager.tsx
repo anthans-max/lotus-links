@@ -12,6 +12,7 @@ interface PlayersManagerProps {
   leagueId: string
   players: Player[]
   pairingPrefs: { player_id: string; preferred_player_id: string }[]
+  isWish?: boolean
 }
 
 export default function PlayersManager({
@@ -19,6 +20,7 @@ export default function PlayersManager({
   leagueId,
   players,
   pairingPrefs,
+  isWish = false,
 }: PlayersManagerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -39,6 +41,7 @@ export default function PlayersManager({
   const [editPlayerName, setEditPlayerName] = useState('')
   const [editPlayerGrade, setEditPlayerGrade] = useState('')
   const [editPlayerHandicap, setEditPlayerHandicap] = useState('0')
+  const [editPlayerHandicapIndex, setEditPlayerHandicapIndex] = useState('')
   const [editPlayerSkill, setEditPlayerSkill] = useState('')
 
   const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
@@ -149,6 +152,7 @@ export default function PlayersManager({
     setEditPlayerName(p.name)
     setEditPlayerGrade(p.grade ?? '')
     setEditPlayerHandicap(String(p.handicap ?? 0))
+    setEditPlayerHandicapIndex(p.handicap_index != null ? String(p.handicap_index) : '')
     setEditPlayerSkill(p.skill_level ?? '')
   }
 
@@ -157,12 +161,19 @@ export default function PlayersManager({
     setError(null)
     startTransition(async () => {
       try {
-        await updatePlayer(editPlayerId, {
-          name: editPlayerName,
-          grade: editPlayerGrade || null,
-          handicap: parseInt(editPlayerHandicap) || 0,
-          skill_level: editPlayerSkill || null,
-        })
+        if (isWish) {
+          await updatePlayer(editPlayerId, {
+            name: editPlayerName,
+            grade: editPlayerGrade || null,
+          })
+        } else {
+          const hdcpIdx = editPlayerHandicapIndex !== '' ? parseFloat(editPlayerHandicapIndex) : null
+          await updatePlayer(editPlayerId, {
+            name: editPlayerName,
+            handicap_index: hdcpIdx != null && !isNaN(hdcpIdx) ? hdcpIdx : null,
+            skill_level: editPlayerSkill || null,
+          })
+        }
         setEditPlayerId(null)
         setSuccess('Player updated')
         setTimeout(() => setSuccess(null), 2000)
@@ -386,7 +397,7 @@ export default function PlayersManager({
             style={{ width: 'auto', minWidth: 130, fontSize: '0.85rem' }}
           >
             <option value="name">Sort by Name</option>
-            <option value="grade">Sort by Grade</option>
+            {isWish && <option value="grade">Sort by Grade</option>}
             <option value="status">Sort by Status</option>
           </select>
         </div>
@@ -409,7 +420,14 @@ export default function PlayersManager({
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--forest)' }}>
-                  {['Player', 'Grade', 'Status', 'Parent', 'Pairings', ''].map(h => (
+                  {[
+                    'Player',
+                    isWish ? 'Grade' : 'Hdcp / Skill',
+                    'Status',
+                    'Parent',
+                    'Pairings',
+                    '',
+                  ].map(h => (
                     <th
                       key={h}
                       style={{
@@ -442,37 +460,43 @@ export default function PlayersManager({
                         />
                       </td>
                       <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <input
-                          className="input"
-                          value={editPlayerGrade}
-                          onChange={e => setEditPlayerGrade(e.target.value)}
-                          placeholder="Grade"
-                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 80 }}
-                        />
+                        {isWish ? (
+                          <input
+                            className="input"
+                            value={editPlayerGrade}
+                            onChange={e => setEditPlayerGrade(e.target.value)}
+                            placeholder="Grade"
+                            style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 80 }}
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <input
+                              className="input"
+                              type="number"
+                              min="-10"
+                              max="54"
+                              step="0.1"
+                              value={editPlayerHandicapIndex}
+                              onChange={e => setEditPlayerHandicapIndex(e.target.value)}
+                              placeholder="Hdcp"
+                              style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 70 }}
+                            />
+                            <select
+                              className="input"
+                              value={editPlayerSkill}
+                              onChange={e => setEditPlayerSkill(e.target.value)}
+                              style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 110 }}
+                            >
+                              <option value="">— Skill —</option>
+                              <option value="beginner">Beginner</option>
+                              <option value="intermediate">Intermediate</option>
+                              <option value="advanced">Advanced</option>
+                              <option value="pro">Pro</option>
+                            </select>
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <input
-                          className="input"
-                          type="number"
-                          value={editPlayerHandicap}
-                          onChange={e => setEditPlayerHandicap(e.target.value)}
-                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 60 }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <select
-                          className="input"
-                          value={editPlayerSkill}
-                          onChange={e => setEditPlayerSkill(e.target.value)}
-                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 100 }}
-                        >
-                          <option value="">—</option>
-                          <option value="beginner">Beginner</option>
-                          <option value="intermediate">Intermediate</option>
-                          <option value="advanced">Advanced</option>
-                        </select>
-                      </td>
-                      <td colSpan={2} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                      <td colSpan={4} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
                           <button
                             className="btn btn-gold btn-sm"
@@ -522,7 +546,20 @@ export default function PlayersManager({
                         </div>
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        {p.grade || '—'}
+                        {isWish ? (
+                          p.grade || '—'
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                            <span style={{ fontFamily: 'var(--fm)', fontSize: '0.78rem' }}>
+                              {p.handicap_index != null ? `${p.handicap_index} hdcp` : '—'}
+                            </span>
+                            {p.skill_level && (
+                              <span className="badge badge-gray" style={{ fontSize: '0.5rem', textTransform: 'capitalize' }}>
+                                {p.skill_level}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -552,7 +589,21 @@ export default function PlayersManager({
                         </div>
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        {p.parent_name || '—'}
+                        <div>{p.parent_name || '—'}</div>
+                        {p.registration_comments && (
+                          <div style={{
+                            fontSize: '0.72rem',
+                            color: 'var(--gold)',
+                            fontFamily: 'var(--fm)',
+                            marginTop: '0.2rem',
+                            maxWidth: 180,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }} title={p.registration_comments}>
+                            💬 {p.registration_comments}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem' }}>
                         {(prefCountMap.get(p.id) ?? 0) > 0 ? (
