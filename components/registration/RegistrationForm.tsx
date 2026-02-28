@@ -387,23 +387,26 @@ export default function RegistrationForm({
                   return (
                     <button
                       key={p.id}
-                      onClick={() => togglePlayer(p.id)}
+                      onClick={() => !isAlreadyRegistered && togglePlayer(p.id)}
                       className="tap"
+                      disabled={isAlreadyRegistered}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.75rem',
                         padding: '0.875rem 1rem',
-                        background: isSelected ? 'var(--gold-dim)' : 'var(--surface)',
-                        border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
+                        background: isAlreadyRegistered ? 'var(--surface)' : isSelected ? 'var(--gold-dim)' : 'var(--surface)',
+                        border: `1.5px solid ${isAlreadyRegistered ? 'var(--border)' : isSelected ? 'var(--gold)' : 'var(--border)'}`,
                         borderRadius: 2,
                         textAlign: 'left',
                         transition: 'all 0.15s',
                         minHeight: 56,
                         width: '100%',
                         fontFamily: 'inherit',
-                        color: 'var(--text)',
+                        color: isAlreadyRegistered ? 'var(--text-muted)' : 'var(--text)',
                         fontSize: 'inherit',
+                        cursor: isAlreadyRegistered ? 'default' : 'pointer',
+                        opacity: isAlreadyRegistered ? 0.6 : 1,
                       }}
                     >
                       {/* Checkbox */}
