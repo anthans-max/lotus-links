@@ -66,6 +66,13 @@ export default function RegistrationForm({
 
   const [error, setError] = useState<string | null>(null)
 
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 10)
+    if (digits.length <= 3) return digits
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
   // Filtered player list for selection
   const filteredPlayers = useMemo(() => {
     if (!search.trim()) return players
@@ -689,7 +696,7 @@ export default function RegistrationForm({
                 placeholder="(555) 123-4567"
                 type="tel"
                 value={parentPhone}
-                onChange={e => setParentPhone(e.target.value)}
+                onChange={e => setParentPhone(formatPhone(e.target.value))}
                 style={{ fontSize: '1rem' }}
               />
             </div>
