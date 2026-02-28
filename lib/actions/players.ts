@@ -3,13 +3,20 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-export async function addPlayer(tournamentId: string, name: string, grade?: string) {
+export async function addPlayer(
+  tournamentId: string,
+  name: string,
+  grade?: string,
+  options?: { handicap_index?: number | null; skill_level?: string | null }
+) {
   const supabase = await createClient()
 
   const { error } = await supabase.from('players').insert({
     tournament_id: tournamentId,
     name: name.trim(),
     grade: grade?.trim() || null,
+    handicap_index: options?.handicap_index ?? null,
+    skill_level: options?.skill_level?.trim() || null,
     status: 'pre-registered',
   })
 
