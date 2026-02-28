@@ -6,6 +6,7 @@ import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
 interface TournamentInfo {
   id: string
+  leagueId: string
   name: string
   date: string
   course: string
@@ -218,7 +219,7 @@ export default function RegistrationForm({
           </div>
 
           <a
-            href={`/leaderboard/${tournament.id}`}
+            href={`/dashboard/leagues/${tournament.leagueId}/tournaments/${tournament.id}`}
             className="btn"
             style={{
               width: '100%',

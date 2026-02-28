@@ -51,6 +51,7 @@ export default async function RegisterPage({ params }: Props) {
     <RegistrationForm
       tournament={{
         id: tournament.id,
+        leagueId: tournament.league_id,
         name: tournament.name,
         date: tournament.date,
         course: tournament.course,
