@@ -98,7 +98,8 @@ a { color: inherit; text-decoration: none; }
 @keyframes spin     { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 @keyframes shimmer  { 0%{background-position:-200% center;} 100%{background-position:200% center;} }
 @keyframes countUp  { from{opacity:0;transform:scale(0.8);} to{opacity:1;transform:scale(1);} }
-@keyframes slideDown{ from{opacity:0;transform:translateY(-10px);} to{opacity:1;transform:translateY(0);} }
+@keyframes slideDown   { from{opacity:0;transform:translateY(-10px);} to{opacity:1;transform:translateY(0);} }
+@keyframes chatSlideUp { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
 @keyframes trophy   { 0%,100%{transform:scale(1) rotate(-3deg);} 50%{transform:scale(1.08) rotate(3deg);} }
 @keyframes pop      { 0%{transform:scale(1);} 40%{transform:scale(1.18);} 100%{transform:scale(1);} }
 @keyframes checkPop { 0%{transform:scale(0);opacity:0;} 60%{transform:scale(1.3);} 100%{transform:scale(1);opacity:1;} }

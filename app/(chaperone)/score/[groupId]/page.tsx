@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import ScoreEntryApp from '@/components/chaperone/ScoreEntryApp'
+import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
   title: 'Score Entry',
@@ -50,36 +51,39 @@ export default async function ScoreEntryPage({ params }: Props) {
     : { data: [] }
 
   return (
-    <ScoreEntryApp
-      group={{
-        id: group.id,
-        name: group.name,
-        chaperoneName: group.chaperone_name ?? null,
-        pin: group.pin,
-        status: group.status,
-        currentHole: group.current_hole ?? 1,
-      }}
-      tournament={{
-        id: tournament.id,
-        name: tournament.name,
-        course: tournament.course,
-        format: tournament.format,
-        status: tournament.status,
-        leaderboardPublic: tournament.leaderboard_public ?? false,
-      }}
-      leagueName={league?.name ?? ''}
-      leagueColor={league?.primary_color ?? undefined}
-      holes={holes.map(h => ({
-        number: h.hole_number,
-        par: h.par,
-        yardage: h.yardage,
-      }))}
-      players={(players ?? []).map(p => p.name)}
-      existingScores={(scores ?? []).map(s => ({
-        holeNumber: s.hole_number,
-        strokes: s.strokes,
-      }))}
-    />
+    <>
+      <ScoreEntryApp
+        group={{
+          id: group.id,
+          name: group.name,
+          chaperoneName: group.chaperone_name ?? null,
+          pin: group.pin,
+          status: group.status,
+          currentHole: group.current_hole ?? 1,
+        }}
+        tournament={{
+          id: tournament.id,
+          name: tournament.name,
+          course: tournament.course,
+          format: tournament.format,
+          status: tournament.status,
+          leaderboardPublic: tournament.leaderboard_public ?? false,
+        }}
+        leagueName={league?.name ?? ''}
+        leagueColor={league?.primary_color ?? undefined}
+        holes={holes.map(h => ({
+          number: h.hole_number,
+          par: h.par,
+          yardage: h.yardage,
+        }))}
+        players={(players ?? []).map(p => p.name)}
+        existingScores={(scores ?? []).map(s => ({
+          holeNumber: s.hole_number,
+          strokes: s.strokes,
+        }))}
+      />
+      <ChatAssistant tournamentId={tournament.id} />
+    </>
   )
 }
 

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import LiveLeaderboard from '@/components/leaderboard/LiveLeaderboard'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 import { parseStablefordConfig } from '@/lib/scoring/stableford'
+import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
   title: 'Leaderboard',
@@ -27,7 +28,12 @@ export default async function LeaderboardPage({ params }: Props) {
   }
 
   if (!tournament.leaderboard_public) {
-    return <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
+    return (
+      <>
+        <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
+        <ChatAssistant tournamentId={tournamentId} />
+      </>
+    )
   }
 
   const isIndividual = tournament.format === 'Stableford' || tournament.format === 'Stroke Play'
@@ -64,38 +70,41 @@ export default async function LeaderboardPage({ params }: Props) {
     const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
 
     return (
-      <LiveLeaderboard
-        tournament={{
-          id: tournament.id,
-          name: tournament.name,
-          date: tournament.date,
-          course: tournament.course,
-          format: tournament.format,
-          holeCount: tournament.holes,
-          status: tournament.status,
-          slopeRating: tournament.slope_rating ?? 113,
-          courseRating: tournament.course_rating ?? null,
-          stablefordConfig,
-        }}
-        leagueName={league?.name ?? ''}
-        leagueColor={league?.primary_color ?? undefined}
-        holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
-        groups={[]}
-        initialScores={[]}
-        players={(players ?? []).map(p => ({
-          id: p.id,
-          name: p.name,
-          handicap: p.handicap ?? 0,
-          handicapIndex: (p as any).handicap_index ?? null,
-        }))}
-        initialPlayerScores={(scores ?? [])
-          .filter(s => s.player_id != null)
-          .map(s => ({
-            playerId: s.player_id!,
-            holeNumber: s.hole_number,
-            strokes: s.strokes,
+      <>
+        <LiveLeaderboard
+          tournament={{
+            id: tournament.id,
+            name: tournament.name,
+            date: tournament.date,
+            course: tournament.course,
+            format: tournament.format,
+            holeCount: tournament.holes,
+            status: tournament.status,
+            slopeRating: tournament.slope_rating ?? 113,
+            courseRating: tournament.course_rating ?? null,
+            stablefordConfig,
+          }}
+          leagueName={league?.name ?? ''}
+          leagueColor={league?.primary_color ?? undefined}
+          holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
+          groups={[]}
+          initialScores={[]}
+          players={(players ?? []).map(p => ({
+            id: p.id,
+            name: p.name,
+            handicap: p.handicap ?? 0,
+            handicapIndex: (p as any).handicap_index ?? null,
           }))}
-      />
+          initialPlayerScores={(scores ?? [])
+            .filter(s => s.player_id != null)
+            .map(s => ({
+              playerId: s.player_id!,
+              holeNumber: s.hole_number,
+              strokes: s.strokes,
+            }))}
+        />
+        <ChatAssistant tournamentId={tournamentId} />
+      </>
     )
   }
 
@@ -113,37 +122,40 @@ export default async function LeaderboardPage({ params }: Props) {
   ])
 
   return (
-    <LiveLeaderboard
-      tournament={{
-        id: tournament.id,
-        name: tournament.name,
-        date: tournament.date,
-        course: tournament.course,
-        format: tournament.format,
-        holeCount: tournament.holes,
-        status: tournament.status,
-        slopeRating: 113,
-        courseRating: null,
-        stablefordConfig: parseStablefordConfig(null),
-      }}
-      leagueName={league?.name ?? ''}
-      leagueColor={league?.primary_color ?? undefined}
-      holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
-      groups={(groups ?? []).map(g => ({
-        id: g.id,
-        name: g.name,
-        chaperoneName: g.chaperone_name,
-        currentHole: g.current_hole ?? 1,
-        status: g.status,
-      }))}
-      initialScores={(scores ?? []).map(s => ({
-        groupId: s.group_id,
-        holeNumber: s.hole_number,
-        strokes: s.strokes,
-      }))}
-      players={[]}
-      initialPlayerScores={[]}
-    />
+    <>
+      <LiveLeaderboard
+        tournament={{
+          id: tournament.id,
+          name: tournament.name,
+          date: tournament.date,
+          course: tournament.course,
+          format: tournament.format,
+          holeCount: tournament.holes,
+          status: tournament.status,
+          slopeRating: 113,
+          courseRating: null,
+          stablefordConfig: parseStablefordConfig(null),
+        }}
+        leagueName={league?.name ?? ''}
+        leagueColor={league?.primary_color ?? undefined}
+        holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
+        groups={(groups ?? []).map(g => ({
+          id: g.id,
+          name: g.name,
+          chaperoneName: g.chaperone_name,
+          currentHole: g.current_hole ?? 1,
+          status: g.status,
+        }))}
+        initialScores={(scores ?? []).map(s => ({
+          groupId: s.group_id,
+          holeNumber: s.hole_number,
+          strokes: s.strokes,
+        }))}
+        players={[]}
+        initialPlayerScores={[]}
+      />
+      <ChatAssistant tournamentId={tournamentId} />
+    </>
   )
 }
 

@@ -8,6 +8,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import TournamentTabs from '@/components/admin/TournamentTabs'
 import TournamentInfoCard from '@/components/admin/TournamentInfoCard'
 import CopyTokenButton from '@/components/admin/CopyTokenButton'
+import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
   title: 'Tournament',
@@ -99,6 +100,8 @@ export default async function TournamentDetailPage({ params }: Props) {
           icon="📊"
         />
       </div>
+
+      <ChatAssistant tournamentId={id} />
 
       {/* Leaderboard quick-access */}
       <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
