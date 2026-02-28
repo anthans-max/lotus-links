@@ -21,10 +21,11 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '1rem',
+          gap: '0.75rem',
           marginBottom: '1.5rem',
           padding: '0.875rem 1.25rem',
           borderLeft: '3px solid var(--league-accent)',
+          flexWrap: 'wrap',
         }}
       >
         {/* Logo or color swatch */}
@@ -61,27 +62,29 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
           />
         )}
 
-        <div style={{ flex: 1 }}>
-          <span className="section-tag">{league.admin_email}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="section-tag">League Settings</span>
         </div>
 
         {/* Edit + Delete buttons */}
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setEditOpen(true)}
-          title="Edit league"
-          style={{ fontSize: '0.72rem' }}
-        >
-          Edit
-        </button>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => setDeleteOpen(true)}
-          title="Delete league"
-          style={{ fontSize: '0.72rem', color: 'var(--over)' }}
-        >
-          Delete
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setEditOpen(true)}
+            title="Edit league"
+            style={{ fontSize: '0.72rem' }}
+          >
+            Edit
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setDeleteOpen(true)}
+            title="Delete league"
+            style={{ fontSize: '0.72rem', color: 'var(--over)' }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <EditLeagueModal
