@@ -415,19 +415,19 @@ export default function RegistrationForm({
                           width: 24,
                           height: 24,
                           borderRadius: 4,
-                          border: `2px solid ${isSelected ? 'var(--gold)' : 'var(--border2)'}`,
-                          background: isSelected ? 'var(--gold)' : 'transparent',
+                          border: `2px solid ${isAlreadyRegistered ? 'var(--border)' : isSelected ? 'var(--gold)' : 'var(--border2)'}`,
+                          background: isAlreadyRegistered ? 'var(--surface2)' : isSelected ? 'var(--gold)' : 'transparent',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0,
                           transition: 'all 0.15s',
                           fontSize: '0.75rem',
-                          color: '#0a120a',
+                          color: isAlreadyRegistered ? 'var(--text-dim)' : '#0a120a',
                           fontWeight: 700,
                         }}
                       >
-                        {isSelected && '✓'}
+                        {isAlreadyRegistered ? '—' : isSelected && '✓'}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>{p.name}</div>
