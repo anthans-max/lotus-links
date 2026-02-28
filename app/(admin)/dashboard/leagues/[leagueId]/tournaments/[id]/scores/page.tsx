@@ -23,7 +23,7 @@ export default async function ScoresPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: holes }, { data: groups }, { data: scores }] = await Promise.all([
-    supabase.from('leagues').select('id, name, primary_color').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color, logo_url').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('holes').select('hole_number, par').eq('tournament_id', id).order('hole_number'),
     supabase.from('groups').select('id, name, chaperone_name, current_hole, status, pin').eq('tournament_id', id).order('name'),
@@ -33,6 +33,7 @@ export default async function ScoresPage({ params }: Props) {
   if (!league || !tournament) notFound()
 
   const accentColor = (league as any).primary_color || '#1a5c2a'
+  const logoUrl = (league as any).logo_url as string | null | undefined
 
   return (
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
@@ -40,6 +41,8 @@ export default async function ScoresPage({ params }: Props) {
         title="Scores"
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
         backLabel={tournament.name}
+        logoUrl={logoUrl}
+        leagueName={(league as any).name}
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
       <ScoresMonitor

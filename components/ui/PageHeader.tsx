@@ -1,15 +1,25 @@
 'use client'
 
 import Link from 'next/link'
+import LeagueLogo from '@/components/ui/LeagueLogo'
 
 interface PageHeaderProps {
   title: string
   backHref?: string
   backLabel?: string
   action?: React.ReactNode
+  logoUrl?: string | null
+  leagueName?: string
 }
 
-export default function PageHeader({ title, backHref, backLabel, action }: PageHeaderProps) {
+export default function PageHeader({
+  title,
+  backHref,
+  backLabel,
+  action,
+  logoUrl,
+  leagueName,
+}: PageHeaderProps) {
   return (
     <div style={{ marginBottom: '1.5rem' }}>
       {backHref && (
@@ -33,12 +43,44 @@ export default function PageHeader({ title, backHref, backLabel, action }: PageH
           &larr; {backLabel || 'Back'}
         </Link>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 400, color: 'var(--text)' }}>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: 'var(--fd)',
+            fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+            fontWeight: 400,
+            color: 'var(--text)',
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
           {title}
         </h1>
-        {action && <div>{action}</div>}
+
+        {/* Right slot: action button(s) + league logo */}
+        {(action || logoUrl) && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              flexShrink: 0,
+            }}
+          >
+            {action && <div>{action}</div>}
+            <LeagueLogo logoUrl={logoUrl} leagueName={leagueName ?? ''} />
+          </div>
+        )}
       </div>
+
       <div className="gold-divider" />
     </div>
   )

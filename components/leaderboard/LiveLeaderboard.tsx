@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, type StablefordPointsConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
+import LeagueLogo from '@/components/ui/LeagueLogo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ interface LiveLeaderboardProps {
   tournament: TournamentInfo
   leagueName: string
   leagueColor?: string
+  leagueLogoUrl?: string | null
   holes: HoleInfo[]
   groups: GroupInfo[]
   initialScores: GroupScoreData[]
@@ -91,6 +93,7 @@ export default function LiveLeaderboard({
   tournament,
   leagueName,
   leagueColor,
+  leagueLogoUrl,
   holes,
   groups,
   initialScores,
@@ -328,9 +331,12 @@ export default function LiveLeaderboard({
         {leagueName && (
           <div className="section-tag" style={{ marginBottom: '0.35rem' }}>{leagueName}</div>
         )}
-        <h1 style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: 400, color: 'var(--text)', marginBottom: '0.35rem', lineHeight: 1.15 }}>
-          {tournament.name}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.875rem' }}>
+          <LeagueLogo logoUrl={leagueLogoUrl} leagueName={leagueName} />
+          <h1 style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: 400, color: 'var(--text)', marginBottom: '0.35rem', lineHeight: 1.15 }}>
+            {tournament.name}
+          </h1>
+        </div>
         <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
           {formattedDate} &middot; {tournament.course} &middot; Par {totalPar}
           {isIndividual && <span style={{ marginLeft: '0.4rem' }}>· {tournament.format}</span>}

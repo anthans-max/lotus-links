@@ -257,6 +257,10 @@ select.input { cursor: pointer; }
 .score-over  { color: var(--over); font-family: var(--fm); }
 .score-even  { color: var(--text-muted); font-family: var(--fm); }
 
+/* ─── League logo container (responsive: 44px mobile → 56px desktop) ────────── */
+.league-logo-ctr { width: 44px; height: 44px; flex-shrink: 0; }
+@media(min-width: 640px) { .league-logo-ctr { width: 56px; height: 56px; } }
+
 /* ─── Chat bubbles ──────────────────────────────────────────────────────────── */
 .chat-ai   { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px 12px 12px 0; padding: 0.75rem 1rem; font-size: 0.9rem; line-height: 1.65; max-width: 90%; align-self: flex-start; }
 .chat-user { background: var(--gold-dim); border: 1px solid var(--gold-border); border-radius: 12px 12px 0 12px; padding: 0.75rem 1rem; font-size: 0.9rem; line-height: 1.65; max-width: 85%; align-self: flex-end; }

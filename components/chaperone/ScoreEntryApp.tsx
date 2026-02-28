@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { upsertScore, updateGroupProgress, submitScorecard } from '@/lib/actions/scores'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -29,6 +30,7 @@ interface ScoreEntryAppProps {
   }
   leagueName: string
   leagueColor?: string
+  leagueLogoUrl?: string | null
   holes: HoleInfo[]
   players: string[]
   existingScores: { holeNumber: number; strokes: number }[]
@@ -57,6 +59,7 @@ export default function ScoreEntryApp({
   tournament,
   leagueName,
   leagueColor,
+  leagueLogoUrl,
   holes,
   players,
   existingScores,
@@ -228,7 +231,14 @@ export default function ScoreEntryApp({
         <div style={{ fontFamily: 'var(--fd)', fontSize: '0.78rem', color: 'var(--text)' }}>Lotus Links</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-        <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--font-outfit, sans-serif)', marginRight: '0.25rem' }}>{leagueName}</div>
+        {/* League logo if available, otherwise league name text */}
+        {leagueLogoUrl ? (
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: '#0D2818', border: '1px solid rgba(183,149,11,0.3)', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.92, flexShrink: 0, marginRight: '0.25rem' }}>
+            <Image src={leagueLogoUrl} alt={`${leagueName} logo`} width={20} height={20} style={{ objectFit: 'contain', width: '100%', height: '100%' }} />
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--font-outfit, sans-serif)', marginRight: '0.25rem' }}>{leagueName}</div>
+        )}
         {/* Light/Dark toggle */}
         <button
           onClick={toggleTheme}

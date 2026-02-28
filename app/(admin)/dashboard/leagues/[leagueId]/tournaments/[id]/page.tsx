@@ -25,7 +25,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }] = await Promise.all([
-    supabase.from('leagues').select('id, name, primary_color').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color, logo_url').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
   ])
 
@@ -53,6 +53,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     : 0
 
   const accentColor = (league as any).primary_color || '#1a5c2a'
+  const logoUrl = (league as any).logo_url as string | null | undefined
 
   return (
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
@@ -60,6 +61,8 @@ export default async function TournamentDetailPage({ params }: Props) {
         title={tournament.name}
         backHref={isAdmin ? `/dashboard/leagues/${leagueId}` : undefined}
         backLabel={isAdmin ? league.name : undefined}
+        logoUrl={logoUrl}
+        leagueName={league.name}
       />
 
       <TournamentInfoCard tournament={tournament as any} leagueId={leagueId} isAdmin={isAdmin} />

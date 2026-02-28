@@ -23,7 +23,7 @@ export default async function GroupsPage({ params }: Props) {
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }] = await Promise.all([
-    supabase.from('leagues').select('id, name, primary_color, league_type').eq('id', leagueId).single(),
+    supabase.from('leagues').select('id, name, primary_color, logo_url, league_type').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
     supabase.from('groups').select('*, group_players(*)').eq('tournament_id', id).order('created_at'),
@@ -33,6 +33,7 @@ export default async function GroupsPage({ params }: Props) {
   if (!league || !tournament) notFound()
 
   const accentColor = (league as any).primary_color || '#1a5c2a'
+  const logoUrl = (league as any).logo_url as string | null | undefined
   const isWish = (league as any).league_type === 'wish'
 
   return (
@@ -41,6 +42,8 @@ export default async function GroupsPage({ params }: Props) {
         title="Groups"
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
         backLabel={tournament.name}
+        logoUrl={logoUrl}
+        leagueName={(league as any).name}
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
       <GroupsManager

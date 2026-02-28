@@ -37,10 +37,10 @@ export default async function ScoreEntryPage({ params }: Props) {
     return <NotFoundView />
   }
 
-  // Fetch league name + color
+  // Fetch league name + color + logo
   const { data: league } = await supabase
     .from('leagues')
-    .select('name, primary_color')
+    .select('name, primary_color, logo_url')
     .eq('id', tournament.league_id)
     .single()
 
@@ -71,6 +71,7 @@ export default async function ScoreEntryPage({ params }: Props) {
         }}
         leagueName={league?.name ?? ''}
         leagueColor={league?.primary_color ?? undefined}
+        leagueLogoUrl={(league as any)?.logo_url ?? null}
         holes={holes.map(h => ({
           number: h.hole_number,
           par: h.par,
