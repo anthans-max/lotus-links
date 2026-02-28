@@ -57,8 +57,8 @@ export default async function TournamentDetailPage({ params }: Props) {
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
         title={tournament.name}
-        backHref={`/dashboard/leagues/${leagueId}`}
-        backLabel={league.name}
+        backHref={isAdmin ? `/dashboard/leagues/${leagueId}` : undefined}
+        backLabel={isAdmin ? league.name : undefined}
       />
 
       <TournamentInfoCard tournament={tournament as any} leagueId={leagueId} isAdmin={isAdmin} />
