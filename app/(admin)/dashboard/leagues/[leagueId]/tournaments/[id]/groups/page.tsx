@@ -18,8 +18,8 @@ interface Props {
 export default async function GroupsPage({ params }: Props) {
   const { leagueId, id } = await params
   const { user, hasAccess } = await checkLeagueAccess(leagueId)
-  if (!user) redirect('/login')
-  if (!hasAccess) redirect('/dashboard/leagues')
+  if (user && !hasAccess) redirect('/dashboard/leagues')
+  const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }] = await Promise.all([
@@ -36,6 +36,9 @@ export default async function GroupsPage({ params }: Props) {
   const logoUrl = (league as any).logo_url as string | null | undefined
   const isWish = (league as any).league_type === 'wish'
 
+  // Build player name map for read-only view
+  const playerMap = new Map((players ?? []).map(p => [(p as any).id, (p as any).name]))
+
   return (
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
@@ -46,15 +49,43 @@ export default async function GroupsPage({ params }: Props) {
         leagueName={(league as any).name}
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
-      <GroupsManager
-        tournamentId={id}
-        leagueId={leagueId}
-        tournament={tournament}
-        players={players ?? []}
-        groups={(groups ?? []) as any}
-        pairingPrefs={pairingPrefs ?? []}
-        isWish={isWish}
-      />
+      {isAdmin ? (
+        <GroupsManager
+          tournamentId={id}
+          leagueId={leagueId}
+          tournament={tournament}
+          players={players ?? []}
+          groups={(groups ?? []) as any}
+          pairingPrefs={pairingPrefs ?? []}
+          isWish={isWish}
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            {groups?.length ?? 0} group{(groups?.length ?? 0) !== 1 ? 's' : ''}
+          </div>
+          {(groups ?? []).map(g => {
+            const memberIds = ((g as any).group_players as { player_id: string }[]).map(gp => gp.player_id)
+            const memberNames = memberIds.map(pid => playerMap.get(pid) ?? 'Unknown')
+            const chaperonLabel = isWish ? 'Chaperone' : 'Scorer'
+            return (
+              <div key={g.id} className="card" style={{ padding: '1rem 1.25rem' }}>
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', color: 'var(--gold)', marginBottom: '0.25rem' }}>{g.name}</div>
+                {g.chaperone_name && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{chaperonLabel}: {g.chaperone_name}</div>
+                )}
+                {memberNames.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.5rem' }}>
+                    {memberNames.map((name, i) => (
+                      <span key={i} style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.2rem 0.5rem', color: 'var(--text-muted)' }}>{name}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

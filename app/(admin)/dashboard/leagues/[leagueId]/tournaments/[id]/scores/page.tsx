@@ -18,8 +18,9 @@ interface Props {
 export default async function ScoresPage({ params }: Props) {
   const { leagueId, id } = await params
   const { user, hasAccess } = await checkLeagueAccess(leagueId)
-  if (!user) redirect('/login')
-  if (!hasAccess) redirect('/dashboard/leagues')
+  if (user && !hasAccess) redirect('/dashboard/leagues')
+  const isAdmin = !!user && hasAccess
+  if (!isAdmin) redirect(`/leaderboard/${id}`)
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: holes }, { data: groups }, { data: scores }] = await Promise.all([

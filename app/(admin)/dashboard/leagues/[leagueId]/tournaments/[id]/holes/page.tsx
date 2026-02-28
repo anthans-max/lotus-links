@@ -18,8 +18,8 @@ interface Props {
 export default async function HolesPage({ params }: Props) {
   const { leagueId, id } = await params
   const { user, hasAccess } = await checkLeagueAccess(leagueId)
-  if (!user) redirect('/login')
-  if (!hasAccess) redirect('/dashboard/leagues')
+  if (user && !hasAccess) redirect('/dashboard/leagues')
+  const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
   const [{ data: league }, { data: tournament }, { data: holes }] = await Promise.all([
@@ -36,19 +36,46 @@ export default async function HolesPage({ params }: Props) {
   return (
     <div className="section fade-up" style={{ '--league-accent': accentColor } as React.CSSProperties}>
       <PageHeader
-        title="Hole Configuration"
+        title="Holes"
         backHref={`/dashboard/leagues/${leagueId}/tournaments/${id}`}
         backLabel={tournament.name}
         logoUrl={logoUrl}
         leagueName={(league as any).name}
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
-      <HoleConfigForm
-        tournamentId={id}
-        leagueId={leagueId}
-        holeCount={tournament.holes}
-        existingHoles={holes ?? []}
-      />
+      {isAdmin ? (
+        <HoleConfigForm
+          tournamentId={id}
+          leagueId={leagueId}
+          holeCount={tournament.holes}
+          existingHoles={holes ?? []}
+        />
+      ) : (
+        <div className="card" style={{ padding: '1.25rem', overflowX: 'auto' }}>
+          <div style={{ marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Course — {tournament.holes} holes
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border2)' }}>
+                {['Hole', 'Par', 'Yardage', 'SI'].map(h => (
+                  <th key={h} style={{ padding: '0.4rem 0.75rem', textAlign: 'left', fontFamily: 'var(--fm)', fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(holes ?? []).map(h => (
+                <tr key={h.hole_number} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '0.5rem 0.75rem', fontFamily: 'var(--fm)', color: 'var(--gold)' }}>{h.hole_number}</td>
+                  <td style={{ padding: '0.5rem 0.75rem' }}>{h.par}</td>
+                  <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>{h.yardage ?? '—'}</td>
+                  <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>{h.handicap ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

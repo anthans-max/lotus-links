@@ -6,7 +6,7 @@ function getResend() {
   return _resend
 }
 
-const FROM_ADDRESS = 'Lotus Links <anthan@lotusailab.app>'
+const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL || 'Lotus Links <hello@getlotusai.com>'
 
 interface ScoringLinkEmailPayload {
   to: string

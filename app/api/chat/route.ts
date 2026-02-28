@@ -205,7 +205,11 @@ async function streamAnthropic(
     }),
   })
 
-  if (!upstream.ok) throw new Error(`Anthropic ${upstream.status}`)
+  if (!upstream.ok) {
+    const body = await upstream.text().catch(() => '(unreadable)')
+    console.error(`[chat] Anthropic error ${upstream.status}:`, body)
+    throw new Error(`Anthropic ${upstream.status}: ${body}`)
+  }
 
   return toSSEStream(upstream, chunk => {
     if (chunk.type === 'content_block_delta') {
