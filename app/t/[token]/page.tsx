@@ -10,10 +10,12 @@ export const metadata: Metadata = {
 
 interface Props {
   params: Promise<{ token: string }>
+  searchParams: Promise<{ group?: string }>
 }
 
-export default async function TokenScoringPage({ params }: Props) {
+export default async function TokenScoringPage({ params, searchParams }: Props) {
   const { token } = await params
+  const { group: groupId } = await searchParams
   const supabase = await createClient()
 
   // Validate token — find the tournament it belongs to
@@ -27,7 +29,7 @@ export default async function TokenScoringPage({ params }: Props) {
     return <InvalidTokenView />
   }
 
-  const [{ data: league }, { data: holes }, { data: players }, { data: initialScores }] =
+  const [{ data: league }, { data: holes }, { data: allPlayers }, { data: initialScores }] =
     await Promise.all([
       supabase.from('leagues').select('name, primary_color').eq('id', tournament.league_id).single(),
       supabase
@@ -46,6 +48,25 @@ export default async function TokenScoringPage({ params }: Props) {
         .eq('tournament_id', tournament.id)
         .not('player_id', 'is', null),
     ])
+
+  // If a group ID is provided, validate it belongs to this tournament and filter players
+  let players = allPlayers ?? []
+  if (groupId) {
+    const { data: groupData } = await supabase
+      .from('groups')
+      .select('group_players(player_id)')
+      .eq('id', groupId)
+      .eq('tournament_id', tournament.id)  // server-side validation
+      .single()
+
+    if (groupData) {
+      const groupPlayerIds = new Set(
+        (groupData.group_players as { player_id: string }[]).map(gp => gp.player_id)
+      )
+      players = players.filter(p => groupPlayerIds.has(p.id))
+    }
+    // If groupData is null (group not found / wrong tournament), fall back to all players
+  }
 
   const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
 
@@ -71,7 +92,7 @@ export default async function TokenScoringPage({ params }: Props) {
         yardage: h.yardage,
         handicap: h.handicap,
       }))}
-      players={(players ?? []).map(p => ({
+      players={players.map(p => ({
         id: p.id,
         name: p.name,
         handicap: p.handicap ?? 0,

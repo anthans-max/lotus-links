@@ -171,6 +171,14 @@ export default function StablefordScoringApp({
   )
   /** Set of "playerId:holeNumber" keys that have been actively changed by the user. */
   const [changedKeys, setChangedKeys] = useState<Set<string>>(new Set())
+  /** Set of "playerId:holeNumber" keys that are scored (from Supabase on load OR user interaction). */
+  const [scoredKeys, setScoredKeys] = useState<Set<string>>(() => {
+    const s = new Set<string>()
+    for (const score of initialScores) {
+      s.add(`${score.playerId}:${score.holeNumber}`)
+    }
+    return s
+  })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [confetti, setConfetti] = useState<ConfettiItem[]>([])
@@ -318,23 +326,29 @@ export default function StablefordScoringApp({
   }, [holes, allCourseHandicaps])
 
   const getPlayerPts = useCallback((playerId: string, holeNumber: number): number => {
+    if (!scoredKeys.has(`${playerId}:${holeNumber}`)) return 0
     const hole = holes.find(h => h.number === holeNumber)
     if (!hole) return 0
     const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, holeNumber)
     const strokes = allDraftScores[playerId]?.[holeNumber] ?? hole.par
     return computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
-  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross])
+  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross, scoredKeys])
 
   const getPlayerRunningTotal = useCallback((playerId: string): number => {
     let pts = 0
     for (const hole of holes) {
+      if (!scoredKeys.has(`${playerId}:${hole.number}`)) continue
       const strokes = allDraftScores[playerId]?.[hole.number]
       if (strokes === undefined) continue
       const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, hole.number)
       pts += computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
     }
     return pts
-  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross])
+  }, [holes, getPlayerStrokesOnHole, allDraftScores, tournament.stablefordConfig, useGross, scoredKeys])
+
+  const getPlayerHolesScored = useCallback((playerId: string): number => {
+    return holes.filter(h => scoredKeys.has(`${playerId}:${h.number}`)).length
+  }, [holes, scoredKeys])
 
   // ─── Stableford group: set score ───────────────────────────────────────────
   const setPlayerScore = useCallback((playerId: string, holeNumber: number, strokes: number) => {
@@ -344,6 +358,7 @@ export default function StablefordScoringApp({
       [playerId]: { ...(prev[playerId] ?? {}), [holeNumber]: clamped },
     }))
     setChangedKeys(prev => new Set([...prev, `${playerId}:${holeNumber}`]))
+    setScoredKeys(prev => new Set([...prev, `${playerId}:${holeNumber}`]))
     setAnimKeys(prev => ({ ...prev, [playerId]: (prev[playerId] ?? 0) + 1 }))
   }, [])
 
@@ -947,6 +962,7 @@ export default function StablefordScoringApp({
               {players.map((player, pIdx) => {
                 const strokes = allDraftScores[player.id]?.[currentHole.number] ?? currentHole.par
                 const received = getPlayerStrokesOnHole(player.id, currentHole.number)
+                const isScored = scoredKeys.has(`${player.id}:${currentHole.number}`)
                 const pts = getPlayerPts(player.id, currentHole.number)
                 const badge = ptsBadgeStyle(pts)
                 const animKey = animKeys[player.id] ?? 0
@@ -988,7 +1004,7 @@ export default function StablefordScoringApp({
                         onClick={() => setPlayerScore(player.id, currentHole.number, strokes - 1)}
                         style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--over-dim)', border: '1.5px solid var(--over-border)', borderRadius: '6px 0 0 6px', color: 'var(--over)', fontSize: '1rem', cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0, lineHeight: 1 }}
                       >−</button>
-                      <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface3)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', fontFamily: 'var(--fm)', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface3)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', fontFamily: 'var(--fm)', fontSize: '0.88rem', fontWeight: 700, color: isScored ? 'var(--text)' : 'var(--text-dim)', flexShrink: 0 }}>
                         {strokes}
                       </div>
                       <button
@@ -1000,9 +1016,13 @@ export default function StablefordScoringApp({
 
                     {/* Points badge */}
                     <div style={{ width: 46, textAlign: 'center', flexShrink: 0 }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.18rem 0.35rem', borderRadius: 20, background: badge.bg, color: badge.color, fontSize: badge.fontSize, fontWeight: badge.fontWeight, fontFamily: 'var(--fm)', minWidth: 36, transition: 'all 0.18s' }}>
-                        {pts}{pts === 1 ? 'pt' : 'pts'}
-                      </div>
+                      {isScored ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.18rem 0.35rem', borderRadius: 20, background: badge.bg, color: badge.color, fontSize: badge.fontSize, fontWeight: badge.fontWeight, fontFamily: 'var(--fm)', minWidth: 36, transition: 'all 0.18s' }}>
+                          {pts}{pts === 1 ? 'pt' : 'pts'}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>—</div>
+                      )}
                     </div>
                   </div>
                 )
@@ -1010,30 +1030,38 @@ export default function StablefordScoringApp({
             </div>
           </div>
 
-          {/* Running totals */}
-          <div style={{ padding: '0 1.25rem 0.625rem' }}>
-            <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-              Running Totals
+          {/* Running totals — hidden until at least one hole has been scored */}
+          {scoredKeys.size > 0 && (
+            <div style={{ padding: '0 1.25rem 0.625rem' }}>
+              <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                Running Totals
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                {players.map(player => {
+                  const total = getPlayerRunningTotal(player.id)
+                  const holesScored = getPlayerHolesScored(player.id)
+                  const isScorer = selectedPlayer?.id === player.id
+                  return (
+                    <div
+                      key={player.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: isScorer ? 'var(--gold-dim)' : 'var(--surface)', border: `1px solid ${isScorer ? 'var(--gold-border)' : 'var(--border)'}`, borderRadius: 20, padding: '0.2rem 0.55rem' }}
+                    >
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 60 }}>
+                        {player.name.split(' ')[0]}
+                      </span>
+                      <span style={{ fontFamily: 'var(--fd)', fontSize: '0.88rem', color: holesScored > 0 ? 'var(--gold)' : 'var(--text-dim)', fontWeight: 700 }}>{total}</span>
+                      <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</span>
+                      {holesScored > 0 && (
+                        <span style={{ fontSize: '0.52rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
+                          ({holesScored}h)
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-              {players.map(player => {
-                const total = getPlayerRunningTotal(player.id)
-                const isScorer = selectedPlayer?.id === player.id
-                return (
-                  <div
-                    key={player.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: isScorer ? 'var(--gold-dim)' : 'var(--surface)', border: `1px solid ${isScorer ? 'var(--gold-border)' : 'var(--border)'}`, borderRadius: 20, padding: '0.2rem 0.55rem' }}
-                  >
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 60 }}>
-                      {player.name.split(' ')[0]}
-                    </span>
-                    <span style={{ fontFamily: 'var(--fd)', fontSize: '0.88rem', color: 'var(--gold)', fontWeight: 700 }}>{total}</span>
-                    <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          )}
 
           {/* Save error */}
           {saveError && (

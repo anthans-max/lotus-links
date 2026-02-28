@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     const scoringUrl = tournament.public_token
-      ? `${baseUrl}/t/${tournament.public_token}`
+      ? `${baseUrl}/t/${tournament.public_token}?group=${group.id}`
       : `${baseUrl}/score/${group.id}`
 
     const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
