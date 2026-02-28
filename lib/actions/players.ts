@@ -7,7 +7,7 @@ export async function addPlayer(
   tournamentId: string,
   name: string,
   grade?: string,
-  options?: { handicap_index?: number | null; skill_level?: string | null }
+  options?: { handicap_index?: number | null; skill_level?: string | null; player_email?: string | null }
 ) {
   const supabase = await createClient()
 
@@ -17,6 +17,7 @@ export async function addPlayer(
     grade: grade?.trim() || null,
     handicap_index: options?.handicap_index ?? null,
     skill_level: options?.skill_level?.trim() || null,
+    player_email: options?.player_email?.trim() || null,
     status: 'pre-registered',
   })
 
@@ -77,7 +78,7 @@ export async function bulkAddPlayers(
 
 export async function updatePlayer(
   playerId: string,
-  updates: { name?: string; grade?: string | null; handicap?: number; handicap_index?: number | null; skill_level?: string | null }
+  updates: { name?: string; grade?: string | null; handicap?: number; handicap_index?: number | null; skill_level?: string | null; player_email?: string | null }
 ) {
   const supabase = await createClient()
 
@@ -87,6 +88,7 @@ export async function updatePlayer(
   if (updates.handicap !== undefined) cleaned.handicap = updates.handicap
   if (updates.handicap_index !== undefined) cleaned.handicap_index = updates.handicap_index
   if (updates.skill_level !== undefined) cleaned.skill_level = updates.skill_level?.trim() || null
+  if (updates.player_email !== undefined) cleaned.player_email = updates.player_email?.trim() || null
 
   const { error } = await supabase
     .from('players')

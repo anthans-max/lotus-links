@@ -45,6 +45,8 @@ export default function PlayersManager({
   const [editPlayerHandicap, setEditPlayerHandicap] = useState('0')
   const [editPlayerHandicapIndex, setEditPlayerHandicapIndex] = useState('')
   const [editPlayerSkill, setEditPlayerSkill] = useState('')
+  const [newPlayerEmail, setNewPlayerEmail] = useState('')
+  const [editPlayerEmail, setEditPlayerEmail] = useState('')
 
   const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
   const checkedInCount = players.filter(p => p.status === 'checked_in').length
@@ -56,6 +58,7 @@ export default function PlayersManager({
   }
 
   const volunteerCount = players.filter(p => (p as any).willing_to_chaperone).length
+  const hasAnyEmail = !isWish && players.some(p => p.player_email)
 
   // Filter and sort
   const filtered = players.filter(p => {
@@ -83,12 +86,14 @@ export default function PlayersManager({
           await addPlayer(tournamentId, newName, undefined, {
             handicap_index: hdcpIdx != null && !isNaN(hdcpIdx) ? hdcpIdx : null,
             skill_level: newSkillLevel || null,
+            player_email: newPlayerEmail || null,
           })
         }
         setNewName('')
         setNewGrade('')
         setNewHandicapIndex('')
         setNewSkillLevel('')
+        setNewPlayerEmail('')
         setShowAdd(false)
         setSuccess('Player added')
         setTimeout(() => setSuccess(null), 2000)
@@ -166,6 +171,7 @@ export default function PlayersManager({
     setEditPlayerHandicap(String(p.handicap ?? 0))
     setEditPlayerHandicapIndex(p.handicap_index != null ? String(p.handicap_index) : '')
     setEditPlayerSkill(p.skill_level ?? '')
+    setEditPlayerEmail(p.player_email ?? '')
   }
 
   const handleEditSave = () => {
@@ -184,6 +190,7 @@ export default function PlayersManager({
             name: editPlayerName,
             handicap_index: hdcpIdx != null && !isNaN(hdcpIdx) ? hdcpIdx : null,
             skill_level: editPlayerSkill || null,
+            player_email: editPlayerEmail || null,
           })
         }
         setEditPlayerId(null)
@@ -366,21 +373,34 @@ export default function PlayersManager({
             )}
           </div>
           {!isWish && (
-            <div style={{ marginBottom: '1rem' }}>
-              <div className="label">Skill Level (optional)</div>
-              <select
-                className="input"
-                value={newSkillLevel}
-                onChange={e => setNewSkillLevel(e.target.value)}
-                style={{ width: '100%' }}
-              >
-                <option value="">— Select skill level —</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-                <option value="pro">Pro</option>
-              </select>
-            </div>
+            <>
+              <div style={{ marginBottom: '1rem' }}>
+                <div className="label">Skill Level (optional)</div>
+                <select
+                  className="input"
+                  value={newSkillLevel}
+                  onChange={e => setNewSkillLevel(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">— Select skill level —</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <div className="label">Player Email <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — for scoring link)</span></div>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="player@example.com"
+                  value={newPlayerEmail}
+                  onChange={e => setNewPlayerEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+              </div>
+            </>
           )}
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-gold" onClick={handleAdd} disabled={isPending}>
@@ -471,6 +491,7 @@ export default function PlayersManager({
                     isWish ? 'Grade' : 'Hdcp / Skill',
                     'Status',
                     ...(isWish ? ['Parent'] : []),
+                    ...(hasAnyEmail ? ['Email'] : []),
                     'Pairings',
                     '',
                   ].map(h => (
@@ -542,6 +563,18 @@ export default function PlayersManager({
                           </div>
                         )}
                       </td>
+                      {hasAnyEmail && (
+                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                          <input
+                            className="input"
+                            type="email"
+                            value={editPlayerEmail}
+                            onChange={e => setEditPlayerEmail(e.target.value)}
+                            placeholder="player@example.com"
+                            style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 160 }}
+                          />
+                        </td>
+                      )}
                       <td colSpan={isWish ? 4 : 3} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
                           <button
@@ -651,6 +684,11 @@ export default function PlayersManager({
                               💬 {p.registration_comments}
                             </div>
                           )}
+                        </td>
+                      )}
+                      {hasAnyEmail && (
+                        <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
+                          {p.player_email || '—'}
                         </td>
                       )}
                       <td style={{ padding: '0.65rem 0.75rem' }}>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendScoringLinkEmail } from '@/lib/email'
+import { sendScoringLinkEmail, sendPlayerScoringEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -134,6 +134,76 @@ export async function POST(req: NextRequest) {
           tournamentDate: tournament.date,
         })
       })
+    )
+
+    const sent = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+
+    return NextResponse.json({ sent, failed })
+  }
+
+  // ─── Group-players mode: send to all players in group with player_email ───────
+  if (body.mode === 'group-players') {
+    const { groupId, baseUrl } = body as {
+      mode: 'group-players'
+      groupId: string
+      baseUrl: string
+    }
+
+    if (!groupId || !baseUrl) {
+      return NextResponse.json({ error: 'Missing groupId or baseUrl' }, { status: 400 })
+    }
+
+    // Fetch group + tournament + players
+    const { data: group } = await supabase
+      .from('groups')
+      .select('*, group_players(player_id)')
+      .eq('id', groupId)
+      .single()
+
+    if (!group) {
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+    }
+
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('id, name, course, date, public_token')
+      .eq('id', group.tournament_id)
+      .single()
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const scoringUrl = tournament.public_token
+      ? `${baseUrl}/t/${tournament.public_token}`
+      : `${baseUrl}/score/${group.id}`
+
+    const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+    const { data: players } = playerIds.length > 0
+      ? await supabase.from('players').select('id, name, player_email').in('id', playerIds)
+      : { data: [] as { id: string; name: string; player_email: string | null }[] }
+
+    const playersWithEmail = (players ?? []).filter(p => p.player_email)
+    if (playersWithEmail.length === 0) {
+      return NextResponse.json({ error: 'No players with email in this group' }, { status: 400 })
+    }
+
+    const allPlayerNames = (players ?? []).map(p => p.name)
+
+    const results = await Promise.allSettled(
+      playersWithEmail.map(p =>
+        sendPlayerScoringEmail({
+          to: p.player_email!,
+          playerName: p.name,
+          groupName: group.name,
+          players: allPlayerNames,
+          scoringUrl,
+          tournamentName: tournament.name,
+          courseName: tournament.course,
+          tournamentDate: tournament.date,
+        })
+      )
     )
 
     const sent = results.filter(r => r.status === 'fulfilled').length

@@ -21,6 +21,7 @@ interface GroupsManagerProps {
   players: Player[]
   groups: (Group & { group_players: GroupPlayer[] })[]
   pairingPrefs: PairingPreference[]
+  isWish?: boolean
 }
 
 export default function GroupsManager({
@@ -30,7 +31,9 @@ export default function GroupsManager({
   players,
   groups,
   pairingPrefs,
+  isWish = false,
 }: GroupsManagerProps) {
+  const scorerLabel = isWish ? 'Chaperone' : 'Scorer'
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [showCreate, setShowCreate] = useState(false)
@@ -55,6 +58,9 @@ export default function GroupsManager({
   const [sendingEmail, setSendingEmail] = useState<string | null>(null)
   const [confirmSendAll, setConfirmSendAll] = useState(false)
   const [sendingAll, setSendingAll] = useState(false)
+  const [confirmEmailScorer, setConfirmEmailScorer] = useState<string | null>(null)
+  const [confirmEmailGroup, setConfirmEmailGroup] = useState<string | null>(null)
+  const [sendingGroupPlayers, setSendingGroupPlayers] = useState<string | null>(null)
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -220,6 +226,7 @@ export default function GroupsManager({
 
   const handleEmailLink = async (groupId: string, email: string) => {
     setSendingEmail(groupId)
+    setConfirmEmailScorer(null)
     setError(null)
     try {
       const res = await fetch('/api/email/send-scoring-link', {
@@ -234,12 +241,37 @@ export default function GroupsManager({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to send email')
-      setSuccess(`Email sent to ${email}`)
+      setSuccess(`Scoring link sent to ${email}`)
       setTimeout(() => setSuccess(null), 3000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send email')
     } finally {
       setSendingEmail(null)
+    }
+  }
+
+  const handleEmailGroupPlayers = async (groupId: string) => {
+    setSendingGroupPlayers(groupId)
+    setConfirmEmailGroup(null)
+    setError(null)
+    try {
+      const res = await fetch('/api/email/send-scoring-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'group-players',
+          groupId,
+          baseUrl: getBaseUrl(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send emails')
+      setSuccess(`Scoring link sent to ${data.sent} player${data.sent !== 1 ? 's' : ''}${data.failed ? ` (${data.failed} failed)` : ''}`)
+      setTimeout(() => setSuccess(null), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send emails')
+    } finally {
+      setSendingGroupPlayers(null)
     }
   }
 
@@ -381,7 +413,7 @@ export default function GroupsManager({
             {confirmSendAll ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Send to {groupsWithEmail.length} chaperone{groupsWithEmail.length !== 1 ? 's' : ''}?
+                  Send to {groupsWithEmail.length} {scorerLabel.toLowerCase()}{groupsWithEmail.length !== 1 ? 's' : ''}?
                 </span>
                 <button
                   className="btn btn-gold btn-sm"
@@ -429,26 +461,26 @@ export default function GroupsManager({
               />
             </div>
             <div>
-              <div className="label">Chaperone (optional)</div>
+              <div className="label">{scorerLabel} (optional)</div>
               <input
                 className="input"
-                placeholder="Chaperone name"
+                placeholder={`${scorerLabel} name`}
                 value={newChaperone}
                 onChange={e => setNewChaperone(e.target.value)}
               />
             </div>
             <div>
-              <div className="label">Chaperone Email (optional)</div>
+              <div className="label">{scorerLabel} Email (optional)</div>
               <input
                 className="input"
                 type="email"
-                placeholder="chaperone@email.com"
+                placeholder={`${scorerLabel.toLowerCase()}@email.com`}
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
               />
             </div>
             <div>
-              <div className="label">Chaperone Phone (optional)</div>
+              <div className="label">{scorerLabel} Phone (optional)</div>
               <input
                 className="input"
                 type="tel"
@@ -526,17 +558,17 @@ export default function GroupsManager({
                         <input className="input" value={editName} onChange={e => setEditName(e.target.value)} style={{ fontSize: '0.85rem' }} />
                       </div>
                       <div>
-                        <div className="label">Chaperone</div>
+                        <div className="label">{scorerLabel}</div>
                         <input className="input" value={editChaperone} onChange={e => setEditChaperone(e.target.value)} style={{ fontSize: '0.85rem' }} />
                       </div>
                     </div>
                     <div className="g2" style={{ marginBottom: '0.75rem' }}>
                       <div>
-                        <div className="label">Chaperone Email</div>
-                        <input className="input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder="chaperone@email.com" />
+                        <div className="label">{scorerLabel} Email</div>
+                        <input className="input" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder={`${scorerLabel.toLowerCase()}@email.com`} />
                       </div>
                       <div>
-                        <div className="label">Chaperone Phone</div>
+                        <div className="label">{scorerLabel} Phone</div>
                         <input className="input" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder="(555) 555-5555" />
                       </div>
                     </div>
@@ -561,7 +593,7 @@ export default function GroupsManager({
                       </div>
                       {group.chaperone_name && (
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginTop: '0.15rem' }}>
-                          CHAPERONE &middot; {group.chaperone_name}
+                          {scorerLabel.toUpperCase()} &middot; {group.chaperone_name}
                         </div>
                       )}
                       {group.chaperone_email && (
@@ -645,7 +677,7 @@ export default function GroupsManager({
                             )}
                             {(p as any).willing_to_chaperone && (
                               <span style={{ fontSize: '0.6rem', color: 'var(--gold)', fontFamily: 'var(--fm)' }}>
-                                🙋 Chaperone volunteer
+                                🙋 {scorerLabel} volunteer
                               </span>
                             )}
                             {hasPref && (
@@ -696,61 +728,127 @@ export default function GroupsManager({
                 )}
 
                 {/* Group actions */}
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: '0.65rem' }}
-                    onClick={() => copyLink(group.id)}
-                  >
-                    {copiedLink === group.id ? 'Copied!' : 'Copy Link'}
-                  </button>
-                  {group.chaperone_email && (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: '0.65rem' }}
-                      onClick={() => handleEmailLink(group.id, group.chaperone_email!)}
-                      disabled={sendingEmail === group.id}
-                    >
-                      {sendingEmail === group.id ? 'Sending...' : 'Email Link'}
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: '0.65rem' }}
-                    onClick={() => handleRegeneratePin(group.id)}
-                    disabled={isPending}
-                  >
-                    New PIN
-                  </button>
-                  {confirmDelete === group.id ? (
-                    <>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        style={{ borderColor: 'var(--over-border)', color: 'var(--over)', fontSize: '0.65rem' }}
-                        onClick={() => handleDelete(group.id)}
-                        disabled={isPending}
-                      >
-                        Confirm Delete
-                      </button>
+                {(() => {
+                  const playersWithEmail = groupPlayers.filter(p => p.player_email)
+                  return (
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ fontSize: '0.65rem' }}
-                        onClick={() => setConfirmDelete(null)}
+                        onClick={() => copyLink(group.id)}
                       >
-                        Cancel
+                        {copiedLink === group.id ? 'Copied!' : 'Copy Link'}
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
-                      onClick={() => setConfirmDelete(group.id)}
-                      disabled={isPending}
-                    >
-                      Delete Group
-                    </button>
-                  )}
-                </div>
+
+                      {/* Email Scorer — with inline confirm */}
+                      {group.chaperone_email && (
+                        confirmEmailScorer === group.id ? (
+                          <>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                              Send to {group.chaperone_email}?
+                            </span>
+                            <button
+                              className="btn btn-gold btn-sm"
+                              style={{ fontSize: '0.65rem' }}
+                              onClick={() => handleEmailLink(group.id, group.chaperone_email!)}
+                              disabled={sendingEmail === group.id}
+                            >
+                              {sendingEmail === group.id ? 'Sending...' : 'Confirm'}
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.65rem' }}
+                              onClick={() => setConfirmEmailScorer(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={() => { setConfirmEmailScorer(group.id); setConfirmEmailGroup(null); setConfirmDelete(null) }}
+                            disabled={sendingEmail === group.id}
+                          >
+                            Email {scorerLabel}
+                          </button>
+                        )
+                      )}
+
+                      {/* Email Group (players) — with inline confirm */}
+                      {playersWithEmail.length > 0 && (
+                        confirmEmailGroup === group.id ? (
+                          <>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                              Send to {playersWithEmail.length} of {groupPlayers.length} player{groupPlayers.length !== 1 ? 's' : ''}?
+                            </span>
+                            <button
+                              className="btn btn-gold btn-sm"
+                              style={{ fontSize: '0.65rem' }}
+                              onClick={() => handleEmailGroupPlayers(group.id)}
+                              disabled={sendingGroupPlayers === group.id}
+                            >
+                              {sendingGroupPlayers === group.id ? 'Sending...' : 'Confirm'}
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.65rem' }}
+                              onClick={() => setConfirmEmailGroup(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={() => { setConfirmEmailGroup(group.id); setConfirmEmailScorer(null); setConfirmDelete(null) }}
+                            disabled={sendingGroupPlayers === group.id}
+                          >
+                            Email Group ({playersWithEmail.length})
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.65rem' }}
+                        onClick={() => handleRegeneratePin(group.id)}
+                        disabled={isPending}
+                      >
+                        New PIN
+                      </button>
+                      {confirmDelete === group.id ? (
+                        <>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ borderColor: 'var(--over-border)', color: 'var(--over)', fontSize: '0.65rem' }}
+                            onClick={() => handleDelete(group.id)}
+                            disabled={isPending}
+                          >
+                            Confirm Delete
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={() => setConfirmDelete(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: '0.65rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
+                          onClick={() => { setConfirmDelete(group.id); setConfirmEmailScorer(null); setConfirmEmailGroup(null) }}
+                          disabled={isPending}
+                        >
+                          Delete Group
+                        </button>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}

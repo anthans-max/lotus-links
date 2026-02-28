@@ -149,6 +149,7 @@ export interface Player {
   handicap_index: number | null
   skill_level: string | null
   status: 'pre-registered' | 'registered' | 'checked_in'
+  player_email: string | null
   parent_name: string | null
   parent_phone: string | null
   parent_email: string | null
