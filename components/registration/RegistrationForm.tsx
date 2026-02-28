@@ -226,7 +226,7 @@ export default function RegistrationForm({
           </div>
 
           <a
-            href={`/leaderboard/${tournament.id}`}
+            href={`/dashboard/leagues/${tournament.leagueId}/tournaments/${tournament.id}`}
             className="btn"
             style={{
               width: '100%',
