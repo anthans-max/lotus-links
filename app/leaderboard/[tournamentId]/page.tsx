@@ -27,7 +27,9 @@ export default async function LeaderboardPage({ params }: Props) {
     return <NotFoundView />
   }
 
-  if (!tournament.leaderboard_public) {
+  const today = new Date().toISOString().split('T')[0]
+  const tournamentDate = tournament.date ? tournament.date.split('T')[0] : ''
+  if (!tournament.leaderboard_public && today < tournamentDate) {
     return (
       <>
         <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />

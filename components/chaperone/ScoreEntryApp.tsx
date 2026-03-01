@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { upsertScore, updateGroupProgress, submitScorecard } from '@/lib/actions/scores'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -267,7 +268,7 @@ export default function ScoreEntryApp({
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           <span style={{ display: 'none' }}>{theme === 'dark' ? 'Light' : 'Dark'}</span>
         </button>
-        <a href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</a>
+        <Link href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</Link>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite', flexShrink: 0 }} />
       </div>
     </div>
@@ -564,7 +565,7 @@ export default function ScoreEntryApp({
         </div>
 
         {tournament.leaderboardPublic ? (
-          <a
+          <Link
             href={`/leaderboard/${tournament.id}`}
             style={{
               display: 'inline-flex',
@@ -582,7 +583,7 @@ export default function ScoreEntryApp({
             }}
           >
             View Live Leaderboard &rarr;
-          </a>
+          </Link>
         ) : (
           <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
             Leaderboard will be available soon
