@@ -460,14 +460,21 @@ export default function StablefordScoringApp({
 
   // ─── Auto-save current hole scores when advancing to next hole ─────────────
   const saveCurrentHole = useCallback(async (holeNumber: number) => {
-    const toSave: Array<{ playerId: string; holeNumber: number; strokes: number }> = []
-    for (const player of players) {
-      if (changedKeys.has(`${player.id}:${holeNumber}`)) {
-        const strokes = allDraftScores[player.id]?.[holeNumber] ?? holes.find(h => h.number === holeNumber)?.par ?? 3
-        toSave.push({ playerId: player.id, holeNumber, strokes })
+    // Navigating away confirms all players' scores for this hole
+    setScoredKeys(prev => {
+      const next = new Set(prev)
+      for (const player of players) {
+        next.add(`${player.id}:${holeNumber}`)
       }
-    }
-    if (toSave.length === 0) return
+      return next
+    })
+
+    const parFallback = holes.find(h => h.number === holeNumber)?.par ?? 3
+    const toSave = players.map(player => ({
+      playerId: player.id,
+      holeNumber,
+      strokes: allDraftScores[player.id]?.[holeNumber] ?? parFallback,
+    }))
 
     const checks = await Promise.all(
       toSave.map(e =>
@@ -496,7 +503,7 @@ export default function StablefordScoringApp({
         }
       })
     )
-  }, [players, changedKeys, allDraftScores, holes, supabase, tournamentId])
+  }, [players, allDraftScores, holes, supabase, tournamentId])
 
   // ─── Player selection ──────────────────────────────────────────────────────
   const handleSelectPlayer = useCallback((player: PlayerInfo) => {
@@ -909,24 +916,6 @@ export default function StablefordScoringApp({
       <div className={phoneClass} style={accentStyle}>
         <StatusBar />
 
-        {/* Gross/Net toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
-            <button
-              onClick={() => setUseGross(false)}
-              style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: !useGross ? 'var(--gold)' : 'transparent', color: !useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
-            >
-              Net (Handicap)
-            </button>
-            <button
-              onClick={() => setUseGross(true)}
-              style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--gold-border)', background: useGross ? 'var(--gold)' : 'transparent', color: useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
-            >
-              Gross
-            </button>
-          </div>
-        </div>
-
         {/* Progress bar + hole counter */}
         <div style={{ padding: '0.6rem 1.25rem 0.5rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
@@ -966,7 +955,7 @@ export default function StablefordScoringApp({
           <div style={{ padding: '0.875rem 1.25rem 0.625rem' }}>
             <div style={{ background: 'linear-gradient(135deg,var(--forest),var(--surface2))', border: '1px solid var(--gold-border)', borderRadius: 10, padding: '0.75rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
               <button
-                onClick={() => holeIdx > 0 && setHoleIdx(holeIdx - 1)}
+                onClick={() => { if (holeIdx > 0) { saveCurrentHole(currentHole.number); setHoleIdx(holeIdx - 1) } }}
                 disabled={holeIdx === 0}
                 className="tap"
                 style={{ width: 36, height: 36, borderRadius: 8, background: holeIdx === 0 ? 'transparent' : 'var(--surface2)', border: holeIdx === 0 ? 'none' : '1px solid var(--border2)', color: holeIdx === 0 ? 'transparent' : 'var(--text)', fontSize: '1.4rem', cursor: holeIdx === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 1 }}
@@ -987,7 +976,7 @@ export default function StablefordScoringApp({
                 </div>
               </div>
               <button
-                onClick={() => !isLastHole && setHoleIdx(holeIdx + 1)}
+                onClick={() => { if (!isLastHole) { saveCurrentHole(currentHole.number); setHoleIdx(holeIdx + 1) } }}
                 disabled={isLastHole}
                 className="tap"
                 style={{ width: 36, height: 36, borderRadius: 8, background: isLastHole ? 'transparent' : 'var(--surface2)', border: isLastHole ? 'none' : '1px solid var(--border2)', color: isLastHole ? 'transparent' : 'var(--text)', fontSize: '1.4rem', cursor: isLastHole ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 1 }}
@@ -1071,9 +1060,28 @@ export default function StablefordScoringApp({
             </div>
           </div>
 
-          {/* Running totals — hidden until at least one hole has been scored */}
+          {/* Net/Gross toggle + Running totals — hidden until at least one hole has been scored */}
           {scoredKeys.size > 0 && (
             <div style={{ padding: '0 1.25rem 0.625rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  View as:
+                </span>
+                <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 28, flex: 1, maxWidth: 220 }}>
+                  <button
+                    onClick={() => setUseGross(false)}
+                    style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: !useGross ? 'var(--gold)' : 'transparent', color: !useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+                  >
+                    Net (Handicap)
+                  </button>
+                  <button
+                    onClick={() => setUseGross(true)}
+                    style={{ flex: 1, height: '100%', fontFamily: 'var(--fm)', fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--gold-border)', background: useGross ? 'var(--gold)' : 'transparent', color: useGross ? '#0a120a' : 'var(--gold)', WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, color 0.15s' }}
+                  >
+                    Gross
+                  </button>
+                </div>
+              </div>
               <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
                 Running Totals
               </div>
@@ -1114,7 +1122,7 @@ export default function StablefordScoringApp({
           {/* Navigation buttons */}
           <div style={{ padding: '0 1.25rem 0.75rem', display: 'flex', gap: '0.5rem' }}>
             {holeIdx > 0 && (
-              <button className="submit-btn ghost tap" onClick={() => setHoleIdx(holeIdx - 1)} style={{ flex: 1 }}>
+              <button className="submit-btn ghost tap" onClick={() => { saveCurrentHole(currentHole.number); setHoleIdx(holeIdx - 1) }} style={{ flex: 1 }}>
                 ← Prev
               </button>
             )}
