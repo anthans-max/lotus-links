@@ -153,7 +153,9 @@ function buildPlayerScoringEmailHtml(data: Omit<PlayerScoringEmailPayload, 'to'>
 
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
-          <div style="font-size:11px;color:#4a6a4a;">Powered by Lotus Links</div>
+          <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+          </a>
         </td></tr>
       </table>
     </td></tr>
@@ -321,7 +323,9 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
 
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
-          <div style="font-size:11px;color:#4a6a4a;">Powered by Lotus Links</div>
+          <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+          </a>
         </td></tr>
       </table>
     </td></tr>
@@ -422,7 +426,9 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
 
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
-          <div style="font-size:11px;color:#4a6a4a;">Powered by Lotus Links</div>
+          <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+          </a>
         </td></tr>
       </table>
     </td></tr>
