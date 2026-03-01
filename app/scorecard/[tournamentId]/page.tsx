@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import ScorecardTable from '@/components/scorecard/ScorecardTable'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
+import SendScorecardButton from '@/components/admin/SendScorecardButton'
 import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, parseStablefordConfig } from '@/lib/scoring/stableford'
 
@@ -16,6 +17,9 @@ interface Props {
 export default async function ScorecardPage({ params }: Props) {
   const { tournamentId } = await params
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = !!user
 
   const { data: tournament } = await supabase
     .from('tournaments')
@@ -154,9 +158,12 @@ export default async function ScorecardPage({ params }: Props) {
                 {tournament.course} · {formattedDate}
               </div>
             </div>
-            <span style={{ alignSelf: 'flex-start', marginTop: '0.25rem', fontSize: '0.7rem', padding: '0.2rem 0.6rem', border: '1px solid var(--border2)', borderRadius: 4, color: formatBadgeColor, fontFamily: 'var(--fm)', letterSpacing: '0.06em' }}>
-              {tournament.format}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem', border: '1px solid var(--border2)', borderRadius: 4, color: formatBadgeColor, fontFamily: 'var(--fm)', letterSpacing: '0.06em' }}>
+                {tournament.format}
+              </span>
+              {isAdmin && <SendScorecardButton tournamentId={tournamentId} />}
+            </div>
           </div>
         </div>
       </div>
