@@ -94,7 +94,7 @@ function buildPlayerScoringEmailHtml(data: Omit<PlayerScoringEmailPayload, 'to'>
 
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap" rel="stylesheet"></head>
 <body style="margin:0;padding:0;background:#1a2e1a;font-family:Georgia,'Times New Roman',serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a2e1a;padding:32px 16px;">
     <tr><td align="center">
@@ -154,7 +154,7 @@ function buildPlayerScoringEmailHtml(data: Omit<PlayerScoringEmailPayload, 'to'>
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
           <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
-            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" height="18" style="display:inline-block;vertical-align:middle;width:auto;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:'Syne',Georgia,sans-serif;">Powered by Lotus AI</span>
           </a>
         </td></tr>
       </table>
@@ -263,7 +263,7 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
 
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap" rel="stylesheet"></head>
 <body style="margin:0;padding:0;background:#1a2e1a;font-family:Georgia,'Times New Roman',serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a2e1a;padding:32px 16px;">
     <tr><td align="center">
@@ -324,7 +324,7 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
           <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
-            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" height="18" style="display:inline-block;vertical-align:middle;width:auto;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:'Syne',Georgia,sans-serif;">Powered by Lotus AI</span>
           </a>
         </td></tr>
       </table>
@@ -362,7 +362,7 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
 
   return `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap" rel="stylesheet"></head>
 <body style="margin:0;padding:0;background:#1a2e1a;font-family:Georgia,'Times New Roman',serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a2e1a;padding:32px 16px;">
     <tr><td align="center">
@@ -427,7 +427,7 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
         <!-- Footer -->
         <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
           <a href="https://getlotusai.com" style="display:inline-block;text-decoration:none;font-size:0;">
-            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" width="16" height="16" style="display:inline-block;vertical-align:middle;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:Georgia,serif;">Powered by Lotus AI</span>
+            <img src="https://links.getlotusai.com/lotus-logo.png" alt="Lotus AI" height="18" style="display:inline-block;vertical-align:middle;width:auto;border-radius:3px;" /><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;letter-spacing:3px;color:#6b7b6b;text-transform:uppercase;font-weight:700;font-family:'Syne',Georgia,sans-serif;">Powered by Lotus AI</span>
           </a>
         </td></tr>
       </table>
