@@ -1112,7 +1112,7 @@ export default function StablefordScoringApp({
           )}
 
           {/* Navigation buttons */}
-          <div style={{ padding: '0 1.25rem 1.5rem', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ padding: '0 1.25rem 0.75rem', display: 'flex', gap: '0.5rem' }}>
             {holeIdx > 0 && (
               <button className="submit-btn ghost tap" onClick={() => setHoleIdx(holeIdx - 1)} style={{ flex: 1 }}>
                 ← Prev
@@ -1127,6 +1127,21 @@ export default function StablefordScoringApp({
                 Next Hole →
               </button>
             )}
+          </div>
+
+          {/* View Live Leaderboard */}
+          <div style={{ padding: '0 1.25rem 1.5rem' }}>
+            <Link
+              href={`/leaderboard/${tournament.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
+              <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: '1px solid rgba(200,168,75,0.4)', color: 'var(--gold)', background: 'transparent', borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.8rem', fontFamily: 'var(--fm)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', minHeight: 48, cursor: 'pointer', boxSizing: 'border-box' }}>
+                <span>🏆</span>
+                View Live Leaderboard
+              </div>
+            </Link>
           </div>
         </div>
       </div>
