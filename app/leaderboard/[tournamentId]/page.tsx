@@ -33,7 +33,7 @@ export default async function LeaderboardPage({ params }: Props) {
     return (
       <>
         <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
-        <ChatAssistant tournamentId={tournamentId} />
+        <ChatAssistant tournamentId={tournamentId} format={tournament.format} />
       </>
     )
   }
@@ -70,6 +70,9 @@ export default async function LeaderboardPage({ params }: Props) {
     ])
 
     const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
+    const hasHandicaps = (players ?? []).some(
+      p => (p as any).handicap_index != null || ((p.handicap ?? 0) > 0)
+    )
 
     return (
       <>
@@ -115,7 +118,11 @@ export default async function LeaderboardPage({ params }: Props) {
             📋 View Full Scorecard
           </a>
         </div>
-        <ChatAssistant tournamentId={tournamentId} />
+        <ChatAssistant
+          tournamentId={tournamentId}
+          format={tournament.format}
+          hasHandicaps={hasHandicaps}
+        />
       </>
     )
   }
@@ -124,7 +131,7 @@ export default async function LeaderboardPage({ params }: Props) {
   const [{ data: groups }, { data: scores }] = await Promise.all([
     supabase
       .from('groups')
-      .select('id, name, chaperone_name, current_hole, status')
+      .select('id, name, chaperone_name, current_hole, status, tee_time')
       .eq('tournament_id', tournamentId)
       .order('name'),
     supabase
@@ -166,7 +173,11 @@ export default async function LeaderboardPage({ params }: Props) {
         players={[]}
         initialPlayerScores={[]}
       />
-      <ChatAssistant tournamentId={tournamentId} />
+      <ChatAssistant
+        tournamentId={tournamentId}
+        format={tournament.format}
+        hasTeeTimtes={(groups ?? []).some(g => (g as any).tee_time != null)}
+      />
     </>
   )
 }

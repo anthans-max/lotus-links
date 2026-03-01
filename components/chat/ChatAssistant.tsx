@@ -7,16 +7,37 @@ interface Message {
   content: string
 }
 
-const SUGGESTED = [
-  'How does Stableford scoring work?',
-  'What is a Course Handicap?',
-  'Who is currently leading?',
-  "What are today's tee times?",
-  'How are net scores calculated?',
-  'What format is this tournament?',
-]
+function buildSuggested(format = '', hasHandicaps = false, hasTeeTimtes = false): string[] {
+  const q: string[] = [
+    'Who is currently leading?',
+    'What format is this tournament?',
+  ]
+  if (format === 'Stableford') {
+    q.push('How does Stableford scoring work?')
+  } else {
+    q.push('How is the winner determined?')
+  }
+  if (hasHandicaps) {
+    q.push('What is a Course Handicap?')
+    q.push('How are net scores calculated?')
+  }
+  if (hasTeeTimtes) {
+    q.push("What are today's tee times?")
+  }
+  return q.slice(0, 4)
+}
 
-export default function ChatAssistant({ tournamentId }: { tournamentId: string }) {
+export default function ChatAssistant({
+  tournamentId,
+  format = '',
+  hasHandicaps = false,
+  hasTeeTimtes = false,
+}: {
+  tournamentId: string
+  format?: string
+  hasHandicaps?: boolean
+  hasTeeTimtes?: boolean
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -332,7 +353,7 @@ export default function ChatAssistant({ tournamentId }: { tournamentId: string }
                 flexShrink: 0,
               }}
             >
-              {SUGGESTED.map(q => (
+              {buildSuggested(format, hasHandicaps, hasTeeTimtes).map(q => (
                 <button
                   key={q}
                   onClick={() => send(q)}

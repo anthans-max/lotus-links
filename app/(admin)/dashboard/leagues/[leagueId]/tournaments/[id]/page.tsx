@@ -105,7 +105,7 @@ export default async function TournamentDetailPage({ params }: Props) {
         />
       </div>
 
-      <ChatAssistant tournamentId={id} />
+      <ChatAssistant tournamentId={id} format={tournament.format} />
 
       {/* Leaderboard quick-access */}
       <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

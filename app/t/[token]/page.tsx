@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import StablefordScoringApp from '@/components/scoring/StablefordScoringApp'
+import ChatAssistant from '@/components/chat/ChatAssistant'
 import { parseStablefordConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -51,10 +52,11 @@ export default async function TokenScoringPage({ params, searchParams }: Props) 
 
   // If a group ID is provided, validate it belongs to this tournament and filter players
   let players = allPlayers ?? []
+  let hasTeeTimtes = false
   if (groupId) {
     const { data: groupData } = await supabase
       .from('groups')
-      .select('group_players(player_id)')
+      .select('tee_time, group_players(player_id)')
       .eq('id', groupId)
       .eq('tournament_id', tournament.id)  // server-side validation
       .single()
@@ -64,13 +66,18 @@ export default async function TokenScoringPage({ params, searchParams }: Props) 
         (groupData.group_players as { player_id: string }[]).map(gp => gp.player_id)
       )
       players = players.filter(p => groupPlayerIds.has(p.id))
+      hasTeeTimtes = (groupData as any).tee_time != null
     }
     // If groupData is null (group not found / wrong tournament), fall back to all players
   }
 
+  const hasHandicaps = (allPlayers ?? []).some(
+    p => (p as any).handicap_index != null || ((p.handicap ?? 0) > 0)
+  )
   const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
 
   return (
+    <>
     <StablefordScoringApp
       tournament={{
         id: tournament.id,
@@ -107,6 +114,13 @@ export default async function TokenScoringPage({ params, searchParams }: Props) 
         }))}
       tournamentId={tournament.id}
     />
+    <ChatAssistant
+      tournamentId={tournament.id}
+      format={tournament.format}
+      hasHandicaps={hasHandicaps}
+      hasTeeTimtes={hasTeeTimtes}
+    />
+    </>
   )
 }
 

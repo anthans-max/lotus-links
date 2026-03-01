@@ -83,7 +83,11 @@ export default async function ScoreEntryPage({ params }: Props) {
           strokes: s.strokes,
         }))}
       />
-      <ChatAssistant tournamentId={tournament.id} />
+      <ChatAssistant
+        tournamentId={tournament.id}
+        format={tournament.format}
+        hasTeeTimtes={!!group.tee_time}
+      />
     </>
   )
 }
