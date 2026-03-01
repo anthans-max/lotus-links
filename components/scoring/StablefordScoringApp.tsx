@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, type StablefordPointsConfig } from '@/lib/scoring/stableford'
@@ -457,6 +458,46 @@ export default function StablefordScoringApp({
     }
   }, [selectedPlayer, savingPlayer, localScores, supabase, tournamentId])
 
+  // ─── Auto-save current hole scores when advancing to next hole ─────────────
+  const saveCurrentHole = useCallback(async (holeNumber: number) => {
+    const toSave: Array<{ playerId: string; holeNumber: number; strokes: number }> = []
+    for (const player of players) {
+      if (changedKeys.has(`${player.id}:${holeNumber}`)) {
+        const strokes = allDraftScores[player.id]?.[holeNumber] ?? holes.find(h => h.number === holeNumber)?.par ?? 3
+        toSave.push({ playerId: player.id, holeNumber, strokes })
+      }
+    }
+    if (toSave.length === 0) return
+
+    const checks = await Promise.all(
+      toSave.map(e =>
+        supabase.from('scores').select('id')
+          .eq('player_id', e.playerId)
+          .eq('tournament_id', tournamentId)
+          .eq('hole_number', e.holeNumber)
+          .maybeSingle()
+      )
+    )
+    await Promise.all(
+      toSave.map(async (e, i) => {
+        const now = new Date().toISOString()
+        if (checks[i].data) {
+          await supabase.from('scores')
+            .update({ strokes: e.strokes, submitted_at: now })
+            .eq('id', checks[i].data!.id)
+        } else {
+          await supabase.from('scores').insert({
+            tournament_id: tournamentId,
+            player_id: e.playerId,
+            hole_number: e.holeNumber,
+            strokes: e.strokes,
+            submitted_at: now,
+          })
+        }
+      })
+    )
+  }, [players, changedKeys, allDraftScores, holes, supabase, tournamentId])
+
   // ─── Player selection ──────────────────────────────────────────────────────
   const handleSelectPlayer = useCallback((player: PlayerInfo) => {
     setSelectedPlayer(player)
@@ -539,7 +580,7 @@ export default function StablefordScoringApp({
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
-        <a href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</a>
+        <Link href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</Link>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite', flexShrink: 0 }} />
       </div>
     </div>
@@ -1078,11 +1119,11 @@ export default function StablefordScoringApp({
               </button>
             )}
             {isLastHole ? (
-              <button className="submit-btn tap" onClick={() => setScreen('review')} style={{ flex: holeIdx > 0 ? 2 : 1 }}>
+              <button className="submit-btn tap" onClick={() => { saveCurrentHole(currentHole.number); setScreen('review') }} style={{ flex: holeIdx > 0 ? 2 : 1 }}>
                 Review & Save →
               </button>
             ) : (
-              <button className="submit-btn tap" onClick={() => setHoleIdx(holeIdx + 1)} style={{ flex: holeIdx > 0 ? 2 : 1 }}>
+              <button className="submit-btn tap" onClick={() => { saveCurrentHole(currentHole.number); setHoleIdx(holeIdx + 1) }} style={{ flex: holeIdx > 0 ? 2 : 1 }}>
                 Next Hole →
               </button>
             )}
@@ -1237,12 +1278,12 @@ export default function StablefordScoringApp({
           Scores are now live on the leaderboard.
         </div>
 
-        <a
+        <Link
           href={`/leaderboard/${tournament.id}`}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', borderRadius: 8, color: 'var(--gold)', fontFamily: 'var(--fd)', fontSize: '1rem', textDecoration: 'none', marginBottom: '1rem' }}
         >
           View Live Leaderboard →
-        </a>
+        </Link>
 
         <PoweredByFooter />
       </div>
