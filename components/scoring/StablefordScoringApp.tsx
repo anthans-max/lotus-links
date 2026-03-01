@@ -580,7 +580,7 @@ export default function StablefordScoringApp({
         >
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
-        <Link href={`/leaderboard/${tournament.id}`} style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</Link>
+        <Link href={`/leaderboard/${tournament.id}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.65rem', color: 'var(--gold)', opacity: 0.7, textDecoration: 'none', lineHeight: 1, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="View Leaderboard">🏆</Link>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4CAF50', animation: 'pulse 2s ease-in-out infinite', flexShrink: 0 }} />
       </div>
     </div>
@@ -1280,6 +1280,8 @@ export default function StablefordScoringApp({
 
         <Link
           href={`/leaderboard/${tournament.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', background: 'var(--gold-dim)', border: '1px solid var(--gold-border)', borderRadius: 8, color: 'var(--gold)', fontFamily: 'var(--fd)', fontSize: '1rem', textDecoration: 'none', marginBottom: '1rem' }}
         >
           View Live Leaderboard →
