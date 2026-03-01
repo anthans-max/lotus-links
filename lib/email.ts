@@ -162,6 +162,174 @@ function buildPlayerScoringEmailHtml(data: Omit<PlayerScoringEmailPayload, 'to'>
 </html>`
 }
 
+export interface ScorecardSummaryEmailPayload {
+  to: string
+  playerName: string | null
+  tournamentName: string
+  courseName: string
+  tournamentDate: string
+  scorecardUrl: string
+  leaderboard: { rank: number; name: string; totalPts: number; gross: number; isRecipient: boolean }[]
+  recipientSummary: {
+    holes: { number: number; par: number; raw: number; net: number; pts: number; received: number }[]
+    gross: number
+    net: number
+    totalPts: number
+  } | null
+}
+
+export async function sendScorecardSummaryEmail(payload: ScorecardSummaryEmailPayload) {
+  const { to, ...rest } = payload
+  const html = buildScorecardSummaryEmailHtml(rest)
+
+  const { error } = await getResend().emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: `Post-Round Scorecard — ${payload.tournamentName}`,
+    html,
+  })
+
+  if (error) throw new Error(error.message)
+}
+
+function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload, 'to'>) {
+  const { playerName, tournamentName, courseName, tournamentDate, scorecardUrl, leaderboard, recipientSummary } = data
+
+  const leaderboardRows = leaderboard
+    .map((entry, idx) => {
+      const rowBg = entry.isRecipient ? 'background:rgba(184,151,106,0.12);' : ''
+      const rankColor = idx === 0 ? '#b8976a' : 'rgba(240,236,228,0.55)'
+      const nameColor = entry.isRecipient ? '#b8976a' : '#f0ece4'
+      const rowBorder = idx < leaderboard.length - 1 ? 'border-bottom:1px solid #2d482d;' : ''
+      const youBadge = entry.isRecipient
+        ? `<span style="display:inline-block;background:rgba(184,151,106,0.15);border:1px solid rgba(184,151,106,0.35);color:#b8976a;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:1px 6px;border-radius:8px;font-family:Georgia,serif;margin-left:6px;">You</span>`
+        : ''
+      return `<tr style="${rowBg}${rowBorder}">
+        <td style="padding:9px 0 9px 12px;width:28px;font-size:12px;color:${rankColor};font-family:Georgia,serif;font-weight:600;">${entry.rank}</td>
+        <td style="padding:9px 6px;font-size:13px;color:${nameColor};font-family:Georgia,serif;">${entry.name}${youBadge}</td>
+        <td style="padding:9px 6px;font-size:13px;color:#b8976a;font-family:Georgia,serif;font-weight:700;text-align:right;">${entry.totalPts} pts</td>
+        <td style="padding:9px 12px 9px 6px;font-size:12px;color:rgba(240,236,228,0.45);font-family:Georgia,serif;text-align:right;">${entry.gross}</td>
+      </tr>`
+    })
+    .join('')
+
+  let scorecardSection = ''
+  if (recipientSummary) {
+    // Build hole blocks — up to 9 holes per row
+    const { holes, gross, net, totalPts } = recipientSummary
+    const chunks: typeof holes[] = []
+    for (let i = 0; i < holes.length; i += 9) {
+      chunks.push(holes.slice(i, i + 9))
+    }
+
+    const chunkHtml = chunks
+      .map(chunk => {
+        const holeNums = chunk
+          .map(h => `<td style="padding:5px 6px;text-align:center;font-size:11px;color:rgba(138,173,138,0.6);font-family:Georgia,serif;">H${h.number}</td>`)
+          .join('')
+        const holeScores = chunk
+          .map(h => {
+            const ptsColor = h.pts > 0 ? '#b8976a' : 'rgba(240,236,228,0.25)'
+            const ptsFw = h.pts > 0 ? '700' : '400'
+            const dot = h.received > 0
+              ? `<sup style="color:#b8976a;font-size:8px;">·</sup>`
+              : ''
+            return `<td style="padding:5px 6px;text-align:center;font-size:13px;color:${ptsColor};font-weight:${ptsFw};font-family:Georgia,serif;">${h.pts}${dot}</td>`
+          })
+          .join('')
+        return `<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:6px;">
+          <tr>${holeNums}</tr>
+          <tr>${holeScores}</tr>
+        </table>`
+      })
+      .join('')
+
+    scorecardSection = `
+      <!-- Scorecard detail -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#1e2d1e;border:1px solid #3a5c3a;border-radius:8px;margin-bottom:24px;overflow:hidden;">
+        <tr><td style="background:#162416;padding:10px 14px;border-bottom:1px solid #2d482d;">
+          <div style="font-size:10px;letter-spacing:2.5px;color:rgba(138,173,138,0.6);text-transform:uppercase;font-family:Georgia,serif;">Your Scorecard</div>
+        </td></tr>
+        <tr><td style="padding:12px 14px;">
+          ${chunkHtml}
+          <div style="font-size:12px;color:rgba(138,173,138,0.65);font-family:Georgia,serif;margin-top:8px;padding-top:8px;border-top:1px solid #2d482d;">
+            Gross: <strong style="color:#f0ece4;">${gross}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Net: <strong style="color:#f0ece4;">${net}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Total: <strong style="color:#b8976a;">${totalPts} pts</strong>
+          </div>
+        </td></tr>
+      </table>`
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#1a2e1a;font-family:Georgia,'Times New Roman',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a2e1a;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#243324;border:1px solid #3a5c3a;border-radius:12px;overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="background:linear-gradient(135deg,#162416 0%,#1e3a1e 50%,#1a3020 100%);padding:32px 24px 28px;text-align:center;">
+          <div style="font-size:11px;letter-spacing:4px;color:#b8976a;text-transform:uppercase;font-weight:600;margin-bottom:14px;font-family:Georgia,serif;">Lotus Links</div>
+          <div style="font-family:Georgia,serif;font-size:26px;font-weight:600;color:#f0ece4;margin-bottom:6px;line-height:1.2;">${tournamentName}</div>
+          <div style="font-size:13px;color:#8aad8a;">${courseName} &middot; ${tournamentDate}</div>
+        </td></tr>
+
+        <!-- Gold divider -->
+        <tr><td style="padding:0;height:2px;background:linear-gradient(90deg,transparent,#b8976a 30%,#d4af7a 50%,#b8976a 70%,transparent);font-size:0;line-height:0;">&nbsp;</td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:28px 24px 20px;">
+          <div style="font-family:Georgia,serif;font-size:18px;color:#f0ece4;margin-bottom:6px;">
+            ${playerName ? `Hi ${playerName},` : 'Hello,'}
+          </div>
+          <div style="font-size:14px;color:rgba(240,236,228,0.65);margin-bottom:24px;line-height:1.65;">
+            Here&rsquo;s your post-round scorecard from <strong style="color:#b8976a;">${tournamentName}</strong>. Great round!
+          </div>
+
+          <!-- Leaderboard -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#1e2d1e;border:1px solid #3a5c3a;border-radius:8px;margin-bottom:24px;overflow:hidden;">
+            <tr><td style="background:#162416;padding:10px 14px;border-bottom:1px solid #2d482d;">
+              <div style="font-size:10px;letter-spacing:2.5px;color:rgba(138,173,138,0.6);text-transform:uppercase;font-family:Georgia,serif;">Final Leaderboard</div>
+            </td></tr>
+            <tr><td style="padding:4px 0 6px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr style="border-bottom:1px solid #2d482d;">
+                  <td style="padding:6px 0 6px 12px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">#</td>
+                  <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">Player</td>
+                  <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Pts</td>
+                  <td style="padding:6px 12px 6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Gross</td>
+                </tr>
+                ${leaderboardRows}
+              </table>
+            </td></tr>
+          </table>
+
+          ${scorecardSection}
+
+          <!-- CTA Button -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+            <tr><td align="center">
+              <a href="${scorecardUrl}" style="display:inline-block;background:linear-gradient(135deg,#b8976a,#c9a87a,#b8976a);color:#1a2e1a;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:15px 40px;border-radius:8px;text-decoration:none;letter-spacing:2px;text-transform:uppercase;">
+                View Full Scorecard &rarr;
+              </a>
+            </td></tr>
+          </table>
+
+          <div style="font-size:12px;color:rgba(138,173,138,0.55);line-height:1.6;text-align:center;">
+            Hole-by-hole scores and standings for all players.
+          </div>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#162416;padding:16px 24px;text-align:center;border-top:1px solid #2d482d;">
+          <div style="font-size:11px;color:#4a6a4a;">Powered by Lotus Links</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
 function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
   const {
     groupName,

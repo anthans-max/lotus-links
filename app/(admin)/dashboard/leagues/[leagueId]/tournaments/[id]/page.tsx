@@ -8,6 +8,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import TournamentTabs from '@/components/admin/TournamentTabs'
 import TournamentInfoCard from '@/components/admin/TournamentInfoCard'
 import CopyTokenButton from '@/components/admin/CopyTokenButton'
+import SendScorecardButton from '@/components/admin/SendScorecardButton'
 import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
@@ -167,6 +168,34 @@ export default async function TournamentDetailPage({ params }: Props) {
               </div>
             </div>
             <CopyTokenButton token={tournament.public_token} />
+          </div>
+        )}
+
+        {/* Scorecard — Stableford / Stroke Play only */}
+        {(tournament.format === 'Stableford' || tournament.format === 'Stroke Play') && (
+          <div
+            className="card"
+            style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem' }}
+          >
+            <div style={{ fontSize: '1.5rem' }}>📋</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.15rem' }}>Full Scorecard</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
+                Hole-by-hole scorecard for all players
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <a
+                href={`/scorecard/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm"
+                style={{ textDecoration: 'none' }}
+              >
+                View ↗
+              </a>
+              {isAdmin && <SendScorecardButton tournamentId={id} />}
+            </div>
           </div>
         )}
       </div>
