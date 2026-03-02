@@ -49,10 +49,9 @@ export default function Modal({
         zIndex: 200,
         background: 'rgba(0,0,0,0.7)',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
-        padding: '2rem 1rem',
-        overflowY: 'auto',
+        padding: '1rem',
       }}
       className="fade-in"
     >
