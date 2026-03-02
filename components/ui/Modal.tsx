@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Button from './Button'
 
 interface ModalProps {
@@ -28,6 +29,7 @@ export default function Modal({
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
+  // Escape key
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -37,23 +39,31 @@ export default function Modal({
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
+      className="fade-in"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 200,
-        background: 'rgba(0,0,0,0.7)',
+        zIndex: 9999,
+        background: 'rgba(0,0,0,0.72)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1rem',
       }}
-      className="fade-in"
     >
       <div
         className="card"
@@ -61,8 +71,9 @@ export default function Modal({
           maxWidth: 440,
           width: '100%',
           padding: '1.5rem',
-          maxHeight: 'calc(100vh - 4rem)',
+          maxHeight: '90vh',
           overflowY: 'auto',
+          position: 'relative',
         }}
       >
         <h3 style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', marginBottom: '1rem' }}>
@@ -88,6 +99,7 @@ export default function Modal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
