@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { uploadLogo, removeLogo } from '@/lib/storage'
+import { uploadLogoAction, removeLogoAction } from '@/lib/actions/storage'
 
 interface LogoUploadProps {
   leagueId: string
@@ -27,7 +27,10 @@ export default function LogoUpload({ leagueId, currentLogoUrl, onUploaded, onRem
     reader.readAsDataURL(file)
 
     try {
-      const url = await uploadLogo(file, leagueId)
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('leagueId', leagueId)
+      const url = await uploadLogoAction(fd)
       onUploaded(url)
       setPreview('')
     } catch (err: any) {
@@ -55,7 +58,7 @@ export default function LogoUpload({ leagueId, currentLogoUrl, onUploaded, onRem
   const handleRemove = async () => {
     if (currentLogoUrl) {
       try {
-        await removeLogo(currentLogoUrl)
+        await removeLogoAction(currentLogoUrl)
       } catch {
         // Ignore removal errors from storage
       }

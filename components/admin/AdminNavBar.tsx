@@ -18,7 +18,8 @@ export default function AdminNavBar() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => setIsAuthed(!!data.user))
+    // onAuthStateChange fires immediately with the current session — no need for a
+    // separate getUser() call which would add a second concurrent lock acquisition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setIsAuthed(!!session?.user)
     })
