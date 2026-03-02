@@ -147,7 +147,7 @@ export default function EditLeagueModal({ open, onClose, league, currentUserEmai
               </div>
             ) : (
               <>
-                {admins.map(admin => (
+                {admins.filter(admin => admin.role !== 'owner').map(admin => (
                   <div
                     key={admin.id}
                     style={{
