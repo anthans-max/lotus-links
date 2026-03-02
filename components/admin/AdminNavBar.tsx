@@ -27,7 +27,7 @@ export default function AdminNavBar() {
 
   // Don't show nav on login page or for unauthenticated users
   if (pathname === '/login') return null
-  if (!isAuthed) return null
+  if (isAuthed === false) return null
 
   const handleSignOut = async () => {
     const supabase = createClient()
