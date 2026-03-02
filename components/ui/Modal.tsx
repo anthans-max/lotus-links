@@ -62,6 +62,8 @@ export default function Modal({
           maxWidth: 440,
           width: '100%',
           padding: '1.5rem',
+          maxHeight: 'calc(100vh - 4rem)',
+          overflowY: 'auto',
         }}
       >
         <h3 style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', marginBottom: '1rem' }}>
