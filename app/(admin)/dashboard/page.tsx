@@ -42,6 +42,17 @@ export default async function DashboardPage() {
   const { data: leagues } = await query
 
   const leagueList = (leagues ?? []) as any[]
+
+  // Determine if user can create new leagues
+  let canCreateLeague = isSuperAdmin
+  if (!isSuperAdmin) {
+    const { data: myAdminRows } = await supabase
+      .from('league_admins')
+      .select('league_id, role')
+      .eq('email', user.email!)
+    const rows = myAdminRows ?? []
+    canCreateLeague = rows.length === 0 || rows.some((r: any) => r.role === 'owner')
+  }
   const totalLeagues = leagueList.length
   const allTournaments = leagueList.flatMap((l: any) => l.tournaments || [])
   const totalTournaments = allTournaments.length
@@ -106,7 +117,7 @@ export default async function DashboardPage() {
           <Link href="/dashboard/leagues" className="btn btn-gold">
             Manage Leagues &rarr;
           </Link>
-          {totalLeagues === 0 && (
+          {totalLeagues === 0 && canCreateLeague && (
             <Link href="/dashboard/leagues/new" className="btn btn-outline">
               Create First League
             </Link>

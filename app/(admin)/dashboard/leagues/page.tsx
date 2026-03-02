@@ -49,6 +49,9 @@ export default async function LeaguesPage() {
 
   const { data: leagues } = await query
 
+  // Owners and new users (no memberships yet) can create leagues; invited admins cannot
+  const canCreateLeague = isSuperAdmin || ownerLeagueIds.size > 0 || (leagueIds?.length ?? 0) === 0
+
   const leagueList: LeagueWithCount[] = (leagues ?? []).map((l: any) => ({
     id: l.id,
     name: l.name,
@@ -67,9 +70,11 @@ export default async function LeaguesPage() {
       <PageHeader
         title="Your Leagues"
         action={
-          <Link href="/dashboard/leagues/new" className="btn btn-gold btn-sm">
-            + Create League
-          </Link>
+          canCreateLeague ? (
+            <Link href="/dashboard/leagues/new" className="btn btn-gold btn-sm">
+              + Create League
+            </Link>
+          ) : undefined
         }
       />
 
@@ -77,11 +82,13 @@ export default async function LeaguesPage() {
         <EmptyState
           icon="⛳"
           title="No Leagues Yet"
-          description="Create your first league to start organizing tournaments."
+          description={canCreateLeague ? "Create your first league to start organizing tournaments." : "You haven't been invited to any leagues yet."}
           action={
-            <Link href="/dashboard/leagues/new" className="btn btn-gold">
-              Create Your First League
-            </Link>
+            canCreateLeague ? (
+              <Link href="/dashboard/leagues/new" className="btn btn-gold">
+                Create Your First League
+              </Link>
+            ) : undefined
           }
         />
       ) : (
