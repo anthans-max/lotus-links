@@ -16,14 +16,27 @@ export default async function DashboardPage() {
   const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
   const isSuperAdmin = user.email === superAdmin
 
-  // Fetch leagues with tournament counts — filter by admin unless super admin
+  // Fetch leagues with tournament counts — filter by league_admins unless super admin
+  let leagueIds: string[] | null = null
+  if (!isSuperAdmin) {
+    const { data: myAdminRows } = await supabase
+      .from('league_admins')
+      .select('league_id')
+      .eq('email', user.email!)
+    leagueIds = (myAdminRows ?? []).map((r: any) => r.league_id)
+  }
+
   let query = supabase
     .from('leagues')
     .select('*, tournaments(id, name, date, status, course, format)')
     .order('created_at', { ascending: false })
 
-  if (!isSuperAdmin) {
-    query = query.eq('admin_email', user.email!)
+  if (leagueIds !== null) {
+    if (leagueIds.length === 0) {
+      query = query.in('id', ['00000000-0000-0000-0000-000000000000']) // no-match sentinel
+    } else {
+      query = query.in('id', leagueIds)
+    }
   }
 
   const { data: leagues } = await query

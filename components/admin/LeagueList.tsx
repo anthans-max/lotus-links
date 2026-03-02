@@ -8,9 +8,15 @@ import DeleteLeagueModal from '@/components/admin/DeleteLeagueModal'
 
 export interface LeagueWithCount extends League {
   tournamentCount: number
+  isOwner: boolean
 }
 
-export default function LeagueList({ leagues }: { leagues: LeagueWithCount[] }) {
+interface LeagueListProps {
+  leagues: LeagueWithCount[]
+  currentUserEmail: string
+}
+
+export default function LeagueList({ leagues, currentUserEmail }: LeagueListProps) {
   const [editTarget, setEditTarget] = useState<LeagueWithCount | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LeagueWithCount | null>(null)
 
@@ -103,13 +109,15 @@ export default function LeagueList({ leagues }: { leagues: LeagueWithCount[] }) 
                 >
                   Edit
                 </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ color: 'var(--over)' }}
-                  onClick={() => setDeleteTarget(league)}
-                >
-                  Delete
-                </button>
+                {league.isOwner && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--over)' }}
+                    onClick={() => setDeleteTarget(league)}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -122,6 +130,8 @@ export default function LeagueList({ leagues }: { leagues: LeagueWithCount[] }) 
           open={true}
           onClose={() => setEditTarget(null)}
           league={editTarget}
+          currentUserEmail={currentUserEmail}
+          isOwner={editTarget.isOwner}
         />
       )}
 

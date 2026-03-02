@@ -62,6 +62,15 @@ export async function GET(request: NextRequest) {
         },
         { onConflict: 'id' }
       )
+
+      // Mark any pending league admin invites as accepted for this email
+      if (user.email) {
+        await supabase
+          .from('league_admins')
+          .update({ accepted_at: new Date().toISOString() })
+          .eq('email', user.email)
+          .is('accepted_at', null)
+      }
     }
 
     return NextResponse.redirect(`${origin}${next}`)

@@ -15,13 +15,34 @@ export async function checkLeagueAccess(leagueId: string) {
     return { user, hasAccess: true }
   }
 
-  const { data: league } = await supabase
-    .from('leagues')
-    .select('admin_email')
-    .eq('id', leagueId)
+  const { data } = await supabase
+    .from('league_admins')
+    .select('role')
+    .eq('league_id', leagueId)
+    .eq('email', user.email!)
     .single()
 
-  if (!league) return { user, hasAccess: false }
+  return { user, hasAccess: !!data }
+}
 
-  return { user, hasAccess: league.admin_email === user.email }
+/**
+ * Returns the current user's role for a league: 'owner' | 'admin' | null
+ * null means no access. Super admin always gets 'owner'.
+ */
+export async function getLeagueRole(leagueId: string): Promise<'owner' | 'admin' | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
+  if (user.email === superAdmin) return 'owner'
+
+  const { data } = await supabase
+    .from('league_admins')
+    .select('role')
+    .eq('league_id', leagueId)
+    .eq('email', user.email!)
+    .single()
+
+  return (data?.role as 'owner' | 'admin') ?? null
 }

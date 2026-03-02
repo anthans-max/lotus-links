@@ -200,6 +200,16 @@ export interface Score {
   created_at?: string
 }
 
+export interface LeagueAdmin {
+  id: string
+  league_id: string
+  email: string
+  role: 'owner' | 'admin'
+  invited_at: string
+  accepted_at: string | null
+  invited_by: string | null
+}
+
 // ─── Derived / UI types ───────────────────────────────────────────────────────
 
 export interface LeaderboardEntry {

@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { checkLeagueAccess, getLeagueRole } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
 import EmptyState from '@/components/ui/EmptyState'
 import LeagueTournaments from '@/components/admin/LeagueTournaments'
@@ -22,8 +23,10 @@ export default async function LeagueDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Access control: check league ownership
-  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
+  // Access control via league_admins
+  const { hasAccess } = await checkLeagueAccess(leagueId)
+  if (!hasAccess) redirect('/dashboard/leagues')
+
   const { data: league } = await supabase
     .from('leagues')
     .select('*')
@@ -32,10 +35,8 @@ export default async function LeagueDetailPage({ params }: Props) {
 
   if (!league) notFound()
 
-  // If not super admin and not league owner, redirect
-  if (user.email !== superAdmin && league.admin_email !== user.email) {
-    redirect('/dashboard/leagues')
-  }
+  const role = await getLeagueRole(leagueId)
+  const isOwner = role === 'owner'
 
   const { data: tournaments } = await supabase
     .from('tournaments')
@@ -58,7 +59,7 @@ export default async function LeagueDetailPage({ params }: Props) {
         }
       />
 
-      <LeagueDetailHeader league={league as any} />
+      <LeagueDetailHeader league={league as any} isOwner={isOwner} currentUserEmail={user.email!} />
 
       {/* Tournaments */}
       <div style={{ marginBottom: '0.75rem' }}>

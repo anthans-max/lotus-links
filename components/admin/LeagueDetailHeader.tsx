@@ -7,9 +7,11 @@ import type { League } from '@/lib/types'
 
 interface LeagueDetailHeaderProps {
   league: League
+  isOwner: boolean
+  currentUserEmail: string
 }
 
-export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) {
+export default function LeagueDetailHeader({ league, isOwner, currentUserEmail }: LeagueDetailHeaderProps) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -76,14 +78,16 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
           >
             Edit
           </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setDeleteOpen(true)}
-            title="Delete league"
-            style={{ fontSize: '0.72rem', color: 'var(--over)' }}
-          >
-            Delete
-          </button>
+          {isOwner && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setDeleteOpen(true)}
+              title="Delete league"
+              style={{ fontSize: '0.72rem', color: 'var(--over)' }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -91,6 +95,8 @@ export default function LeagueDetailHeader({ league }: LeagueDetailHeaderProps) 
         open={editOpen}
         onClose={() => setEditOpen(false)}
         league={league}
+        currentUserEmail={currentUserEmail}
+        isOwner={isOwner}
       />
 
       <DeleteLeagueModal

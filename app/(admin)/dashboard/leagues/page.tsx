@@ -19,13 +19,32 @@ export default async function LeaguesPage() {
   const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
   const isSuperAdmin = user.email === superAdmin
 
+  // Determine which leagues this user can access
+  let leagueIds: string[] | null = null
+  let ownerLeagueIds: Set<string> = new Set()
+
+  if (!isSuperAdmin) {
+    const { data: myAdminRows } = await supabase
+      .from('league_admins')
+      .select('league_id, role')
+      .eq('email', user.email!)
+    leagueIds = (myAdminRows ?? []).map((r: any) => r.league_id)
+    ownerLeagueIds = new Set(
+      (myAdminRows ?? []).filter((r: any) => r.role === 'owner').map((r: any) => r.league_id)
+    )
+  }
+
   let query = supabase
     .from('leagues')
     .select('*, tournaments(id)')
     .order('created_at', { ascending: false })
 
-  if (!isSuperAdmin) {
-    query = query.eq('admin_email', user.email!)
+  if (leagueIds !== null) {
+    if (leagueIds.length === 0) {
+      query = query.in('id', ['00000000-0000-0000-0000-000000000000']) // no-match sentinel
+    } else {
+      query = query.in('id', leagueIds)
+    }
   }
 
   const { data: leagues } = await query
@@ -40,6 +59,7 @@ export default async function LeaguesPage() {
     created_at: l.created_at,
     updated_at: l.updated_at,
     tournamentCount: Array.isArray(l.tournaments) ? l.tournaments.length : 0,
+    isOwner: isSuperAdmin || ownerLeagueIds.has(l.id),
   }))
 
   return (
@@ -65,7 +85,7 @@ export default async function LeaguesPage() {
           }
         />
       ) : (
-        <LeagueList leagues={leagueList} />
+        <LeagueList leagues={leagueList} currentUserEmail={user.email!} />
       )}
     </div>
   )
