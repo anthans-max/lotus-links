@@ -33,7 +33,7 @@ export default function AdminNavBar() {
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   const isActive = (href: string) => {
