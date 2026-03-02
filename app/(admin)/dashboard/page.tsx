@@ -115,7 +115,7 @@ export default async function DashboardPage() {
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <Link href="/dashboard/leagues" className="btn btn-gold">
-            Manage Leagues &rarr;
+            {canCreateLeague ? 'Manage Leagues' : 'Manage Tournaments'} &rarr;
           </Link>
           {totalLeagues === 0 && canCreateLeague && (
             <Link href="/dashboard/leagues/new" className="btn btn-outline">
