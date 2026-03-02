@@ -53,6 +53,11 @@ export default async function DashboardPage() {
     const rows = myAdminRows ?? []
     canCreateLeague = rows.length === 0 || rows.some((r: any) => r.role === 'owner')
   }
+  // For invited admins with a single league, link directly to that league
+  const manageHref = !canCreateLeague && leagueList.length === 1
+    ? `/dashboard/leagues/${leagueList[0].id}`
+    : '/dashboard/leagues'
+
   const totalLeagues = leagueList.length
   const allTournaments = leagueList.flatMap((l: any) => l.tournaments || [])
   const totalTournaments = allTournaments.length
@@ -114,7 +119,7 @@ export default async function DashboardPage() {
           Manage your leagues, tournaments, and live scoring all in one place.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link href="/dashboard/leagues" className="btn btn-gold">
+          <Link href={manageHref} className="btn btn-gold">
             {canCreateLeague ? 'Manage Leagues' : 'Manage Tournaments'} &rarr;
           </Link>
           {totalLeagues === 0 && canCreateLeague && (
