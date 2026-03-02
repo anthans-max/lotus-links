@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-const DEFAULT_NAV_ITEMS = [
+const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/leagues', label: 'Leagues' },
 ]
@@ -13,47 +13,19 @@ const DEFAULT_NAV_ITEMS = [
 export default function AdminNavBar() {
   const [open, setOpen] = useState(false)
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null)
-  const [navItems, setNavItems] = useState(DEFAULT_NAV_ITEMS)
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
     const supabase = createClient()
-
-    const resolveNav = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setIsAuthed(false); return }
-      setIsAuthed(true)
-
-      const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
-      if (user.email === superAdmin) { setNavItems(DEFAULT_NAV_ITEMS); return }
-
-      const { data: rows } = await supabase
-        .from('league_admins')
-        .select('league_id, role')
-        .eq('email', user.email!)
-
-      const isOwner = (rows ?? []).some((r: any) => r.role === 'owner')
-      if (isOwner || !rows || rows.length === 0) {
-        setNavItems(DEFAULT_NAV_ITEMS)
-      } else {
-        // Invited admin only — link directly to their league if they have one
-        const leagueHref = rows.length === 1
-          ? `/dashboard/leagues/${rows[0].league_id}`
-          : '/dashboard/leagues'
-        setNavItems([
-          { href: '/dashboard', label: 'Dashboard' },
-          { href: leagueHref, label: 'Tournaments' },
-        ])
-      }
-    }
-
-    resolveNav()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => resolveNav())
+    supabase.auth.getUser().then(({ data }) => setIsAuthed(!!data.user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthed(!!session?.user)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
+  // Don't show nav on login page or for unauthenticated users
   if (pathname === '/login') return null
   if (!isAuthed) return null
 
@@ -140,9 +112,9 @@ export default function AdminNavBar() {
 
           {/* Desktop tabs */}
           <div className="dt" style={{ gap: 0 }}>
-            {navItems.map(item => (
+            {NAV_ITEMS.map(item => (
               <Link
-                key={item.label}
+                key={item.href}
                 href={item.href}
                 className={`nav-tab ${isActive(item.href) ? 'act' : ''}`}
               >
@@ -175,9 +147,9 @@ export default function AdminNavBar() {
       {/* Mobile drawer */}
       {open && (
         <div className="mob-drawer mob-toggle">
-          {navItems.map(item => (
+          {NAV_ITEMS.map(item => (
             <Link
-              key={item.label}
+              key={item.href}
               href={item.href}
               className={`mob-item ${isActive(item.href) ? 'act' : ''}`}
               onClick={() => setOpen(false)}
