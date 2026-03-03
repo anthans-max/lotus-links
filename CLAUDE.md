@@ -13,9 +13,14 @@ MVP Phase 1 deadline: end of March 2026.
 npm run dev      # Start dev server (localhost:3000)
 npm run build    # Production build
 npm run lint     # Run ESLint
+npm test         # Run Vitest unit tests (once)
+npm run test:watch  # Vitest in watch mode
 ```
 
-No test suite — this project has no tests configured.
+Tests live in `lib/scoring/__tests__/`. To run a single test file:
+```bash
+npx vitest run lib/scoring/__tests__/handicap.test.ts
+```
 
 ## Stack
 
@@ -85,31 +90,38 @@ RESEND_FROM_EMAIL=
 - **Two scoring modes**: (1) Scramble — one team score per group per hole via chaperone at `/score/[groupId]`; (2) Stableford/individual — per-player per-hole scores via public token link at `/t/[token]` using `StablefordScoringApp`
 - **Chaperone auth** — group PIN only, no login. Direct URL: `/score/[groupId]`
 - **Scores** — upsert per-hole immediately (not full-card submit). Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
-- **Server Actions** — all DB mutations go through `lib/actions/*.ts` files marked `'use server'`. Pages/components import these directly (no separate API routes for mutations)
+- **Server Actions** — all DB mutations go through `lib/actions/*.ts` files marked `'use server'`. Pages/components import these directly (no separate API routes for mutations). Always call `revalidatePath()` after mutations.
 - **Leaderboard** — Supabase Realtime + 15s polling fallback. Gated by `leaderboard_public` flag
 - **Player status flow**: `pre-registered` → `registered` → `checked_in`
 - **Group auto-generation** — respects mutual pairing preferences first, then one-way (stored in `pairing_preferences` table)
-- **League isolation** — leagues filtered by `admin_email`; super admin sees all
-- **Logo upload** — Supabase Storage `logos` bucket, max 2MB (PNG/JPG/SVG/WEBP), handled in `lib/storage.ts`
+- **League isolation** — leagues filtered via `league_admins` table (not `admin_email` directly); super admin sees all. `lib/auth.ts` exports `checkLeagueAccess(leagueId)` and `getLeagueRole(leagueId)` → `'owner' | 'admin' | null`
+- **Multi-admin** — owners invite additional admins by email via Resend (`lib/email.ts → sendLeagueAdminInviteEmail`). Invited users auto-accept on next Google OAuth login (`app/api/auth/callback`). Owners can remove admins; only owners see Delete league button and Create League. Invited admins see only their leagues and a "Manage Tournaments" shortcut button.
+- **Logo upload** — Supabase Storage `logos` bucket, max 2MB (PNG/JPG/SVG/WEBP). Upload/remove handled via server actions in `lib/actions/storage.ts` (NOT client-side) to avoid Web Locks API contention with Supabase auth token refresh
+- **Supabase browser client** — singleton in `lib/supabase/client.ts` (one instance per page load) to prevent concurrent Web Locks acquisitions deadlocking auth token refresh
+- **Modal overlay** — `components/ui/Modal.tsx` uses `createPortal(content, document.body)` + body scroll lock. This bypasses parent CSS stacking contexts that break `position: fixed`
 - **FK policy** — all child FKs CASCADE on delete, except `tournaments.season_id` which is SET NULL
 - **RLS** — disabled on all tables (permissive for MVP)
 
 ## DB Schema
 
 ### leagues
-`id` (uuid PK), `name`, `admin_email`, `logo_url`, `primary_color` (default `#1a5c2a`), `created_at`, `updated_at`
+`id` (uuid PK), `name`, `admin_email`, `logo_url`, `primary_color` (default `#1a5c2a`), `league_type`, `created_at`, `updated_at`
+
+### league_admins
+`id` (uuid PK), `league_id` FK→leagues (CASCADE), `email`, `role` (`owner` | `admin`), `invited_at`, `accepted_at` (null until first login), `invited_by`
+UNIQUE on `(league_id, email)`. Seeded from `leagues.admin_email` on migration. New leagues seed an owner row in `createLeague`.
 
 ### seasons
 `id`, `league_id` FK→leagues, `name`, `start_date`, `end_date`, `points_system` (default `fedex`)
 
 ### tournaments
-`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`, `public_token` (uuid, auto-generated — used for `/t/[token]` scoring link)
+`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`, `public_token` (uuid, auto-generated — used for `/t/[token]` scoring link), `slope_rating`, `course_rating`, `stableford_points_config` (JSONB)
 
 ### holes
 `id`, `tournament_id` FK, `hole_number`, `par`, `yardage` (nullable), `handicap` (nullable)
 
 ### players
-`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0), `skill_level`, `status` (pre-registered/registered/checked_in), `parent_name`, `parent_phone`, `parent_email`, `willing_to_chaperone` (boolean), `registered_at`
+`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0, integer), `handicap_index` (USGA decimal), `skill_level`, `status` (pre-registered/registered/checked_in), `player_email`, `parent_name`, `parent_phone`, `parent_email`, `willing_to_chaperone` (boolean), `registration_comments`, `registered_at`
 
 ### groups
 `id`, `tournament_id` FK, `name`, `chaperone_name`, `chaperone_email`, `chaperone_phone`, `pin`, `starting_hole` (default 1), `tee_time`, `current_hole` (default 1), `status` (not_started/in_progress/completed)
@@ -128,19 +140,23 @@ UNIQUE on `(player_id, preferred_player_id)`
 ## Route Map
 
 ```
-(admin)/login                → Google OAuth
-(admin)/dashboard            → league list
+(admin)/login                     → Google OAuth
+(admin)/dashboard                 → league list
 (admin)/dashboard/leagues/[leagueId]
-  /tournaments/[id]          → overview tabs: Holes, Players, Groups, Scores
-(chaperone)/score/[groupId]  → PIN-gated mobile scramble score entry
-/t/[token]                   → public token-based Stableford/individual scoring (StablefordScoringApp)
-/register/[tournamentId]     → public player registration (no auth)
-/leaderboard/[tournamentId]  → public live leaderboard
-/api/auth/callback           → OAuth code exchange
-/api/email/send-scoring-link → Resend email trigger
+  /tournaments/[id]               → overview tabs: Holes, Players, Groups, Scores
+(chaperone)/score/[groupId]       → PIN-gated mobile scramble score entry
+/t/[token]                        → public token-based Stableford/individual scoring (StablefordScoringApp)
+/register/[tournamentId]          → public player registration (no auth)
+/leaderboard/[tournamentId]       → public live leaderboard (Realtime + 15s polling)
+/scorecard/[tournamentId]         → token-based read-only scorecard view
+/api/auth/callback                → OAuth code exchange
+/api/email/send-scoring-link      → Resend email trigger
+/api/chat                         → Chat assistant (AI-powered scoring Q&A)
 ```
 
-Migrations live in `supabase/migrations/` — numbered sequentially (001–009). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+Migrations live in `supabase/migrations/` — numbered sequentially (001–013). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+
+`lib/course-data.ts` contains WISH tournament hole configuration pre-loaded (10 holes, all par-3). Use `createTournamentWithWishHoles()` server action to bootstrap a WISH tournament.
 
 ## Pre-Launch TODO
 

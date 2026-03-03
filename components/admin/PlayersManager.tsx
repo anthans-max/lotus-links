@@ -3,8 +3,10 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Player } from '@/lib/types'
-import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn, updatePlayer } from '@/lib/actions/players'
+import { addPlayer, bulkAddPlayers, deletePlayer, checkInPlayer, undoCheckIn } from '@/lib/actions/players'
 import CsvImportDialog from './CsvImportDialog'
+import EditPlayerModal from './EditPlayerModal'
+import VolunteersPanel from './VolunteersPanel'
 import { getBaseUrl } from '@/lib/url'
 
 interface PlayersManagerProps {
@@ -34,19 +36,13 @@ export default function PlayersManager({
   const [bulkText, setBulkText] = useState('')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'grade' | 'status'>('name')
-  const [filterVolunteers, setFilterVolunteers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [editPlayerId, setEditPlayerId] = useState<string | null>(null)
-  const [editPlayerName, setEditPlayerName] = useState('')
-  const [editPlayerGrade, setEditPlayerGrade] = useState('')
-  const [editPlayerHandicap, setEditPlayerHandicap] = useState('0')
-  const [editPlayerHandicapIndex, setEditPlayerHandicapIndex] = useState('')
-  const [editPlayerSkill, setEditPlayerSkill] = useState('')
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
+  const [showVolunteers, setShowVolunteers] = useState(false)
   const [newPlayerEmail, setNewPlayerEmail] = useState('')
-  const [editPlayerEmail, setEditPlayerEmail] = useState('')
 
   const registeredCount = players.filter(p => p.status === 'registered' || p.status === 'checked_in').length
   const checkedInCount = players.filter(p => p.status === 'checked_in').length
@@ -63,7 +59,6 @@ export default function PlayersManager({
   // Filter and sort
   const filtered = players.filter(p => {
     if (!p.name.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterVolunteers && !(p as any).willing_to_chaperone) return false
     return true
   })
 
@@ -164,45 +159,6 @@ export default function PlayersManager({
     })
   }
 
-  const startEdit = (p: Player) => {
-    setEditPlayerId(p.id)
-    setEditPlayerName(p.name)
-    setEditPlayerGrade(p.grade ?? '')
-    setEditPlayerHandicap(String(p.handicap ?? 0))
-    setEditPlayerHandicapIndex(p.handicap_index != null ? String(p.handicap_index) : '')
-    setEditPlayerSkill(p.skill_level ?? '')
-    setEditPlayerEmail(p.player_email ?? '')
-  }
-
-  const handleEditSave = () => {
-    if (!editPlayerId || !editPlayerName.trim()) return
-    setError(null)
-    startTransition(async () => {
-      try {
-        if (isWish) {
-          await updatePlayer(editPlayerId, {
-            name: editPlayerName,
-            grade: editPlayerGrade || null,
-          })
-        } else {
-          const hdcpIdx = editPlayerHandicapIndex !== '' ? parseFloat(editPlayerHandicapIndex) : null
-          await updatePlayer(editPlayerId, {
-            name: editPlayerName,
-            handicap_index: hdcpIdx != null && !isNaN(hdcpIdx) ? hdcpIdx : null,
-            skill_level: editPlayerSkill || null,
-            player_email: editPlayerEmail || null,
-          })
-        }
-        setEditPlayerId(null)
-        setSuccess('Player updated')
-        setTimeout(() => setSuccess(null), 2000)
-        router.refresh()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to update player')
-      }
-    })
-  }
-
   const statusBadge = (status: string) => {
     switch (status) {
       case 'registered':
@@ -284,8 +240,8 @@ export default function PlayersManager({
         </button>
         {volunteerCount > 0 && (
           <button
-            className={`btn ${filterVolunteers ? 'btn-gold' : 'btn-ghost'} btn-sm`}
-            onClick={() => setFilterVolunteers(!filterVolunteers)}
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowVolunteers(true)}
             style={{ marginLeft: 'auto' }}
           >
             🙋 Volunteers ({volunteerCount})
@@ -515,87 +471,6 @@ export default function PlayersManager({
               </thead>
               <tbody>
                 {sorted.map(p => (
-                  editPlayerId === p.id ? (
-                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <input
-                          className="input"
-                          value={editPlayerName}
-                          onChange={e => setEditPlayerName(e.target.value)}
-                          style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem' }}
-                          autoFocus
-                        />
-                      </td>
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        {isWish ? (
-                          <input
-                            className="input"
-                            value={editPlayerGrade}
-                            onChange={e => setEditPlayerGrade(e.target.value)}
-                            placeholder="Grade"
-                            style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 80 }}
-                          />
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                            <input
-                              className="input"
-                              type="number"
-                              min="-10"
-                              max="54"
-                              step="0.1"
-                              value={editPlayerHandicapIndex}
-                              onChange={e => setEditPlayerHandicapIndex(e.target.value)}
-                              placeholder="Hdcp"
-                              style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 70 }}
-                            />
-                            <select
-                              className="input"
-                              value={editPlayerSkill}
-                              onChange={e => setEditPlayerSkill(e.target.value)}
-                              style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 110 }}
-                            >
-                              <option value="">— Skill —</option>
-                              <option value="beginner">Beginner</option>
-                              <option value="intermediate">Intermediate</option>
-                              <option value="advanced">Advanced</option>
-                              <option value="pro">Pro</option>
-                            </select>
-                          </div>
-                        )}
-                      </td>
-                      {hasAnyEmail && (
-                        <td style={{ padding: '0.5rem 0.75rem' }}>
-                          <input
-                            className="input"
-                            type="email"
-                            value={editPlayerEmail}
-                            onChange={e => setEditPlayerEmail(e.target.value)}
-                            placeholder="player@example.com"
-                            style={{ fontSize: '0.82rem', padding: '0.35rem 0.5rem', width: 160 }}
-                          />
-                        </td>
-                      )}
-                      <td colSpan={isWish ? 4 : 3} style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
-                          <button
-                            className="btn btn-gold btn-sm"
-                            style={{ fontSize: '0.65rem' }}
-                            onClick={handleEditSave}
-                            disabled={isPending || !editPlayerName.trim()}
-                          >
-                            {isPending ? '...' : 'Save'}
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.65rem' }}
-                            onClick={() => setEditPlayerId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
                     <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '0.65rem 0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -705,7 +580,7 @@ export default function PlayersManager({
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ fontSize: '0.65rem', color: 'var(--gold)' }}
-                            onClick={() => startEdit(p)}
+                            onClick={() => setEditingPlayer(p)}
                             disabled={isPending}
                             title="Edit player"
                           >
@@ -742,7 +617,6 @@ export default function PlayersManager({
                         </div>
                       </td>
                     </tr>
-                  )
                 ))}
               </tbody>
             </table>
@@ -755,6 +629,24 @@ export default function PlayersManager({
         <CsvImportDialog
           tournamentId={tournamentId}
           onClose={() => setShowCsv(false)}
+        />
+      )}
+
+      {/* Edit Player Modal */}
+      {editingPlayer && (
+        <EditPlayerModal
+          player={editingPlayer}
+          isWish={isWish}
+          onClose={() => setEditingPlayer(null)}
+        />
+      )}
+
+      {/* Volunteers Panel */}
+      {showVolunteers && (
+        <VolunteersPanel
+          volunteers={players.filter(p => p.willing_to_chaperone)}
+          tournamentId={tournamentId}
+          onClose={() => setShowVolunteers(false)}
         />
       )}
     </div>
