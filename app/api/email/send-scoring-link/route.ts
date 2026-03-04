@@ -193,9 +193,11 @@ export async function POST(req: NextRequest) {
 
     const allPlayerNames = (players ?? []).map(p => p.name)
 
-    const results = await Promise.allSettled(
-      playersWithEmail.map(p =>
-        sendPlayerScoringEmail({
+    // Send sequentially with 600ms gap to stay under Resend's 2 req/s rate limit
+    const results: Array<{ status: 'fulfilled' } | { status: 'rejected'; name: string; email: string; reason: string }> = []
+    for (const p of playersWithEmail) {
+      try {
+        await sendPlayerScoringEmail({
           to: p.player_email!,
           playerName: p.name,
           groupName: group.name,
@@ -205,18 +207,18 @@ export async function POST(req: NextRequest) {
           courseName: tournament.course,
           tournamentDate: tournament.date,
         })
-      )
-    )
+        results.push({ status: 'fulfilled' })
+      } catch (err) {
+        results.push({ status: 'rejected', name: p.name, email: p.player_email!, reason: (err as Error)?.message ?? 'Unknown error' })
+      }
+      // 600ms between sends — stays comfortably under 2 req/s
+      await new Promise(res => setTimeout(res, 600))
+    }
 
     const sent = results.filter(r => r.status === 'fulfilled').length
-    const errors = results
-      .map((r, i) => r.status === 'rejected'
-        ? { email: playersWithEmail[i].player_email, name: playersWithEmail[i].name, reason: (r.reason as Error)?.message ?? 'Unknown error' }
-        : null
-      )
-      .filter(Boolean)
+    const errors = results.filter((r): r is { status: 'rejected'; name: string; email: string; reason: string } => r.status === 'rejected')
 
-    console.error('[send-scoring-link] failures:', JSON.stringify(errors))
+    if (errors.length > 0) console.error('[send-scoring-link] failures:', JSON.stringify(errors))
 
     return NextResponse.json({ sent, failed: errors.length, errors })
   }
