@@ -223,6 +223,95 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sent, failed: errors.length, errors })
   }
 
+  // ─── All-players mode: send to every player with email across all groups ──────
+  if (body.mode === 'all-players') {
+    const { tournamentId, baseUrl } = body as {
+      mode: 'all-players'
+      tournamentId: string
+      baseUrl: string
+    }
+
+    if (!tournamentId || !baseUrl) {
+      return NextResponse.json({ error: 'Missing tournamentId or baseUrl' }, { status: 400 })
+    }
+
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('id, name, course, date, public_token')
+      .eq('id', tournamentId)
+      .single()
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const { data: groups } = await supabase
+      .from('groups')
+      .select('id, name, group_players(player_id)')
+      .eq('tournament_id', tournamentId)
+
+    if (!groups || groups.length === 0) {
+      return NextResponse.json({ error: 'No groups found' }, { status: 400 })
+    }
+
+    // Gather all player IDs across all groups
+    const allPlayerIds = groups.flatMap(g => (g.group_players as { player_id: string }[]).map(gp => gp.player_id))
+    const { data: allPlayers } = allPlayerIds.length > 0
+      ? await supabase.from('players').select('id, name, player_email').in('id', allPlayerIds)
+      : { data: [] as { id: string; name: string; player_email: string | null }[] }
+
+    const playerMap = new Map((allPlayers ?? []).map(p => [p.id, p]))
+
+    // Build one task per player-with-email, preserving group context
+    const tasks: Array<{ player: { id: string; name: string; player_email: string }; groupName: string; allGroupPlayerNames: string[] }> = []
+    for (const group of groups) {
+      const groupPlayerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+      const groupPlayers = groupPlayerIds.map(id => playerMap.get(id)).filter(Boolean) as { id: string; name: string; player_email: string | null }[]
+      const allGroupPlayerNames = groupPlayers.map(p => p.name)
+      const scoringUrl = tournament.public_token
+        ? `${baseUrl}/t/${tournament.public_token}?group=${group.id}`
+        : `${baseUrl}/score/${group.id}`
+
+      for (const p of groupPlayers) {
+        if (!p.player_email) continue
+        tasks.push({ player: { id: p.id, name: p.name, player_email: p.player_email }, groupName: group.name, allGroupPlayerNames })
+        // Store scoringUrl per task by closing over group
+        ;(tasks[tasks.length - 1] as typeof tasks[0] & { scoringUrl: string }).scoringUrl = scoringUrl
+      }
+    }
+
+    if (tasks.length === 0) {
+      return NextResponse.json({ error: 'No players with email found' }, { status: 400 })
+    }
+
+    // Send sequentially — 600ms gap to stay under Resend's 2 req/s limit
+    let sent = 0
+    const errors: Array<{ name: string; email: string; reason: string }> = []
+    for (const task of tasks) {
+      const { scoringUrl } = task as typeof tasks[0] & { scoringUrl: string }
+      try {
+        await sendPlayerScoringEmail({
+          to: task.player.player_email,
+          playerName: task.player.name,
+          groupName: task.groupName,
+          players: task.allGroupPlayerNames,
+          scoringUrl,
+          tournamentName: tournament.name,
+          courseName: tournament.course,
+          tournamentDate: tournament.date,
+        })
+        sent++
+      } catch (err) {
+        errors.push({ name: task.player.name, email: task.player.player_email, reason: (err as Error)?.message ?? 'Unknown error' })
+      }
+      await new Promise(res => setTimeout(res, 600))
+    }
+
+    if (errors.length > 0) console.error('[send-scoring-link] all-players failures:', JSON.stringify(errors))
+
+    return NextResponse.json({ sent, failed: errors.length, errors })
+  }
+
   // ─── Scorecard summary mode: send post-round scorecard to all players ─────────
   if (body.mode === 'scorecard-summary') {
     const { tournamentId, baseUrl } = body as {

@@ -61,6 +61,8 @@ export default function GroupsManager({
   const [confirmEmailScorer, setConfirmEmailScorer] = useState<string | null>(null)
   const [confirmEmailGroup, setConfirmEmailGroup] = useState<string | null>(null)
   const [sendingGroupPlayers, setSendingGroupPlayers] = useState<string | null>(null)
+  const [confirmSendAllPlayers, setConfirmSendAllPlayers] = useState(false)
+  const [sendingAllPlayers, setSendingAllPlayers] = useState(false)
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -73,6 +75,16 @@ export default function GroupsManager({
   const playerMap = new Map(players.map(p => [p.id, p]))
 
   const groupsWithEmail = groups.filter(g => g.chaperone_email)
+  const playersWithEmailCount = useMemo(() => {
+    const seen = new Set<string>()
+    for (const g of groups) {
+      for (const gp of g.group_players) {
+        const p = playerMap.get(gp.player_id)
+        if (p?.player_email) seen.add(p.id)
+      }
+    }
+    return seen.size
+  }, [groups, playerMap])
 
   // Build pairing preference summary
   const pairingMap = useMemo(() => {
@@ -305,6 +317,36 @@ export default function GroupsManager({
     }
   }
 
+  const handleSendAllPlayers = async () => {
+    setSendingAllPlayers(true)
+    setConfirmSendAllPlayers(false)
+    setError(null)
+    try {
+      const res = await fetch('/api/email/send-scoring-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'all-players',
+          tournamentId,
+          baseUrl: getBaseUrl(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send emails')
+      if (data.failed > 0 && data.errors?.length > 0) {
+        const failedNames = data.errors.map((e: { name: string; reason: string }) => `${e.name}: ${e.reason}`).join(' | ')
+        setError(`${data.sent} sent, ${data.failed} failed — ${failedNames}`)
+      } else {
+        setSuccess(`Scoring links sent to ${data.sent} player${data.sent !== 1 ? 's' : ''} across all groups`)
+        setTimeout(() => setSuccess(null), 5000)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send emails')
+    } finally {
+      setSendingAllPlayers(false)
+    }
+  }
+
   return (
     <div>
       {/* Error / Success */}
@@ -420,19 +462,8 @@ export default function GroupsManager({
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   Send to {groupsWithEmail.length} {scorerLabel.toLowerCase()}{groupsWithEmail.length !== 1 ? 's' : ''}?
                 </span>
-                <button
-                  className="btn btn-gold btn-sm"
-                  onClick={handleSendAll}
-                  disabled={sendingAll}
-                >
-                  Confirm
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setConfirmSendAll(false)}
-                >
-                  Cancel
-                </button>
+                <button className="btn btn-gold btn-sm" onClick={handleSendAll} disabled={sendingAll}>Confirm</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirmSendAll(false)}>Cancel</button>
               </div>
             ) : (
               <button
@@ -441,6 +472,27 @@ export default function GroupsManager({
                 disabled={sendingAll}
               >
                 {sendingAll ? 'Sending...' : `Send All Links (${groupsWithEmail.length})`}
+              </button>
+            )}
+          </>
+        )}
+        {playersWithEmailCount > 0 && (
+          <>
+            {confirmSendAllPlayers ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Email all {playersWithEmailCount} players?
+                </span>
+                <button className="btn btn-gold btn-sm" onClick={handleSendAllPlayers} disabled={sendingAllPlayers}>Confirm</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirmSendAllPlayers(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setConfirmSendAllPlayers(true)}
+                disabled={sendingAllPlayers}
+              >
+                {sendingAllPlayers ? 'Sending...' : `Email All Players (${playersWithEmailCount})`}
               </button>
             )}
           </>
