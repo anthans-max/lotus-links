@@ -120,6 +120,7 @@ export default async function TokenScoringPage({ params, searchParams }: Props) 
       hasHandicaps={hasHandicaps}
       hasTeeTimtes={hasTeeTimtes}
     />
+    <PoweredByFooter />
     </>
   )
 }
