@@ -266,8 +266,13 @@ export default function GroupsManager({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to send emails')
-      setSuccess(`Scoring link sent to ${data.sent} player${data.sent !== 1 ? 's' : ''}${data.failed ? ` (${data.failed} failed)` : ''}`)
-      setTimeout(() => setSuccess(null), 4000)
+      if (data.failed > 0 && data.errors?.length > 0) {
+        const failedNames = data.errors.map((e: { name: string; reason: string }) => `${e.name}: ${e.reason}`).join(' | ')
+        setError(`${data.sent} sent, ${data.failed} failed — ${failedNames}`)
+      } else {
+        setSuccess(`Scoring link sent to ${data.sent} player${data.sent !== 1 ? 's' : ''}`)
+        setTimeout(() => setSuccess(null), 4000)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send emails')
     } finally {

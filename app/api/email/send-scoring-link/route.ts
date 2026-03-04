@@ -209,9 +209,16 @@ export async function POST(req: NextRequest) {
     )
 
     const sent = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
+    const errors = results
+      .map((r, i) => r.status === 'rejected'
+        ? { email: playersWithEmail[i].player_email, name: playersWithEmail[i].name, reason: (r.reason as Error)?.message ?? 'Unknown error' }
+        : null
+      )
+      .filter(Boolean)
 
-    return NextResponse.json({ sent, failed })
+    console.error('[send-scoring-link] failures:', JSON.stringify(errors))
+
+    return NextResponse.json({ sent, failed: errors.length, errors })
   }
 
   // ─── Scorecard summary mode: send post-round scorecard to all players ─────────
