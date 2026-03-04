@@ -507,6 +507,7 @@ export default function StablefordScoringApp({
 
   // ─── Player selection ──────────────────────────────────────────────────────
   const handleSelectPlayer = useCallback((player: PlayerInfo) => {
+    if (holes.length === 0) return   // can't score without holes
     setSelectedPlayer(player)
     if (!isStableford) {
       const existing = allScores.filter(s => s.playerId === player.id)
@@ -670,7 +671,12 @@ export default function StablefordScoringApp({
             autoFocus
           />
 
-          {players.length === 0 ? (
+          {holes.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⛳</div>
+              <div style={{ fontSize: '0.9rem' }}>No holes have been configured for this tournament yet. Contact the organizer.</div>
+            </div>
+          ) : players.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏌️</div>
               <div style={{ fontSize: '0.9rem' }}>No players have been added to this tournament yet. Contact the organizer.</div>
@@ -910,6 +916,11 @@ export default function StablefordScoringApp({
 
   const currentHole = holes[holeIdx]
   const isLastHole = holeIdx === holes.length - 1
+
+  if (screen === 'scoring' && !currentHole) {
+    // Safety net: no holes configured — handleSelectPlayer should have prevented this
+    return null
+  }
 
   if (screen === 'scoring') {
     return (
