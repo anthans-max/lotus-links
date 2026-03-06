@@ -230,7 +230,10 @@ export default function GroupsManager({
   }
 
   const copyLink = (groupId: string) => {
-    const url = `${getBaseUrl()}/score/${groupId}`
+    const isScramble = tournament.format === 'Scramble'
+    const url = isScramble
+      ? `${getBaseUrl()}/score/${groupId}`
+      : `${getBaseUrl()}/t/${tournament.public_token}?group=${groupId}`
     navigator.clipboard.writeText(url)
     setCopiedLink(groupId)
     setTimeout(() => setCopiedLink(null), 1500)

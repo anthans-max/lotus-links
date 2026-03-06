@@ -33,8 +33,11 @@ export default async function ScoreEntryPage({ params }: Props) {
     supabase.from('scores').select('*').eq('group_id', groupId).eq('tournament_id', group.tournament_id).order('hole_number'),
   ])
 
-  if (!tournament || !holes || holes.length === 0) {
-    return <NotFoundView />
+  if (!tournament) {
+    return <NotFoundView message="Tournament not found for this group." />
+  }
+  if (!holes || holes.length === 0) {
+    return <NotFoundView message="No holes have been configured for this tournament yet. Ask your organizer to set up the holes." />
   }
 
   // Fetch league name + color + logo
@@ -92,7 +95,7 @@ export default async function ScoreEntryPage({ params }: Props) {
   )
 }
 
-function NotFoundView() {
+function NotFoundView({ message = "This scoring link doesn't match any group. Please check with your tournament organizer." }: { message?: string }) {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
@@ -101,7 +104,7 @@ function NotFoundView() {
           Group Not Found
         </div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          This scoring link doesn&apos;t match any group. Please check with your tournament organizer.
+          {message}
         </p>
       </div>
     </div>
