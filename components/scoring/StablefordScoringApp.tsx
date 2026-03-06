@@ -509,7 +509,7 @@ export default function StablefordScoringApp({
   const handleSelectPlayer = useCallback((player: PlayerInfo) => {
     if (holes.length === 0) return   // can't score without holes
     setSelectedPlayer(player)
-    if (!isStableford) {
+    if (!isStableford && !isStrokePlay) {
       const existing = allScores.filter(s => s.playerId === player.id)
       const prePopulated: Record<number, number> = {}
       existing.forEach(s => { prePopulated[s.holeNumber] = s.strokes })
@@ -773,7 +773,7 @@ export default function StablefordScoringApp({
   // ─── RENDER: Non-Stableford Scrollable Scorecard (unchanged) ─────────────
   // ═══════════════════════════════════════════════════════════════════════════
 
-  if (!isStableford && screen === 'scoring') {
+  if (!isStableford && !isStrokePlay && screen === 'scoring') {
     const holeCount = holes.length
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', ...accentStyle }}>
