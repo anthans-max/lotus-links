@@ -326,7 +326,7 @@ export async function POST(req: NextRequest) {
 
     const { data: tournament } = await supabase
       .from('tournaments')
-      .select('id, name, date, course, holes, slope_rating, course_rating, stableford_points_config')
+      .select('id, name, date, course, holes, slope_rating, course_rating, stableford_points_config, format')
       .eq('id', tournamentId)
       .single()
 
@@ -335,12 +335,12 @@ export async function POST(req: NextRequest) {
     }
 
     const [{ data: holes }, { data: players }, { data: scores }] = await Promise.all([
-      supabase.from('holes').select('hole_number, par, handicap').eq('tournament_id', tournamentId).order('hole_number'),
+      supabase.from('holes').select('hole_number, par, handicap, yardage').eq('tournament_id', tournamentId).order('hole_number'),
       supabase.from('players').select('id, name, handicap, handicap_index, player_email').eq('tournament_id', tournamentId).order('name'),
       supabase.from('scores').select('player_id, hole_number, strokes').eq('tournament_id', tournamentId).not('player_id', 'is', null),
     ])
 
-    const holeList = (holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap as number | null }))
+    const holeList = (holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap as number | null, yardage: (h as any).yardage as number | null }))
     const totalPar = holeList.reduce((s, h) => s + h.par, 0)
     const holeCount = tournament.holes ?? holeList.length
     const stablefordConfig = parseStablefordConfig(tournament.stableford_points_config)
@@ -374,14 +374,19 @@ export async function POST(req: NextRequest) {
         if (raw != null) totalGross += raw
         if (net != null) totalNet += net
         if (pts != null) totalPts += pts
-        return { number: h.number, par: h.par, raw: raw ?? 0, net: net ?? 0, pts: pts ?? 0, received }
+        const adjScore = raw != null ? Math.min(raw, h.par + 2 + received) : null
+        return { number: h.number, par: h.par, raw: raw ?? 0, net: net ?? 0, pts: pts ?? 0, received, strokeIndex: h.strokeIndex, adjScore: adjScore ?? 0, yardage: h.yardage }
       })
+      const netVsPar = totalNet - totalPar
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { id: p.id, name: p.name, email: (p as any).player_email as string | null, totalPts, totalGross, totalNet, holeDetails }
+      return { id: p.id, name: p.name, email: (p as any).player_email as string | null, totalPts, totalGross, totalNet, netVsPar, holeDetails }
     })
 
-    const ranked = [...computedPlayers].sort((a, b) => b.totalPts - a.totalPts)
-    const leaderboardSummary = ranked.map((p, i) => ({ rank: i + 1, name: p.name, totalPts: p.totalPts, gross: p.totalGross }))
+    const isStrokePlayFormat = (tournament as any).format === 'Stroke Play'
+    const ranked = [...computedPlayers].sort((a, b) =>
+      isStrokePlayFormat ? a.netVsPar - b.netVsPar : b.totalPts - a.totalPts
+    )
+    const leaderboardSummary = ranked.map((p, i) => ({ rank: i + 1, name: p.name, totalPts: p.totalPts, gross: p.totalGross, netVsPar: p.netVsPar }))
 
     const playersWithEmail = computedPlayers.filter(p => p.email)
     const skipped = computedPlayers.length - playersWithEmail.length
@@ -402,6 +407,7 @@ export async function POST(req: NextRequest) {
           courseName: tournament.course,
           tournamentDate: formattedDate,
           scorecardUrl,
+          format: (tournament as any).format ?? 'Stableford',
           leaderboard: leaderboardSummary.map(entry => ({
             ...entry,
             isRecipient: entry.name === p.name,
@@ -411,6 +417,7 @@ export async function POST(req: NextRequest) {
             gross: p.totalGross,
             net: p.totalNet,
             totalPts: p.totalPts,
+            netVsPar: p.netVsPar,
           },
         })
       )

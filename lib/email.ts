@@ -159,6 +159,64 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
+function fmtNetVsPar(n: number): string {
+  if (n === 0) return 'E'
+  return n > 0 ? `+${n}` : `${n}`
+}
+
+function buildGhinTableHtml(
+  holes: { number: number; par: number; raw: number; adjScore: number; received: number; strokeIndex: number | null; yardage: number | null }[]
+): string {
+  const n = holes.length
+  const splitIdx = n > 9 ? Math.floor(n / 2) : n
+  const sections: Array<{ holes: typeof holes; label: string }> = [
+    { holes: holes.slice(0, splitIdx), label: n > 9 ? 'OUT' : 'TOT' },
+  ]
+  if (n > 9) sections.push({ holes: holes.slice(splitIdx), label: 'IN' })
+
+  function cellStyle(raw: number, par: number): string {
+    if (raw === 0) return ''
+    if (raw <= par - 1) return 'background-color:rgba(184,151,106,0.2);color:#c9a84c;font-weight:700;'
+    if (raw === par) return 'color:rgba(138,173,138,0.75);'
+    if (raw === par + 1) return 'color:#d4a017;'
+    return 'color:#d4a017;font-weight:700;'
+  }
+
+  const lbl = `padding:4px 6px 4px 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;`
+  const tot = `padding:4px 6px;text-align:center;font-family:Georgia,serif;border-left:1px solid #2d482d;`
+
+  const tables = sections.map(({ holes: sh, label }) => {
+    const sumYards = sh.reduce((s, h) => s + (h.yardage || 0), 0)
+    const sumPar = sh.reduce((s, h) => s + h.par, 0)
+    const sumGross = sh.reduce((s, h) => s + (h.raw || 0), 0)
+    const sumAdj = sh.reduce((s, h) => s + (h.adjScore || 0), 0)
+
+    const holeRow = `<tr><td style="${lbl}">HOLE</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(138,173,138,0.6);font-family:Georgia,serif;">${h.number}</td>`).join('')}<td style="${tot}font-size:10px;letter-spacing:1px;color:rgba(138,173,138,0.5);">${label}</td></tr>`
+    const yardsRow = `<tr><td style="${lbl}">YARDS</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">${h.yardage || '—'}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.3);">${sumYards || '—'}</td></tr>`
+    const parRow = `<tr style="background:rgba(13,61,26,0.4);"><td style="${lbl}">PAR</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-family:Georgia,serif;">${h.par}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(138,173,138,0.75);">${sumPar}</td></tr>`
+    const siRow = `<tr><td style="${lbl}">SI</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">${h.strokeIndex ?? '—'}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.2);">—</td></tr>`
+    const scoreRow = `<tr style="border-top:1px solid #2d482d;"><td style="${lbl}">SCORE</td>${sh.map(h => {
+      const s = cellStyle(h.raw, h.par)
+      return `<td style="padding:5px;text-align:center;font-size:12px;${s}font-family:Georgia,serif;">${h.raw || '—'}</td>`
+    }).join('')}<td style="${tot}font-size:12px;color:#f0ece4;font-weight:700;">${sumGross || '—'}</td></tr>`
+    const adjRow = `<tr style="border-top:1px solid rgba(45,72,45,0.4);"><td style="${lbl}">ADJ.</td>${sh.map(h => {
+      const s = cellStyle(h.adjScore, h.par)
+      return `<td style="padding:4px 5px;text-align:center;font-size:11px;${s}font-family:Georgia,serif;">${h.adjScore || '—'}</td>`
+    }).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.65);">${sumAdj || '—'}</td></tr>`
+
+    return `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px;border:1px solid #2d482d;border-radius:4px;overflow:hidden;">${holeRow}${yardsRow}${parRow}${siRow}${scoreRow}${adjRow}</table>`
+  })
+
+  // If split into OUT+IN, append a TOT summary row
+  if (n > 9) {
+    const totGross = holes.reduce((s, h) => s + (h.raw || 0), 0)
+    const totAdj = holes.reduce((s, h) => s + (h.adjScore || 0), 0)
+    tables.push(`<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #2d482d;border-radius:4px;overflow:hidden;"><tr style="background:#162416;"><td style="${lbl}">TOT</td><td colspan="2" style="padding:5px 6px;text-align:right;font-size:11px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Gross</td><td style="padding:5px 6px;text-align:center;font-size:12px;color:#f0ece4;font-weight:700;font-family:Georgia,serif;">${totGross}</td><td style="padding:5px 6px;text-align:right;font-size:11px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Adj.</td><td style="padding:5px 6px;text-align:center;font-size:11px;color:rgba(240,236,228,0.65);font-family:Georgia,serif;">${totAdj}</td></tr></table>`)
+  }
+
+  return tables.join('')
+}
+
 function buildPlayerScoringEmailHtml(data: Omit<PlayerScoringEmailPayload, 'to'>) {
   const { playerName, groupName, players, scoringUrl, tournamentName, courseName, tournamentDate } = data
 
@@ -265,12 +323,14 @@ export interface ScorecardSummaryEmailPayload {
   courseName: string
   tournamentDate: string
   scorecardUrl: string
-  leaderboard: { rank: number; name: string; totalPts: number; gross: number; isRecipient: boolean }[]
+  format: string
+  leaderboard: { rank: number; name: string; totalPts: number; gross: number; netVsPar: number; isRecipient: boolean }[]
   recipientSummary: {
-    holes: { number: number; par: number; raw: number; net: number; pts: number; received: number }[]
+    holes: { number: number; par: number; raw: number; net: number; pts: number; received: number; strokeIndex: number | null; adjScore: number; yardage: number | null }[]
     gross: number
     net: number
     totalPts: number
+    netVsPar: number
   } | null
 }
 
@@ -289,7 +349,8 @@ export async function sendScorecardSummaryEmail(payload: ScorecardSummaryEmailPa
 }
 
 function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload, 'to'>) {
-  const { playerName, tournamentName, courseName, tournamentDate, scorecardUrl, leaderboard, recipientSummary } = data
+  const { playerName, tournamentName, courseName, tournamentDate, scorecardUrl, format, leaderboard, recipientSummary } = data
+  const isStrokePlay = format === 'Stroke Play'
 
   const leaderboardRows = leaderboard
     .map((entry, idx) => {
@@ -300,45 +361,27 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
       const youBadge = entry.isRecipient
         ? `<span style="display:inline-block;background:rgba(184,151,106,0.15);border:1px solid rgba(184,151,106,0.35);color:#b8976a;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:1px 6px;border-radius:8px;font-family:Georgia,serif;margin-left:6px;">You</span>`
         : ''
+      const scoreCell = isStrokePlay
+        ? `<td style="padding:9px 6px;font-size:13px;color:#b8976a;font-family:Georgia,serif;font-weight:700;text-align:right;">${fmtNetVsPar(entry.netVsPar)}</td>`
+        : `<td style="padding:9px 6px;font-size:13px;color:#b8976a;font-family:Georgia,serif;font-weight:700;text-align:right;">${entry.totalPts} pts</td>`
       return `<tr style="${rowBg}${rowBorder}">
         <td style="padding:9px 0 9px 12px;width:28px;font-size:12px;color:${rankColor};font-family:Georgia,serif;font-weight:600;">${entry.rank}</td>
         <td style="padding:9px 6px;font-size:13px;color:${nameColor};font-family:Georgia,serif;">${entry.name}${youBadge}</td>
-        <td style="padding:9px 6px;font-size:13px;color:#b8976a;font-family:Georgia,serif;font-weight:700;text-align:right;">${entry.totalPts} pts</td>
+        ${scoreCell}
         <td style="padding:9px 12px 9px 6px;font-size:12px;color:rgba(240,236,228,0.45);font-family:Georgia,serif;text-align:right;">${entry.gross}</td>
       </tr>`
     })
     .join('')
 
+  const leaderboardScoreHeader = isStrokePlay ? 'Net' : 'Pts'
+
   let scorecardSection = ''
   if (recipientSummary) {
-    // Build hole blocks — up to 9 holes per row
-    const { holes, gross, net, totalPts } = recipientSummary
-    const chunks: typeof holes[] = []
-    for (let i = 0; i < holes.length; i += 9) {
-      chunks.push(holes.slice(i, i + 9))
-    }
-
-    const chunkHtml = chunks
-      .map(chunk => {
-        const holeNums = chunk
-          .map(h => `<td style="padding:5px 6px;text-align:center;font-size:11px;color:rgba(138,173,138,0.6);font-family:Georgia,serif;">H${h.number}</td>`)
-          .join('')
-        const holeScores = chunk
-          .map(h => {
-            const ptsColor = h.pts > 0 ? '#b8976a' : 'rgba(240,236,228,0.25)'
-            const ptsFw = h.pts > 0 ? '700' : '400'
-            const dot = h.received > 0
-              ? `<sup style="color:#b8976a;font-size:8px;">·</sup>`
-              : ''
-            return `<td style="padding:5px 6px;text-align:center;font-size:13px;color:${ptsColor};font-weight:${ptsFw};font-family:Georgia,serif;">${h.pts}${dot}</td>`
-          })
-          .join('')
-        return `<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:6px;">
-          <tr>${holeNums}</tr>
-          <tr>${holeScores}</tr>
-        </table>`
-      })
-      .join('')
+    const { holes, gross, net, netVsPar } = recipientSummary
+    const ghinHtml = buildGhinTableHtml(holes)
+    const summaryScore = isStrokePlay
+      ? `Net vs Par: <strong style="color:#b8976a;">${fmtNetVsPar(netVsPar)}</strong>`
+      : `Total: <strong style="color:#b8976a;">${recipientSummary.totalPts} pts</strong>`
 
     scorecardSection = `
       <!-- Scorecard detail -->
@@ -346,10 +389,10 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
         <tr><td style="background:#162416;padding:10px 14px;border-bottom:1px solid #2d482d;">
           <div style="font-size:10px;letter-spacing:2.5px;color:rgba(138,173,138,0.6);text-transform:uppercase;font-family:Georgia,serif;">Your Scorecard</div>
         </td></tr>
-        <tr><td style="padding:12px 14px;">
-          ${chunkHtml}
+        <tr><td style="padding:12px 10px;">
+          ${ghinHtml}
           <div style="font-size:12px;color:rgba(138,173,138,0.65);font-family:Georgia,serif;margin-top:8px;padding-top:8px;border-top:1px solid #2d482d;">
-            Gross: <strong style="color:#f0ece4;">${gross}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Net: <strong style="color:#f0ece4;">${net}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Total: <strong style="color:#b8976a;">${totalPts} pts</strong>
+            Gross: <strong style="color:#f0ece4;">${gross}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Net: <strong style="color:#f0ece4;">${net}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;${summaryScore}
           </div>
         </td></tr>
       </table>`
@@ -391,7 +434,7 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
                 <tr style="border-bottom:1px solid #2d482d;">
                   <td style="padding:6px 0 6px 12px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">#</td>
                   <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">Player</td>
-                  <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Pts</td>
+                  <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">${leaderboardScoreHeader}</td>
                   <td style="padding:6px 12px 6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Gross</td>
                 </tr>
                 ${leaderboardRows}
