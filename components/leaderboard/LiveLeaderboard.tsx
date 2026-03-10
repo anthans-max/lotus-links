@@ -237,6 +237,7 @@ export default function LiveLeaderboard({
       let grossPts = 0
       let totalGross = 0
       let totalNet = 0
+      let parForCompleted = 0
 
       pScores.forEach(s => {
         const hole = holes.find(h => h.number === s.holeNumber)
@@ -244,11 +245,13 @@ export default function LiveLeaderboard({
         const received = getStrokesOnHole(pCourseHcp, hole.strokeIndex ?? null, holes.length)
         totalGross += s.strokes
         totalNet += s.strokes - received
+        parForCompleted += hole.par
         netPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
         grossPts += computeStablefordPoints(s.strokes, hole.par, 0, tournament.stablefordConfig)
       })
 
-      const netRelative = totalNet - totalPar
+      const netRelative = totalNet - parForCompleted
+      const grossRelative = totalGross - parForCompleted
       const totalPts = useGross ? grossPts : netPts
 
       return {
@@ -259,6 +262,7 @@ export default function LiveLeaderboard({
         totalGross,
         totalNet,
         netRelative,
+        grossRelative,
         holesCompleted: pScores.length,
       }
     })
@@ -268,7 +272,10 @@ export default function LiveLeaderboard({
           if (b.totalPts !== a.totalPts) return b.totalPts - a.totalPts
           return b.holesCompleted - a.holesCompleted
         }
-        if (a.netRelative !== b.netRelative) return a.netRelative - b.netRelative
+        // Stroke Play: sort by net or gross relative to par
+        const aScore = useGross ? a.grossRelative : a.netRelative
+        const bScore = useGross ? b.grossRelative : b.netRelative
+        if (aScore !== bScore) return aScore - bScore
         return b.holesCompleted - a.holesCompleted
       })
   }, [players, playerScores, holes, tournament, totalPar, isIndividual, isStableford, useGross])
@@ -365,7 +372,7 @@ export default function LiveLeaderboard({
           )}
         </div>
 
-        {isStableford && (
+        {isIndividual && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
             <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
               <button
@@ -408,11 +415,16 @@ export default function LiveLeaderboard({
               <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: 'var(--gold)' }}>
                 {(topEntry as any).totalPts} pts
               </div>
-            ) : isIndividual ? (
-              <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: (topEntry as any).netRelative < 0 ? '#4CAF50' : (topEntry as any).netRelative > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
-                {fmtRelative((topEntry as any).netRelative)}
-              </div>
-            ) : (
+            ) : isIndividual ? (() => {
+              const champ = topEntry as any
+              const displayScore = useGross ? champ.grossRelative : champ.netRelative
+              return (
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: displayScore < 0 ? '#4CAF50' : displayScore > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                  {fmtRelative(displayScore)}
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginLeft: '0.3rem' }}>{useGross ? 'gross' : 'net'}</span>
+                </div>
+              )
+            })() : (
               <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: (topEntry as any).scoreToPar < 0 ? '#4CAF50' : (topEntry as any).scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
                 {fmtRelative((topEntry as any).scoreToPar)}
               </div>
@@ -436,11 +448,9 @@ export default function LiveLeaderboard({
         ) : isIndividual ? (
           /* ─── Individual player leaderboard ─────────────────────────── */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {isStableford && (
-              <div style={{ textAlign: 'center', fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.75rem' }}>
-                {useGross ? 'Gross Leaderboard (No Handicap)' : 'Net Leaderboard (Handicap Adjusted)'}
-              </div>
-            )}
+            <div style={{ textAlign: 'center', fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.75rem' }}>
+              {useGross ? 'Gross Leaderboard (No Handicap)' : 'Net Leaderboard (Handicap Adjusted)'}
+            </div>
             <div style={{
               display: 'grid',
               gridTemplateColumns: '36px 1fr 60px 70px',
@@ -456,7 +466,7 @@ export default function LiveLeaderboard({
               <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--text-dim)', fontFamily: 'var(--fm)', textTransform: 'uppercase' }}>Player</div>
               <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--text-dim)', fontFamily: 'var(--fm)', textTransform: 'uppercase', textAlign: 'center' }}>Thru</div>
               <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--text-dim)', fontFamily: 'var(--fm)', textTransform: 'uppercase', textAlign: 'right' }}>
-                {isStableford ? 'Pts' : 'Net'}
+                {isStableford ? 'Pts' : useGross ? 'Gross' : 'Net'}
               </div>
             </div>
 
@@ -494,7 +504,8 @@ export default function LiveLeaderboard({
                     </div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
                       HCP {entry.handicapIndex ?? entry.handicap}
-                      {!isStableford && ` · gross ${entry.totalGross}`}
+                      {!isStableford && !useGross && ` · gross ${entry.totalGross}`}
+                      {!isStableford && useGross && ` · net ${fmtRelative(entry.netRelative)}`}
                       {isStableford && useGross && entry.netPts !== entry.grossPts && <span style={{ marginLeft: '0.3rem' }}>· {entry.netPts} net</span>}
                       {isStableford && !useGross && entry.netPts !== entry.grossPts && <span style={{ marginLeft: '0.3rem' }}>· {entry.grossPts} gross</span>}
                     </div>
@@ -516,14 +527,17 @@ export default function LiveLeaderboard({
                         </div>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</div>
                       </>
-                    ) : (
-                      <>
-                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 600, color: entry.netRelative < 0 ? '#4CAF50' : entry.netRelative > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
-                          {fmtRelative(entry.netRelative)}
-                        </div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>net</div>
-                      </>
-                    )}
+                    ) : (() => {
+                      const displayScore = useGross ? entry.grossRelative : entry.netRelative
+                      return (
+                        <>
+                          <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 600, color: displayScore < 0 ? '#4CAF50' : displayScore > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                            {fmtRelative(displayScore)}
+                          </div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>{useGross ? 'gross' : 'net'}</div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               )

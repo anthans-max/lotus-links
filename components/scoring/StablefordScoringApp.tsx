@@ -351,6 +351,29 @@ export default function StablefordScoringApp({
     return holes.filter(h => scoredKeys.has(`${playerId}:${h.number}`)).length
   }, [holes, scoredKeys])
 
+  /** Stroke Play: net strokes minus par for a single hole (0 if not yet scored). */
+  const getPlayerNetRelativeOnHole = useCallback((playerId: string, holeNumber: number): number => {
+    if (!scoredKeys.has(`${playerId}:${holeNumber}`)) return 0
+    const hole = holes.find(h => h.number === holeNumber)
+    if (!hole) return 0
+    const strokes = allDraftScores[playerId]?.[holeNumber] ?? hole.par
+    const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, holeNumber)
+    return (strokes - received) - hole.par
+  }, [holes, allDraftScores, scoredKeys, getPlayerStrokesOnHole, useGross])
+
+  /** Stroke Play: cumulative net-to-par across all scored holes. */
+  const getPlayerNetRelativeTotal = useCallback((playerId: string): number => {
+    let total = 0
+    for (const hole of holes) {
+      if (!scoredKeys.has(`${playerId}:${hole.number}`)) continue
+      const strokes = allDraftScores[playerId]?.[hole.number]
+      if (strokes === undefined) continue
+      const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, hole.number)
+      total += (strokes - received) - hole.par
+    }
+    return total
+  }, [holes, allDraftScores, scoredKeys, getPlayerStrokesOnHole, useGross])
+
   // ─── Stableford group: set score ───────────────────────────────────────────
   const setPlayerScore = useCallback((playerId: string, holeNumber: number, strokes: number) => {
     const clamped = Math.max(1, Math.min(12, strokes))
@@ -533,16 +556,19 @@ export default function StablefordScoringApp({
       .map(p => {
         const pScores = allScores.filter(s => s.playerId === p.id)
         const pCourseHcp = resolveHandicap(p, tournament, totalPar)
-        let totalPts = 0, totalGross = 0, totalNet = 0
+        let totalPts = 0, totalGross = 0, totalNet = 0, parForCompleted = 0
         pScores.forEach(s => {
           const hole = holes.find(h => h.number === s.holeNumber)
           if (!hole) return
           const received = useGross ? 0 : getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
           totalGross += s.strokes
           totalNet += s.strokes - received
+          parForCompleted += hole.par
           totalPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
         })
-        return { ...p, totalPts, totalGross, totalNet, netRelative: totalNet - totalPar, holesCompleted: pScores.length }
+        const netRelative = totalNet - parForCompleted
+        const grossRelative = totalGross - parForCompleted
+        return { ...p, totalPts, totalGross, totalNet, netRelative, grossRelative, holesCompleted: pScores.length }
       })
       .filter(p => p.holesCompleted > 0)
       .sort((a, b) => {
@@ -550,7 +576,9 @@ export default function StablefordScoringApp({
           if (b.totalPts !== a.totalPts) return b.totalPts - a.totalPts
           return b.holesCompleted - a.holesCompleted
         }
-        if (a.netRelative !== b.netRelative) return a.netRelative - b.netRelative
+        const aScore = useGross ? a.grossRelative : a.netRelative
+        const bScore = useGross ? b.grossRelative : b.netRelative
+        if (aScore !== bScore) return aScore - bScore
         return b.holesCompleted - a.holesCompleted
       })
   }, [players, allScores, holes, tournament, totalPar, isStableford, useGross])
@@ -631,7 +659,7 @@ export default function StablefordScoringApp({
             {tournament.format}
           </span>
 
-          {isStableford && (
+          {(isStableford || isStrokePlay) && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
               <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
                 <button
@@ -757,7 +785,7 @@ export default function StablefordScoringApp({
           {leaderboard.length > 0 && (
             <div style={{ marginTop: '2rem' }}>
               <div className="label" style={{ marginBottom: '0.75rem' }}>Current Standings</div>
-              <LeaderboardSection leaderboard={leaderboard} holes={holes} highlightPlayerId={null} isStableford={isStableford} />
+              <LeaderboardSection leaderboard={leaderboard} holes={holes} highlightPlayerId={null} isStableford={isStableford} useGross={useGross} />
             </div>
           )}
 
@@ -900,7 +928,7 @@ export default function StablefordScoringApp({
                 Scores will appear here once players save their scorecards.
               </div>
             ) : (
-              <LeaderboardSection leaderboard={leaderboard} holes={holes} highlightPlayerId={selectedPlayer?.id ?? null} isStableford={false} />
+              <LeaderboardSection leaderboard={leaderboard} holes={holes} highlightPlayerId={selectedPlayer?.id ?? null} isStableford={false} useGross={useGross} />
             )}
           </div>
 
@@ -1006,6 +1034,7 @@ export default function StablefordScoringApp({
                 const isScored = scoredKeys.has(`${player.id}:${currentHole.number}`)
                 const pts = getPlayerPts(player.id, currentHole.number)
                 const badge = ptsBadgeStyle(pts)
+                const netRelOnHole = getPlayerNetRelativeOnHole(player.id, currentHole.number)
                 const animKey = animKeys[player.id] ?? 0
                 const isScorer = selectedPlayer?.id === player.id
                 const hasChanged = changedKeys.has(`${player.id}:${currentHole.number}`)
@@ -1055,12 +1084,18 @@ export default function StablefordScoringApp({
                       >+</button>
                     </div>
 
-                    {/* Points badge */}
+                    {/* Points badge (Stableford) or net-to-par badge (Stroke Play) */}
                     <div style={{ width: 46, textAlign: 'center', flexShrink: 0 }}>
                       {isScored ? (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.18rem 0.35rem', borderRadius: 20, background: badge.bg, color: badge.color, fontSize: badge.fontSize, fontWeight: badge.fontWeight, fontFamily: 'var(--fm)', minWidth: 36, transition: 'all 0.18s' }}>
-                          {pts}{pts === 1 ? 'pt' : 'pts'}
-                        </div>
+                        isStableford ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.18rem 0.35rem', borderRadius: 20, background: badge.bg, color: badge.color, fontSize: badge.fontSize, fontWeight: badge.fontWeight, fontFamily: 'var(--fm)', minWidth: 36, transition: 'all 0.18s' }}>
+                            {pts}{pts === 1 ? 'pt' : 'pts'}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.18rem 0.35rem', borderRadius: 20, background: netRelOnHole < 0 ? 'rgba(76,175,80,0.15)' : netRelOnHole > 0 ? 'var(--over-dim,rgba(212,160,23,0.15))' : 'var(--surface2)', color: netRelOnHole < 0 ? '#4CAF50' : netRelOnHole > 0 ? 'var(--over)' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, fontFamily: 'var(--fm)', minWidth: 36, transition: 'all 0.18s' }}>
+                            {fmtRelative(netRelOnHole)}
+                          </div>
+                        )
                       ) : (
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>—</div>
                       )}
@@ -1098,9 +1133,10 @@ export default function StablefordScoringApp({
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {players.map(player => {
-                  const total = getPlayerRunningTotal(player.id)
+                  const total = isStableford ? getPlayerRunningTotal(player.id) : getPlayerNetRelativeTotal(player.id)
                   const holesScored = getPlayerHolesScored(player.id)
                   const isScorer = selectedPlayer?.id === player.id
+                  const netColor = !isStableford ? (total < 0 ? '#4CAF50' : total > 0 ? 'var(--over)' : 'var(--text-muted)') : (holesScored > 0 ? 'var(--gold)' : 'var(--text-dim)')
                   return (
                     <div
                       key={player.id}
@@ -1109,8 +1145,12 @@ export default function StablefordScoringApp({
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 60 }}>
                         {player.name.split(' ')[0]}
                       </span>
-                      <span style={{ fontFamily: 'var(--fd)', fontSize: '0.88rem', color: holesScored > 0 ? 'var(--gold)' : 'var(--text-dim)', fontWeight: 700 }}>{total}</span>
-                      <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</span>
+                      <span style={{ fontFamily: 'var(--fd)', fontSize: '0.88rem', color: netColor, fontWeight: 700 }}>
+                        {isStableford ? total : fmtRelative(total)}
+                      </span>
+                      <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
+                        {isStableford ? 'pts' : 'net'}
+                      </span>
                       {holesScored > 0 && (
                         <span style={{ fontSize: '0.52rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
                           ({holesScored}h)
@@ -1195,12 +1235,15 @@ export default function StablefordScoringApp({
             {players.map(player => {
               const courseHcp = allCourseHandicaps[player.id] ?? 0
               let grandTotal = 0
+              let grandNetRelative = 0
               const holeBreakdown = holes.map(hole => {
                 const strokes = allDraftScores[player.id]?.[hole.number] ?? hole.par
                 const received = getPlayerStrokesOnHole(player.id, hole.number)
                 const pts = computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
+                const netRel = (strokes - received) - hole.par
                 grandTotal += pts
-                return { hole, strokes, pts }
+                grandNetRelative += netRel
+                return { hole, strokes, pts, netRel }
               })
 
               return (
@@ -1216,21 +1259,32 @@ export default function StablefordScoringApp({
                         <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>HCP {courseHcp}</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'var(--fd)', fontSize: '1.4rem', color: 'var(--gold)', fontWeight: 700, lineHeight: 1 }}>{grandTotal}</div>
-                      <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts total</div>
-                    </div>
+                    {isStableford ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.4rem', color: 'var(--gold)', fontWeight: 700, lineHeight: 1 }}>{grandTotal}</div>
+                        <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts total</div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.4rem', color: grandNetRelative < 0 ? '#4CAF50' : grandNetRelative > 0 ? 'var(--over)' : 'var(--text-muted)', fontWeight: 700, lineHeight: 1 }}>{fmtRelative(grandNetRelative)}</div>
+                        <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>net total</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Hole breakdown */}
                   <div style={{ padding: '0.5rem 0.875rem 0.625rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                    {holeBreakdown.map(({ hole, strokes, pts }) => {
+                    {holeBreakdown.map(({ hole, strokes, pts, netRel }) => {
                       const b = ptsBadgeStyle(pts)
                       return (
                         <div key={hole.number} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', minWidth: 26 }}>
                           <div style={{ fontSize: '0.52rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>H{hole.number}</div>
                           <div style={{ fontSize: '0.7rem', fontFamily: 'var(--fm)', color: 'var(--text-muted)', fontWeight: 500 }}>{strokes}</div>
-                          <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: b.color, fontWeight: b.fontWeight }}>{pts}p</div>
+                          {isStableford ? (
+                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: b.color, fontWeight: b.fontWeight }}>{pts}p</div>
+                          ) : (
+                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: netRel < 0 ? '#4CAF50' : netRel > 0 ? 'var(--over)' : 'var(--text-muted)', fontWeight: 600 }}>{fmtRelative(netRel)}</div>
+                          )}
                         </div>
                       )
                     })}
@@ -1287,8 +1341,11 @@ export default function StablefordScoringApp({
         {/* Per-player totals */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1.5rem' }}>
           {players
-            .map(p => ({ player: p, total: getPlayerRunningTotal(p.id) }))
-            .sort((a, b) => b.total - a.total)
+            .map(p => ({
+              player: p,
+              total: isStableford ? getPlayerRunningTotal(p.id) : getPlayerNetRelativeTotal(p.id),
+            }))
+            .sort((a, b) => isStableford ? b.total - a.total : a.total - b.total)
             .map(({ player, total }, i) => (
               <div
                 key={player.id}
@@ -1301,8 +1358,17 @@ export default function StablefordScoringApp({
                   <div style={{ fontSize: '0.88rem', color: i === 0 ? 'var(--gold)' : 'var(--text)', fontWeight: i === 0 ? 600 : 400 }}>{player.name}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                  <span style={{ fontFamily: 'var(--fd)', fontSize: '1.2rem', color: 'var(--gold)', fontWeight: 700 }}>{total}</span>
-                  <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</span>
+                  {isStableford ? (
+                    <>
+                      <span style={{ fontFamily: 'var(--fd)', fontSize: '1.2rem', color: 'var(--gold)', fontWeight: 700 }}>{total}</span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>pts</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontFamily: 'var(--fd)', fontSize: '1.2rem', color: total < 0 ? '#4CAF50' : total > 0 ? 'var(--over)' : 'var(--text-muted)', fontWeight: 700 }}>{fmtRelative(total)}</span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>net</span>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -1338,6 +1404,7 @@ interface LeaderboardEntry {
   totalGross: number
   totalNet: number
   netRelative: number
+  grossRelative: number
   holesCompleted: number
 }
 
@@ -1346,16 +1413,19 @@ function LeaderboardSection({
   holes,
   highlightPlayerId,
   isStableford,
+  useGross,
 }: {
   leaderboard: LeaderboardEntry[]
   holes: HoleInfo[]
   highlightPlayerId: string | null
   isStableford: boolean
+  useGross?: boolean
 }) {
+  const scoreLabel = isStableford ? 'Pts' : useGross ? 'Gross' : 'Net'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 52px 56px', gap: '0.5rem', alignItems: 'center', padding: '0.4rem 0.75rem' }}>
-        {(['Pos', 'Player', 'Thru', isStableford ? 'Pts' : 'Net'] as const).map((h, i) => (
+        {(['Pos', 'Player', 'Thru', scoreLabel] as const).map((h, i) => (
           <div key={h} style={{ fontSize: '0.58rem', letterSpacing: '0.15em', color: 'var(--text-dim)', fontFamily: 'var(--fm)', textTransform: 'uppercase', textAlign: i >= 2 ? 'center' : 'left' }}>
             {h}
           </div>
@@ -1366,6 +1436,7 @@ function LeaderboardSection({
         const isMe = entry.id === highlightPlayerId
         const isLeader = i === 0
         const isFinished = entry.holesCompleted === holes.length
+        const displayScore = useGross ? entry.grossRelative : entry.netRelative
 
         return (
           <div
@@ -1383,7 +1454,8 @@ function LeaderboardSection({
               </div>
               <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
                 HCP {entry.handicapIndex ?? entry.handicap}
-                {!isStableford && ` · gross ${entry.totalGross}`}
+                {!isStableford && !useGross && ` · gross ${entry.totalGross}`}
+                {!isStableford && useGross && ` · net ${fmtRelative(entry.netRelative)}`}
               </div>
             </div>
 
@@ -1397,7 +1469,7 @@ function LeaderboardSection({
               {isStableford ? (
                 <div style={{ fontFamily: 'var(--fd)', fontSize: '1.2rem', fontWeight: 600, color: isLeader ? 'var(--gold)' : 'var(--text)' }}>{entry.totalPts}</div>
               ) : (
-                <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', fontWeight: 600, color: entry.netRelative < 0 ? '#4CAF50' : entry.netRelative > 0 ? 'var(--over)' : 'var(--text-muted)' }}>{fmtRelative(entry.netRelative)}</div>
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '1.1rem', fontWeight: 600, color: displayScore < 0 ? '#4CAF50' : displayScore > 0 ? 'var(--over)' : 'var(--text-muted)' }}>{fmtRelative(displayScore)}</div>
               )}
             </div>
           </div>
