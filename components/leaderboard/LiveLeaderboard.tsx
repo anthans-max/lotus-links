@@ -34,6 +34,7 @@ interface GroupInfo {
   chaperoneName: string | null
   currentHole: number
   status: string
+  players?: string[]
 }
 
 interface PlayerInfo {
@@ -580,7 +581,16 @@ export default function LiveLeaderboard({
                     <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: isLeader ? 600 : 400 }}>
                       {entry.name}
                     </div>
-                    {entry.chaperoneName && (
+                    {entry.players && entry.players.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.3rem' }}>
+                        {entry.players.map((name, pi) => (
+                          <span key={pi} style={{ fontSize: '0.6rem', color: 'var(--text-muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4, padding: '0.1rem 0.35rem', fontFamily: 'var(--fm)', lineHeight: 1.4 }}>
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {!entry.players?.length && entry.chaperoneName && (
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
                         {entry.chaperoneName}
                       </div>

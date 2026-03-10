@@ -140,6 +140,25 @@ export default async function LeaderboardPage({ params }: Props) {
       .eq('tournament_id', tournamentId),
   ])
 
+  // Fetch player names per group for parent-facing display
+  const groupIds = (groups ?? []).map(g => g.id)
+  const { data: groupPlayerRows } = groupIds.length > 0
+    ? await supabase.from('group_players').select('group_id, player_id').in('group_id', groupIds)
+    : { data: [] as { group_id: string; player_id: string }[] }
+
+  const playerIds = (groupPlayerRows ?? []).map(gp => gp.player_id)
+  const { data: playerRows } = playerIds.length > 0
+    ? await supabase.from('players').select('id, name').in('id', playerIds)
+    : { data: [] as { id: string; name: string }[] }
+
+  const playerNameById = new Map((playerRows ?? []).map(p => [p.id, p.name]))
+  const playersByGroup: Record<string, string[]> = {}
+  for (const gp of groupPlayerRows ?? []) {
+    if (!playersByGroup[gp.group_id]) playersByGroup[gp.group_id] = []
+    const name = playerNameById.get(gp.player_id)
+    if (name) playersByGroup[gp.group_id].push(name)
+  }
+
   return (
     <>
       <LiveLeaderboard
@@ -164,6 +183,7 @@ export default async function LeaderboardPage({ params }: Props) {
           chaperoneName: g.chaperone_name,
           currentHole: g.current_hole ?? 1,
           status: g.status,
+          players: playersByGroup[g.id] ?? [],
         }))}
         initialScores={(scores ?? []).map(s => ({
           groupId: s.group_id,

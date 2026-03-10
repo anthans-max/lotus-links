@@ -313,6 +313,16 @@ export default function ScoreEntryApp({
             }}>
               Start Scoring &rarr;
             </button>
+            <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+              <Link
+                href={`/leaderboard/${tournament.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '0.78rem', color: 'var(--gold)', opacity: 0.75, textDecoration: 'none' }}
+              >
+                View Leaderboard &rarr;
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -564,33 +574,27 @@ export default function ScoreEntryApp({
           Scores are now live on the leaderboard.
         </div>
 
-        {tournament.leaderboardPublic ? (
-          <Link
-            href={`/leaderboard/${tournament.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1.5rem',
-              background: 'var(--gold-dim)',
-              border: '1px solid var(--gold-border)',
-              borderRadius: 8,
-              color: 'var(--gold)',
-              fontFamily: 'var(--fd)',
-              fontSize: '1rem',
-              textDecoration: 'none',
-              transition: 'all 0.15s',
-            }}
-          >
-            View Live Leaderboard &rarr;
-          </Link>
-        ) : (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-            Leaderboard will be available soon
-          </div>
-        )}
+        <Link
+          href={`/leaderboard/${tournament.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.5rem',
+            background: 'var(--gold-dim)',
+            border: '1px solid var(--gold-border)',
+            borderRadius: 8,
+            color: 'var(--gold)',
+            fontFamily: 'var(--fd)',
+            fontSize: '1rem',
+            textDecoration: 'none',
+            transition: 'all 0.15s',
+          }}
+        >
+          View Live Leaderboard &rarr;
+        </Link>
 
         <PoweredByFooter />
       </div>
