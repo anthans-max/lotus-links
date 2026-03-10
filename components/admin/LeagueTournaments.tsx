@@ -64,7 +64,7 @@ export default function LeagueTournaments({ tournaments, leagueId, leagueColor }
                 {t.name}
               </div>
               <div className="tc-meta" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                <span>{new Date(t.date).toLocaleDateString()}</span>
+                <span>{new Date(t.date).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
                 <span>{t.course}</span>
                 <span>{t.format}</span>
               </div>
