@@ -66,10 +66,12 @@ export default async function PlayersPage({ params }: Props) {
             pairingPrefs={pairingPrefs ?? []}
             isWish={isWish}
           />
-          <ChaperonesManager
-            tournamentId={id}
-            chaperones={(chaperones ?? []) as any}
-          />
+          {isWish && (
+            <ChaperonesManager
+              tournamentId={id}
+              chaperones={(chaperones ?? []) as any}
+            />
+          )}
         </>
       ) : (
         <div className="card" style={{ padding: '1.25rem' }}>
