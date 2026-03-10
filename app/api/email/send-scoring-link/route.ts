@@ -422,5 +422,198 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sent, failed, skipped })
   }
 
+  // ─── Chaperone-token mode: token URL email to formally assigned chaperone ─────
+  if (body.mode === 'chaperone-token') {
+    const { groupId, baseUrl } = body as {
+      mode: 'chaperone-token'
+      groupId: string
+      baseUrl: string
+    }
+
+    if (!groupId || !baseUrl) {
+      return NextResponse.json({ error: 'Missing groupId or baseUrl' }, { status: 400 })
+    }
+
+    // Get the assigned chaperone for this group
+    const { data: gc } = await supabase
+      .from('group_chaperones')
+      .select('chaperones(id, name, email), group_id')
+      .eq('group_id', groupId)
+      .single()
+
+    const chaperone = (gc?.chaperones as unknown) as { id: string; name: string; email: string | null } | null
+
+    if (!chaperone?.email) {
+      return NextResponse.json({ error: 'No chaperone with email assigned to this group' }, { status: 400 })
+    }
+
+    // Fetch group + tournament
+    const { data: group } = await supabase
+      .from('groups')
+      .select('*, group_players(player_id)')
+      .eq('id', groupId)
+      .single()
+
+    if (!group) {
+      return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+    }
+
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('id, name, course, date')
+      .eq('id', group.tournament_id)
+      .single()
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    // Get or create scoring token
+    const { data: existingToken } = await supabase
+      .from('group_scoring_tokens')
+      .select('token')
+      .eq('group_id', groupId)
+      .eq('tournament_id', group.tournament_id)
+      .single()
+
+    let token: string
+    if (existingToken?.token) {
+      token = existingToken.token
+    } else {
+      const { data: newToken, error: tokenErr } = await supabase
+        .from('group_scoring_tokens')
+        .insert({ group_id: groupId, tournament_id: group.tournament_id })
+        .select('token')
+        .single()
+      if (tokenErr || !newToken) {
+        return NextResponse.json({ error: 'Failed to create scoring token' }, { status: 500 })
+      }
+      token = newToken.token
+    }
+
+    const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+    const { data: players } = playerIds.length > 0
+      ? await supabase.from('players').select('name').in('id', playerIds)
+      : { data: [] as { name: string }[] }
+
+    try {
+      await sendScoringLinkEmail({
+        to: chaperone.email,
+        groupName: group.name,
+        chaperoneName: chaperone.name,
+        players: (players ?? []).map(p => p.name),
+        startingHole: group.starting_hole ?? 1,
+        scoringUrl: `${baseUrl}/score/t/${token}`,
+        tournamentName: tournament.name,
+        courseName: tournament.course,
+        tournamentDate: tournament.date,
+      })
+
+      return NextResponse.json({ success: true })
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Failed to send email' },
+        { status: 500 }
+      )
+    }
+  }
+
+  // ─── All-chaperones-token: send token links to all assigned chaperones ─────────
+  if (body.mode === 'all-chaperones-token') {
+    const { tournamentId, baseUrl } = body as {
+      mode: 'all-chaperones-token'
+      tournamentId: string
+      baseUrl: string
+    }
+
+    if (!tournamentId || !baseUrl) {
+      return NextResponse.json({ error: 'Missing tournamentId or baseUrl' }, { status: 400 })
+    }
+
+    const { data: tournament } = await supabase
+      .from('tournaments')
+      .select('id, name, course, date')
+      .eq('id', tournamentId)
+      .single()
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    // Get all group_chaperones with email for this tournament's groups
+    const { data: gcRows } = await supabase
+      .from('group_chaperones')
+      .select('group_id, chaperones(id, name, email)')
+      .in(
+        'group_id',
+        (await supabase.from('groups').select('id').eq('tournament_id', tournamentId)).data?.map(g => g.id) ?? []
+      )
+
+    const eligible = (gcRows ?? []).filter(
+      gc => ((gc.chaperones as unknown) as { email: string | null } | null)?.email
+    )
+
+    if (eligible.length === 0) {
+      return NextResponse.json({ error: 'No groups with an assigned chaperone email' }, { status: 400 })
+    }
+
+    // Fetch all groups + players in one pass
+    const groupIds = eligible.map(gc => gc.group_id)
+    const { data: groups } = await supabase
+      .from('groups')
+      .select('*, group_players(player_id)')
+      .in('id', groupIds)
+
+    const allPlayerIds = (groups ?? []).flatMap(
+      g => (g.group_players as { player_id: string }[]).map(gp => gp.player_id)
+    )
+    const { data: allPlayers } = allPlayerIds.length > 0
+      ? await supabase.from('players').select('id, name').in('id', allPlayerIds)
+      : { data: [] as { id: string; name: string }[] }
+    const playerMap = new Map((allPlayers ?? []).map(p => [p.id, p.name]))
+
+    // Ensure tokens exist for all groups (upsert)
+    const tokenInserts = groupIds.map(gid => ({ group_id: gid, tournament_id: tournamentId }))
+    await supabase.from('group_scoring_tokens').upsert(tokenInserts, { onConflict: 'group_id, tournament_id', ignoreDuplicates: true })
+
+    const { data: tokenRows } = await supabase
+      .from('group_scoring_tokens')
+      .select('group_id, token')
+      .in('group_id', groupIds)
+      .eq('tournament_id', tournamentId)
+    const tokenByGroup = new Map((tokenRows ?? []).map(t => [t.group_id, t.token]))
+
+    const results = await Promise.allSettled(
+      eligible.map(gc => {
+        const chaperone = (gc.chaperones as unknown) as { name: string; email: string }
+        const group = (groups ?? []).find(g => g.id === gc.group_id)
+        if (!group) return Promise.reject(new Error('Group not found'))
+
+        const token = tokenByGroup.get(gc.group_id)
+        if (!token) return Promise.reject(new Error('Token not found'))
+
+        const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+        const playerNames = playerIds.map(id => playerMap.get(id) ?? 'Unknown')
+
+        return sendScoringLinkEmail({
+          to: chaperone.email,
+          groupName: group.name,
+          chaperoneName: chaperone.name,
+          players: playerNames,
+          startingHole: group.starting_hole ?? 1,
+          scoringUrl: `${baseUrl}/score/t/${token}`,
+          tournamentName: tournament.name,
+          courseName: tournament.course,
+          tournamentDate: tournament.date,
+        })
+      })
+    )
+
+    const sent = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+
+    return NextResponse.json({ sent, failed })
+  }
+
   return NextResponse.json({ error: 'Invalid mode' }, { status: 400 })
 }

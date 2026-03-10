@@ -210,6 +210,31 @@ export interface LeagueAdmin {
   invited_by: string | null
 }
 
+export interface Chaperone {
+  id: string
+  tournament_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  role: 'parent' | 'coach' | 'volunteer'
+  created_at: string
+}
+
+export interface GroupChaperone {
+  group_id: string
+  chaperone_id: string
+  assigned_at: string
+}
+
+export interface GroupScoringToken {
+  id: string
+  group_id: string
+  tournament_id: string
+  token: string
+  created_at: string
+  expires_at: string | null
+}
+
 // ─── Derived / UI types ───────────────────────────────────────────────────────
 
 export interface LeaderboardEntry {

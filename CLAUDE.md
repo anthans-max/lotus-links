@@ -26,7 +26,7 @@ npx vitest run lib/scoring/__tests__/handicap.test.ts
 
 - **Next.js 16** (App Router) + React 19 + TypeScript
 - **Tailwind CSS v4** — uses `@import "tailwindcss"` + `@theme` in `app/globals.css`. No `tailwind.config.js` exists.
-- **Supabase** — use `@supabase/ssr` ONLY. `@supabase/auth-helpers-nextjs` is deprecated and must not be used.
+- **Supabase** — use `@supabase/ssr` ONLY. `@supabase/auth-helpers-nextjs` remains in `package.json` but is unused and must not be used.
 - **Resend** — email via `resend` npm package, API route at `/api/email/send-scoring-link`
 - **Vercel** deployment via GitHub
 
@@ -87,6 +87,10 @@ RESEND_FROM_EMAIL=
 
 ## Key Architecture Decisions
 
+- **Tournament formats** — `tournament.format` drives both routing and scoring UI. Three values:
+  - `'Scramble'` → chaperone at `/score/[groupId]` (`ScoreEntryApp`), one team score per hole
+  - `'Stableford'` → `StablefordScoringApp` at `/t/[token]`, hole-by-hole group entry, computes Stableford points
+  - `'Stroke Play'` → `StablefordScoringApp` at `/t/[token]`, scrollable per-player net stroke entry
 - **Two scoring modes**: (1) Scramble — one team score per group per hole via chaperone at `/score/[groupId]`; (2) Stableford/individual — per-player per-hole scores via public token link at `/t/[token]` using `StablefordScoringApp`
 - **Chaperone auth** — group PIN only, no login. Direct URL: `/score/[groupId]`
 - **Scores** — upsert per-hole immediately (not full-card submit). Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
@@ -137,6 +141,41 @@ Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; p
 `id`, `tournament_id` FK, `player_id` FK, `preferred_player_id` FK
 UNIQUE on `(player_id, preferred_player_id)`
 
+### chaperones
+`id`, `tournament_id` FK (CASCADE), `name`, `email`, `phone`, `role` (`parent` | `coach` | `volunteer`), `created_at`
+Formal chaperone registry — separate from the `players` table and from `groups.chaperone_name`.
+
+### group_chaperones
+`group_id` PK FK→groups (CASCADE), `chaperone_id` FK→chaperones (CASCADE), `assigned_at`
+One formal chaperone per group. Managed via `lib/actions/chaperones.ts → assignChaperoneToGroup / removeChaperoneFromGroup`.
+
+### group_scoring_tokens
+`id`, `group_id` FK (CASCADE), `tournament_id` FK (CASCADE), `token` (uuid, UNIQUE), `created_at`, `expires_at`
+UNIQUE INDEX on `(group_id, tournament_id)` — one token per group. Used for `/score/t/[token]` (no-PIN URL). Created via `getOrCreateGroupToken()`.
+
+## Component Organization
+
+```
+components/
+  admin/        → all admin dashboard components (league, tournament, player, group management)
+  chaperone/    → ScoreEntryApp (scramble PIN-gated entry)
+  scoring/      → StablefordScoringApp (Stableford + Stroke Play token-based entry)
+  leaderboard/  → LiveLeaderboard (Realtime + polling)
+  registration/ → RegistrationForm (public player self-registration)
+  scorecard/    → ScorecardTable (read-only scorecard view)
+  chat/         → ChatAssistant (AI-powered Q&A)
+  ui/           → shared primitives: Modal, Badge, Button, Card, Input, Select, Spinner, etc.
+```
+
+All domain logic and DB access is in `lib/`:
+- `lib/actions/` — server actions (groups, leagues, players, registration, scores, storage, tournament)
+- `lib/scoring/` — pure scoring utilities: `handicap.ts`, `stableford.ts` (unit-tested)
+- `lib/auth.ts` — `checkLeagueAccess`, `getLeagueRole`
+- `lib/types.ts` — all TypeScript interfaces matching DB schema
+- `lib/url.ts` — `getBaseUrl()` for shareable links
+- `lib/email.ts` — Resend email helpers
+- `lib/course-data.ts` — WISH hole presets + `createTournamentWithWishHoles()` server action
+
 ## Route Map
 
 ```
@@ -150,11 +189,12 @@ UNIQUE on `(player_id, preferred_player_id)`
 /leaderboard/[tournamentId]       → public live leaderboard (Realtime + 15s polling)
 /scorecard/[tournamentId]         → token-based read-only scorecard view
 /api/auth/callback                → OAuth code exchange
-/api/email/send-scoring-link      → Resend email trigger
+/score/t/[token]                  → token-based scramble scoring (no PIN) — maps token→group via group_scoring_tokens
+/api/email/send-scoring-link      → Resend email trigger (modes: single, bulk, group-players, all-players, scorecard-summary, chaperone-token, all-chaperones-token)
 /api/chat                         → Chat assistant (AI-powered scoring Q&A)
 ```
 
-Migrations live in `supabase/migrations/` — numbered sequentially (001–013). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+Migrations live in `supabase/migrations/` — numbered sequentially (001–014). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
 
 `lib/course-data.ts` contains WISH tournament hole configuration pre-loaded (10 holes, all par-3). Use `createTournamentWithWishHoles()` server action to bootstrap a WISH tournament.
 

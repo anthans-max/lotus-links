@@ -6,6 +6,7 @@ import { checkLeagueAccess } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
 import TournamentTabs from '@/components/admin/TournamentTabs'
 import PlayersManager from '@/components/admin/PlayersManager'
+import ChaperonesManager from '@/components/admin/ChaperonesManager'
 
 export const metadata: Metadata = {
   title: 'Players',
@@ -22,10 +23,11 @@ export default async function PlayersPage({ params }: Props) {
   const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
-  const [{ data: league }, { data: tournament }, { data: players }] = await Promise.all([
+  const [{ data: league }, { data: tournament }, { data: players }, { data: chaperones }] = await Promise.all([
     supabase.from('leagues').select('id, name, primary_color, logo_url, league_type').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
+    supabase.from('chaperones').select('*').eq('tournament_id', id).order('name'),
   ])
 
   if (!league || !tournament) notFound()
@@ -56,13 +58,19 @@ export default async function PlayersPage({ params }: Props) {
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
       {isAdmin ? (
-        <PlayersManager
-          tournamentId={id}
-          leagueId={leagueId}
-          players={players ?? []}
-          pairingPrefs={pairingPrefs ?? []}
-          isWish={isWish}
-        />
+        <>
+          <PlayersManager
+            tournamentId={id}
+            leagueId={leagueId}
+            players={players ?? []}
+            pairingPrefs={pairingPrefs ?? []}
+            isWish={isWish}
+          />
+          <ChaperonesManager
+            tournamentId={id}
+            chaperones={(chaperones ?? []) as any}
+          />
+        </>
       ) : (
         <div className="card" style={{ padding: '1.25rem' }}>
           <div style={{ marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>

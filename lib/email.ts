@@ -512,7 +512,7 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
           <div style="font-size:13px;color:rgba(138,173,138,0.55);line-height:1.8;border-top:1px solid #2d482d;padding-top:16px;">
             <strong style="color:#f0ece4;">How it works:</strong><br>
             1. Open the link above on your phone<br>
-            2. Enter your group PIN when prompted<br>
+            2. Tap &ldquo;Start Scoring&rdquo; to begin<br>
             3. Enter one team score per hole as you play<br>
             4. Submit your scorecard when all holes are done
           </div>

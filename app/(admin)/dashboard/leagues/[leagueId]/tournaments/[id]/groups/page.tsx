@@ -22,13 +22,21 @@ export default async function GroupsPage({ params }: Props) {
   const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
-  const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }] = await Promise.all([
+  const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }, { data: chaperones }, { data: groupChaperoneRows }] = await Promise.all([
     supabase.from('leagues').select('id, name, primary_color, logo_url, league_type').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
     supabase.from('groups').select('*, group_players(*)').eq('tournament_id', id).order('created_at'),
     supabase.from('pairing_preferences').select('*').eq('tournament_id', id),
+    supabase.from('chaperones').select('*').eq('tournament_id', id).order('name'),
+    supabase.from('group_chaperones').select('group_id, chaperone_id'),
   ])
+
+  // Build groupId → chaperoneId map
+  const groupChaperoneMap: Record<string, string> = {}
+  for (const row of groupChaperoneRows ?? []) {
+    groupChaperoneMap[row.group_id] = row.chaperone_id
+  }
 
   if (!league || !tournament) notFound()
 
@@ -58,6 +66,8 @@ export default async function GroupsPage({ params }: Props) {
           groups={(groups ?? []) as any}
           pairingPrefs={pairingPrefs ?? []}
           isWish={isWish}
+          chaperones={(chaperones ?? []) as any}
+          groupChaperoneMap={groupChaperoneMap}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
