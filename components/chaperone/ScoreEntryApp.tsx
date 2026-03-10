@@ -468,6 +468,19 @@ export default function ScoreEntryApp({
                 })}
               </div>
             )}
+
+            {/* View Live Leaderboard */}
+            <Link
+              href={`/leaderboard/${tournament.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
+              <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: '1px solid rgba(200,168,75,0.4)', color: 'var(--gold)', background: 'transparent', borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.8rem', fontFamily: 'var(--fm)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', minHeight: 48, cursor: 'pointer', boxSizing: 'border-box' }}>
+                <span>🏆</span>
+                View Live Leaderboard
+              </div>
+            </Link>
           </div>
         </div>
       </div>
