@@ -53,6 +53,17 @@ export default function PlayersManager({
     prefCountMap.set(pref.player_id, (prefCountMap.get(pref.player_id) ?? 0) + 1)
   }
 
+  // Build pairing prefs name map: playerId -> [preferred player names]
+  const playerById = new Map(players.map(p => [p.id, p]))
+  const prefNamesMap = new Map<string, string[]>()
+  for (const pref of pairingPrefs) {
+    const preferredName = playerById.get(pref.preferred_player_id)?.name
+    if (preferredName) {
+      const existing = prefNamesMap.get(pref.player_id) ?? []
+      prefNamesMap.set(pref.player_id, [...existing, preferredName])
+    }
+  }
+
   const volunteerCount = players.filter(p => (p as any).willing_to_chaperone).length
   const hasAnyEmail = !isWish && players.some(p => p.player_email)
 
@@ -637,6 +648,7 @@ export default function PlayersManager({
         <EditPlayerModal
           player={editingPlayer}
           isWish={isWish}
+          preferredPlayerNames={prefNamesMap.get(editingPlayer.id)}
           onClose={() => setEditingPlayer(null)}
         />
       )}

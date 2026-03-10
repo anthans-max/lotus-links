@@ -9,10 +9,11 @@ import { updatePlayer } from '@/lib/actions/players'
 interface EditPlayerModalProps {
   player: Player
   isWish?: boolean
+  preferredPlayerNames?: string[]
   onClose: () => void
 }
 
-export default function EditPlayerModal({ player, isWish = false, onClose }: EditPlayerModalProps) {
+export default function EditPlayerModal({ player, isWish = false, preferredPlayerNames, onClose }: EditPlayerModalProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -313,6 +314,38 @@ export default function EditPlayerModal({ player, isWish = false, onClose }: Edi
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Pairing preferences — WISH only, read-only */}
+        {isWish && preferredPlayerNames && preferredPlayerNames.length > 0 && (
+          <div
+            style={{
+              borderTop: '1px solid var(--border2)',
+              paddingTop: '1.25rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.6rem',
+                letterSpacing: '0.12em',
+                color: 'var(--gold)',
+                textTransform: 'uppercase',
+                fontFamily: 'var(--fm)',
+                marginBottom: '0.75rem',
+              }}
+            >
+              Pairing Preferences
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {preferredPlayerNames.map((name, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--gold)', fontSize: '0.75rem', flexShrink: 0 }}>⛳</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{name}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
