@@ -46,7 +46,7 @@ export default async function ScorecardPage({ params }: Props) {
   // Fetch in parallel
   const [{ data: league }, { data: holes }, { data: players }, { data: scores }] = await Promise.all([
     supabase.from('leagues').select('name, primary_color, logo_url').eq('id', tournament.league_id).single(),
-    supabase.from('holes').select('hole_number, par, handicap').eq('tournament_id', tournamentId).order('hole_number'),
+    supabase.from('holes').select('hole_number, par, handicap, yardage').eq('tournament_id', tournamentId).order('hole_number'),
     supabase.from('players').select('id, name, handicap, handicap_index').eq('tournament_id', tournamentId).order('name'),
     supabase.from('scores').select('player_id, hole_number, strokes').eq('tournament_id', tournamentId).not('player_id', 'is', null),
   ])
@@ -55,6 +55,7 @@ export default async function ScorecardPage({ params }: Props) {
     number: h.hole_number,
     par: h.par,
     strokeIndex: h.handicap as number | null,
+    yardage: (h as any).yardage as number | null,
   }))
 
   const totalPar = holeList.reduce((s, h) => s + h.par, 0)
@@ -86,16 +87,16 @@ export default async function ScorecardPage({ params }: Props) {
     const rows = holeList.map(h => {
       const raw = playerScores.get(h.number) ?? null
       const received = courseHcp > 0 ? getStrokesOnHole(courseHcp, h.strokeIndex, holeCount) : 0
-      const net = raw != null ? raw - received : null
+      const adjScore = raw != null ? Math.min(raw, h.par + 2 + received) : null
       const pts = raw != null ? computeStablefordPoints(raw, h.par, received, stablefordConfig) : null
-      return { holeNumber: h.number, raw, net, pts, received }
+      return { holeNumber: h.number, raw, adjScore, pts, received }
     })
 
     const outRows = rows.filter(r => r.holeNumber <= midpoint)
     const inRows = rows.filter(r => r.holeNumber > midpoint)
 
     const sumGross = (rs: typeof rows) => rs.reduce((s, r) => s + (r.raw ?? 0), 0)
-    const sumNet = (rs: typeof rows) => rs.reduce((s, r) => s + (r.net ?? 0), 0)
+    const sumAdj = (rs: typeof rows) => rs.reduce((s, r) => s + (r.adjScore ?? 0), 0)
     const sumPts = (rs: typeof rows) => rs.reduce((s, r) => s + (r.pts ?? 0), 0)
 
     return {
@@ -107,17 +108,20 @@ export default async function ScorecardPage({ params }: Props) {
       outGross: sumGross(outRows),
       inGross: sumGross(inRows),
       totalGross: sumGross(rows),
-      outNet: sumNet(outRows),
-      inNet: sumNet(inRows),
-      totalNet: sumNet(rows),
+      outAdj: sumAdj(outRows),
+      inAdj: sumAdj(inRows),
+      totalAdj: sumAdj(rows),
       outPts: sumPts(outRows),
       inPts: sumPts(inRows),
       totalPts: sumPts(rows),
     }
   })
 
-  // Sort by totalPts DESC (leaderboard order)
-  const sortedPlayers = [...computedPlayers].sort((a, b) => b.totalPts - a.totalPts)
+  // Sort: Stroke Play ascending adj, Stableford descending pts
+  const isStrokePlay = tournament.format === 'Stroke Play'
+  const sortedPlayers = [...computedPlayers].sort((a, b) =>
+    isStrokePlay ? a.totalAdj - b.totalAdj : b.totalPts - a.totalPts
+  )
 
   const formattedDate = (() => {
     try {

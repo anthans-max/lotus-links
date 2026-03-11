@@ -1,15 +1,18 @@
 'use client'
 
+import React from 'react'
+
 interface HoleInfo {
   number: number
   par: number
   strokeIndex: number | null
+  yardage: number | null
 }
 
 interface PlayerRow {
   holeNumber: number
   raw: number | null
-  net: number | null
+  adjScore: number | null
   pts: number | null
   received: number
 }
@@ -23,9 +26,9 @@ interface PlayerData {
   outGross: number
   inGross: number
   totalGross: number
-  outNet: number
-  inNet: number
-  totalNet: number
+  outAdj: number
+  inAdj: number
+  totalAdj: number
   outPts: number
   inPts: number
   totalPts: number
@@ -38,86 +41,59 @@ interface Props {
   holeCount: number
 }
 
-function netScoreStyle(net: number | null, par: number): React.CSSProperties {
-  if (net == null) return {}
-  const diff = net - par
-  if (diff <= -2) return { background: '#2d6a2d' }
-  if (diff === -1) return { background: '#3a8a3a' }
-  if (diff === 0) return {}
-  if (diff === 1) return { background: 'rgba(212,160,23,0.2)' }
-  return { background: 'rgba(0,0,0,0.2)' }
+// ─── Score decorator matching GHIN style ──────────────────────────────────────
+
+function ScoreDecorator({ score, par }: { score: number | null; par: number }) {
+  if (score == null) return <span style={{ color: 'var(--text-dim)' }}>—</span>
+  const rel = score - par
+
+  if (rel <= -2) {
+    // Eagle or better: gold filled circle
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 22, height: 22, borderRadius: '50%',
+        background: 'var(--gold)', color: '#0a120a',
+        fontSize: '0.75rem', fontWeight: 700,
+      }}>
+        {score}
+      </span>
+    )
+  }
+  if (rel === -1) {
+    // Birdie: gold outline circle
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 22, height: 22, borderRadius: '50%',
+        border: '1.5px solid var(--gold)', color: 'var(--gold)',
+        fontSize: '0.75rem', fontWeight: 600,
+      }}>
+        {score}
+      </span>
+    )
+  }
+  if (rel === 0) {
+    return <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{score}</span>
+  }
+  if (rel === 1) {
+    // Bogey: amber, no border
+    return <span style={{ color: 'var(--over)', fontSize: '0.8rem' }}>{score}</span>
+  }
+  // Double bogey+: amber outline square
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 22, height: 22,
+      border: '1.5px solid var(--over)', color: 'var(--over)',
+      fontSize: '0.75rem', fontWeight: 600,
+    }}>
+      {score}
+    </span>
+  )
 }
 
-function rawScoreStyle(raw: number | null, par: number): React.CSSProperties {
-  if (raw == null) return { opacity: 0.55 }
-  const diff = raw - par
-  if (diff <= -2) return { background: 'rgba(45,106,45,0.35)', opacity: 0.55 }
-  if (diff === -1) return { background: 'rgba(58,138,58,0.35)', opacity: 0.55 }
-  if (diff === 0) return { opacity: 0.55 }
-  if (diff === 1) return { background: 'rgba(212,160,23,0.1)', opacity: 0.55 }
-  return { background: 'rgba(0,0,0,0.1)', opacity: 0.55 }
-}
-
-const cellBase: React.CSSProperties = {
-  padding: '5px 6px',
-  textAlign: 'center',
-  fontSize: '0.8rem',
-  fontFamily: 'var(--fm)',
-  position: 'relative',
-  minWidth: 36,
-  borderRight: '1px solid var(--border)',
-}
-
-const headerCell: React.CSSProperties = {
-  ...cellBase,
-  color: 'var(--text-muted)',
-  fontWeight: 600,
-  background: 'var(--forest)',
-  borderBottom: '1px solid var(--border2)',
-}
-
-const subHeaderCell: React.CSSProperties = {
-  ...cellBase,
-  color: 'var(--text-dim)',
-  fontSize: '0.7rem',
-  background: 'var(--surface2)',
-  borderBottom: '1px solid var(--border)',
-}
-
-const subtotalCell: React.CSSProperties = {
-  ...cellBase,
-  background: 'var(--surface2)',
-  fontWeight: 600,
-}
-
-const stickyNameCell: React.CSSProperties = {
-  position: 'sticky',
-  left: 0,
-  zIndex: 2,
-  background: 'var(--surface)',
-  minWidth: 110,
-  maxWidth: 130,
-  padding: '5px 8px',
-  fontSize: '0.8rem',
-  fontFamily: 'var(--fb)',
-  color: 'var(--text)',
-  borderRight: '1px solid var(--border2)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-}
-
-const stickyNameHeader: React.CSSProperties = {
-  ...stickyNameCell,
-  background: 'var(--forest)',
-  color: 'var(--text-muted)',
-  fontFamily: 'var(--fm)',
-  fontWeight: 600,
-  fontSize: '0.7rem',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  borderBottom: '1px solid var(--border2)',
-}
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ScorecardTable({ holes, players, format, holeCount }: Props) {
   const isStableford = format === 'Stableford'
@@ -125,218 +101,331 @@ export default function ScorecardTable({ holes, players, format, holeCount }: Pr
   const outHoles = holes.filter(h => h.number <= midpoint)
   const inHoles = holes.filter(h => h.number > midpoint)
   const showInOut = midpoint > 0 && inHoles.length > 0
+  const orderedHoles = [...outHoles, ...inHoles]
 
   const outPar = outHoles.reduce((s, h) => s + h.par, 0)
   const inPar = inHoles.reduce((s, h) => s + h.par, 0)
   const totalPar = outPar + inPar
 
-  // Flatten hole order: out holes, then in holes
-  const orderedHoles = [...outHoles, ...inHoles]
+  const outYards = outHoles.reduce((s, h) => s + (h.yardage || 0), 0)
+  const inYards = inHoles.reduce((s, h) => s + (h.yardage || 0), 0)
+  const totalYards = outYards + inYards
+  const hasYardage = holes.some(h => h.yardage != null)
+
+  // Total column count for separator row colSpan
+  const totalCols = 1 + orderedHoles.length + (showInOut ? 2 : 0) + 1
+
+  // ─── Style tokens ────────────────────────────────────────────────────────
+
+  const stickyLabel: React.CSSProperties = {
+    position: 'sticky',
+    left: 0,
+    zIndex: 2,
+    background: 'var(--forest)',
+    minWidth: 88,
+    padding: '6px 8px',
+    fontFamily: 'var(--fm)',
+    fontSize: '0.68rem',
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color: 'var(--text-muted)',
+    fontWeight: 700,
+    borderRight: '1px solid var(--border2)',
+    whiteSpace: 'nowrap',
+    verticalAlign: 'middle',
+  }
+
+  const holeHdrCell: React.CSSProperties = {
+    padding: '6px 4px',
+    textAlign: 'center',
+    fontFamily: 'var(--fm)',
+    fontSize: '0.82rem',
+    fontWeight: 700,
+    color: 'var(--gold)',
+    background: 'var(--forest)',
+    minWidth: 34,
+    borderRight: '1px solid rgba(255,255,255,0.06)',
+    verticalAlign: 'middle',
+  }
+
+  const totHdrCell: React.CSSProperties = {
+    ...holeHdrCell,
+    background: 'rgba(200,168,75,0.08)',
+    borderLeft: '1px solid var(--border2)',
+    minWidth: 44,
+    color: 'var(--gold)',
+  }
+
+  const subLabelMuted: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface2)',
+    fontSize: '0.62rem',
+    fontWeight: 400,
+    color: 'var(--text-dim)',
+    letterSpacing: '0.07em',
+  }
+
+  const subLabelNormal: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface2)',
+    color: 'var(--text-muted)',
+  }
+
+  const subLabelSI: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface2)',
+    fontSize: '0.6rem',
+    fontWeight: 400,
+    color: 'var(--text-dim)',
+    letterSpacing: '0.07em',
+    whiteSpace: 'normal',
+    lineHeight: 1.25,
+  }
+
+  const dataCell: React.CSSProperties = {
+    padding: '5px 3px',
+    textAlign: 'center',
+    fontFamily: 'var(--fm)',
+    fontSize: '0.78rem',
+    minWidth: 34,
+    borderRight: '1px solid var(--border)',
+    verticalAlign: 'middle',
+  }
+
+  const totDataCell: React.CSSProperties = {
+    ...dataCell,
+    background: 'rgba(200,168,75,0.06)',
+    fontWeight: 700,
+    borderLeft: '1px solid var(--border2)',
+    minWidth: 44,
+  }
+
+  const outInDataCell: React.CSSProperties = {
+    ...dataCell,
+    background: 'var(--surface2)',
+    fontWeight: 600,
+    borderLeft: '2px solid var(--border2)',
+    borderRight: '1px solid var(--border2)',
+  }
+
+  const scoreLabelCell: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface)',
+    zIndex: 2,
+  }
+
+  const adjLabelCell: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface)',
+    fontSize: '0.6rem',
+    fontWeight: 400,
+    color: 'var(--text-muted)',
+    whiteSpace: 'normal',
+    lineHeight: 1.25,
+  }
+
+  const ptsLabelCell: React.CSSProperties = {
+    ...stickyLabel,
+    background: 'var(--surface)',
+    color: 'var(--gold)',
+  }
+
+  // ─── Render helpers ──────────────────────────────────────────────────────
+
+  /** Renders a data cell for a hole with optional OUT/IN injection */
+  function renderHoleCells(
+    renderCell: (h: HoleInfo, isFirstIn: boolean) => React.ReactNode,
+    outVal: React.ReactNode,
+    inVal: React.ReactNode,
+    totVal: React.ReactNode,
+  ) {
+    const cells: React.ReactNode[] = []
+    orderedHoles.forEach((h, i) => {
+      const isFirstIn = showInOut && i === outHoles.length
+      cells.push(renderCell(h, isFirstIn))
+      if (showInOut && i === outHoles.length - 1) {
+        cells.push(<td key="out" style={outInDataCell}>{outVal}</td>)
+      }
+    })
+    if (showInOut) {
+      cells.push(<td key="in" style={outInDataCell}>{inVal}</td>)
+    }
+    cells.push(<td key="tot" style={totDataCell}>{totVal}</td>)
+    return cells
+  }
 
   return (
     <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-      <table
-        className="sc-table"
-        style={{
-          borderCollapse: 'collapse',
-          minWidth: '100%',
-          tableLayout: 'fixed',
-          width: 'max-content',
-        }}
-      >
+      <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%' }}>
+
+        {/* ── Shared header rows ── */}
         <thead>
-          {/* Row 1: HOLE numbers */}
+          {/* HOLE row */}
           <tr>
-            <th style={{ ...stickyNameHeader, zIndex: 3 }}>Player</th>
-            <th style={{ ...headerCell, color: 'var(--text-dim)', fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Row</th>
+            <th style={{ ...stickyLabel, zIndex: 3 }}>HOLE</th>
             {outHoles.map(h => (
-              <th key={h.number} style={headerCell}>{h.number}</th>
+              <th key={h.number} style={holeHdrCell}>{h.number}</th>
             ))}
-            {showInOut && <th style={{ ...headerCell, color: 'var(--gold)', minWidth: 40 }}>OUT</th>}
+            {showInOut && (
+              <th style={{ ...holeHdrCell, background: 'rgba(200,168,75,0.05)', color: 'rgba(200,168,75,0.55)', minWidth: 44, borderLeft: '2px solid var(--border2)' }}>
+                OUT
+              </th>
+            )}
             {inHoles.map(h => (
-              <th key={h.number} style={headerCell}>{h.number}</th>
+              <th key={h.number} style={holeHdrCell}>{h.number}</th>
             ))}
-            {showInOut && <th style={{ ...headerCell, color: 'var(--gold)', minWidth: 40 }}>IN</th>}
-            <th style={{ ...headerCell, color: 'var(--gold)', minWidth: 44 }}>TOT</th>
+            {showInOut && (
+              <th style={{ ...holeHdrCell, background: 'rgba(200,168,75,0.05)', color: 'rgba(200,168,75,0.55)', minWidth: 44, borderLeft: '2px solid var(--border2)' }}>
+                IN
+              </th>
+            )}
+            <th style={totHdrCell}>TOTAL</th>
           </tr>
 
-          {/* Row 2: PAR */}
+          {/* YARDS row */}
+          {hasYardage && (
+            <tr>
+              <th style={{ ...subLabelMuted, zIndex: 3, borderTop: '1px solid var(--border)' }}>YARDS</th>
+              {renderHoleCells(
+                (h, isFirstIn) => (
+                  <td key={h.number} style={{ ...dataCell, color: 'var(--text-dim)', fontSize: '0.72rem', borderTop: '1px solid var(--border)', ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                    {h.yardage ?? '—'}
+                  </td>
+                ),
+                outYards || '—',
+                inYards || '—',
+                <span style={{ color: 'var(--text-muted)' }}>{totalYards || '—'}</span>,
+              )}
+            </tr>
+          )}
+
+          {/* PAR row */}
           <tr>
-            <th style={{ ...stickyNameHeader, zIndex: 3, background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>PAR</th>
-            <th style={{ ...subHeaderCell, fontSize: '0.65rem', letterSpacing: '0.08em' }}>—</th>
-            {outHoles.map(h => (
-              <td key={h.number} style={subHeaderCell}>{h.par}</td>
-            ))}
-            {showInOut && <td style={{ ...subtotalCell, fontSize: '0.75rem', color: 'var(--text-muted)' }}>{outPar}</td>}
-            {inHoles.map(h => (
-              <td key={h.number} style={subHeaderCell}>{h.par}</td>
-            ))}
-            {showInOut && <td style={{ ...subtotalCell, fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inPar}</td>}
-            <td style={{ ...subtotalCell, fontSize: '0.75rem', color: 'var(--text-muted)' }}>{totalPar}</td>
+            <th style={{ ...subLabelNormal, zIndex: 3, borderTop: '1px solid var(--border)' }}>PAR</th>
+            {renderHoleCells(
+              (h, isFirstIn) => (
+                <td key={h.number} style={{ ...dataCell, color: 'rgba(138,173,138,0.85)', borderTop: '1px solid var(--border)', ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                  {h.par}
+                </td>
+              ),
+              <span style={{ color: 'rgba(138,173,138,0.85)' }}>{outPar}</span>,
+              <span style={{ color: 'rgba(138,173,138,0.85)' }}>{inPar}</span>,
+              <span style={{ color: 'rgba(138,173,138,0.85)', fontWeight: 700 }}>{totalPar}</span>,
+            )}
           </tr>
 
-          {/* Row 3: SI (Stroke Index) */}
+          {/* STROKE INDEX row */}
           <tr>
-            <th style={{ ...stickyNameHeader, zIndex: 3, background: 'var(--surface2)', fontSize: '0.65rem' }}>SI</th>
-            <th style={{ ...subHeaderCell, fontSize: '0.65rem' }}>—</th>
-            {outHoles.map(h => (
-              <td key={h.number} style={{ ...subHeaderCell, color: 'var(--text-dim)' }}>
-                {h.strokeIndex ?? '—'}
-              </td>
-            ))}
-            {showInOut && <td style={subHeaderCell}>—</td>}
-            {inHoles.map(h => (
-              <td key={h.number} style={{ ...subHeaderCell, color: 'var(--text-dim)' }}>
-                {h.strokeIndex ?? '—'}
-              </td>
-            ))}
-            {showInOut && <td style={subHeaderCell}>—</td>}
-            <td style={subHeaderCell}>—</td>
+            <th style={{ ...subLabelSI, zIndex: 3, borderTop: '1px solid var(--border)' }}>
+              STROKE<br />INDEX
+            </th>
+            {renderHoleCells(
+              (h, isFirstIn) => (
+                <td key={h.number} style={{ ...dataCell, color: 'var(--text-dim)', fontSize: '0.72rem', borderTop: '1px solid var(--border)', ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                  {h.strokeIndex ?? '—'}
+                </td>
+              ),
+              '—',
+              '—',
+              '—',
+            )}
           </tr>
         </thead>
 
+        {/* ── Per-player rows ── */}
         <tbody>
-          {players.map((player, pi) => {
+          {players.map((player) => {
             const holeMap = new Map(player.rows.map(r => [r.holeNumber, r]))
-            const rowCount = isStableford ? (player.hasHandicap ? 3 : 2) : (player.hasHandicap ? 2 : 1)
-            const rowBorderTop = pi > 0 ? '2px solid var(--border2)' : '1px solid var(--border)'
 
-            // Net row
-            const netRow = (
-              <tr key={`${player.id}-net`}>
-                <td
-                  rowSpan={rowCount}
-                  style={{
-                    ...stickyNameCell,
-                    borderTop: rowBorderTop,
-                    verticalAlign: 'middle',
-                    fontWeight: 600,
-                    zIndex: 2,
-                  }}
-                  title={player.name}
-                >
-                  {player.name}
-                  {player.hasHandicap && (
-                    <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', fontWeight: 400 }}>
-                      HCP {player.courseHandicap}
-                    </span>
+            return (
+              <React.Fragment key={player.id}>
+
+                {/* Player name separator */}
+                <tr>
+                  <td
+                    colSpan={totalCols}
+                    style={{
+                      padding: '7px 10px',
+                      background: 'var(--surface)',
+                      borderTop: '2px solid var(--border2)',
+                      borderBottom: '1px solid var(--border)',
+                      fontFamily: 'var(--fb)',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                    }}
+                  >
+                    {player.name}
+                    {player.hasHandicap && (
+                      <span style={{ marginLeft: '0.6rem', fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', fontWeight: 400 }}>
+                        HCP {player.courseHandicap}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* SCORE row */}
+                <tr>
+                  <td style={scoreLabelCell}>SCORE</td>
+                  {renderHoleCells(
+                    (h, isFirstIn) => {
+                      const r = holeMap.get(h.number)
+                      return (
+                        <td key={h.number} style={{ ...dataCell, position: 'relative', ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                          <ScoreDecorator score={r?.raw ?? null} par={h.par} />
+                          {r && r.received > 0 && r.raw != null && (
+                            <span style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'var(--gold)', display: 'block' }} />
+                          )}
+                        </td>
+                      )
+                    },
+                    player.outGross || '—',
+                    player.inGross || '—',
+                    <span style={{ color: 'var(--gold)' }}>{player.totalGross || '—'}</span>,
                   )}
-                </td>
-                <td style={{ ...cellBase, fontSize: '0.65rem', color: 'var(--text-dim)', borderTop: rowBorderTop }}>
-                  {player.hasHandicap ? 'NET' : 'GRS'}
-                </td>
-                {orderedHoles.map((h, hi) => {
-                  const isOut = h.number <= midpoint
-                  const isFirstIn = !isOut && hi > 0 && orderedHoles[hi - 1].number <= midpoint
-                  const r = holeMap.get(h.number)
-                  const displayVal = player.hasHandicap ? r?.net : r?.raw
-                  const parForStyle = player.hasHandicap ? h.par : h.par
-                  const style: React.CSSProperties = {
-                    ...cellBase,
-                    ...netScoreStyle(displayVal ?? null, parForStyle),
-                    borderTop: rowBorderTop,
-                    ...(isFirstIn && showInOut ? { borderLeft: '2px solid var(--border2)' } : {}),
-                  }
-                  return (
-                    <td key={h.number} style={style}>
-                      {displayVal != null ? displayVal : <span style={{ color: 'var(--text-dim)' }}>—</span>}
-                      {r && r.received > 0 && displayVal != null && (
-                        <span style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
-                      )}
-                      {/* OUT subtotal placeholder for this row's column */}
-                    </td>
-                  )
-                }).reduce<React.ReactNode[]>((acc, cell, idx) => {
-                  acc.push(cell)
-                  // Insert OUT subtotal after out holes
-                  if (showInOut && outHoles.length > 0 && idx === outHoles.length - 1) {
-                    acc.push(
-                      <td key="out" style={{ ...subtotalCell, borderTop: rowBorderTop }}>
-                        {player.hasHandicap ? player.outNet : player.outGross}
-                      </td>
-                    )
-                  }
-                  // Insert IN subtotal after in holes
-                  if (showInOut && idx === outHoles.length + inHoles.length - 1) {
-                    acc.push(
-                      <td key="in" style={{ ...subtotalCell, borderTop: rowBorderTop }}>
-                        {player.hasHandicap ? player.inNet : player.inGross}
-                      </td>
-                    )
-                  }
-                  return acc
-                }, [])}
-                <td style={{ ...subtotalCell, borderTop: rowBorderTop, color: 'var(--gold)', fontWeight: 700 }}>
-                  {player.hasHandicap ? player.totalNet : player.totalGross}
-                </td>
-              </tr>
+                </tr>
+
+                {/* ADJ. SCORE row */}
+                <tr>
+                  <td style={adjLabelCell}>ADJ.<br />SCORE</td>
+                  {renderHoleCells(
+                    (h, isFirstIn) => {
+                      const r = holeMap.get(h.number)
+                      return (
+                        <td key={h.number} style={{ ...dataCell, ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                          <ScoreDecorator score={r?.adjScore ?? null} par={h.par} />
+                        </td>
+                      )
+                    },
+                    player.outAdj || '—',
+                    player.inAdj || '—',
+                    <span style={{ color: 'var(--gold)' }}>{player.totalAdj || '—'}</span>,
+                  )}
+                </tr>
+
+                {/* PTS row — Stableford only */}
+                {isStableford && (
+                  <tr>
+                    <td style={ptsLabelCell}>PTS</td>
+                    {renderHoleCells(
+                      (h, isFirstIn) => {
+                        const r = holeMap.get(h.number)
+                        const pts = r?.pts ?? null
+                        return (
+                          <td key={h.number} style={{ ...dataCell, color: pts != null && pts > 0 ? 'var(--gold)' : 'var(--text-dim)', fontWeight: pts != null && pts > 0 ? 600 : 400, ...(isFirstIn ? { borderLeft: '2px solid var(--border2)' } : {}) }}>
+                            {pts ?? '—'}
+                          </td>
+                        )
+                      },
+                      <span style={{ color: 'var(--gold)' }}>{player.outPts}</span>,
+                      <span style={{ color: 'var(--gold)' }}>{player.inPts}</span>,
+                      <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{player.totalPts}</span>,
+                    )}
+                  </tr>
+                )}
+
+              </React.Fragment>
             )
-
-            // Raw row (only when hasHandicap)
-            const rawRow = player.hasHandicap ? (
-              <tr key={`${player.id}-raw`}>
-                <td style={{ ...cellBase, fontSize: '0.65rem', color: 'var(--text-dim)' }}>GRS</td>
-                {orderedHoles.map((h, hi) => {
-                  const isFirstIn = h.number > midpoint && hi > 0 && orderedHoles[hi - 1].number <= midpoint
-                  const r = holeMap.get(h.number)
-                  const style: React.CSSProperties = {
-                    ...cellBase,
-                    ...rawScoreStyle(r?.raw ?? null, h.par),
-                    ...(isFirstIn && showInOut ? { borderLeft: '2px solid var(--border2)' } : {}),
-                  }
-                  return (
-                    <td key={h.number} style={style}>
-                      {r?.raw != null ? r.raw : <span style={{ color: 'var(--text-dim)', opacity: 0.55 }}>—</span>}
-                    </td>
-                  )
-                }).reduce<React.ReactNode[]>((acc, cell, idx) => {
-                  acc.push(cell)
-                  if (showInOut && outHoles.length > 0 && idx === outHoles.length - 1) {
-                    acc.push(<td key="out" style={{ ...subtotalCell, opacity: 0.55 }}>{player.outGross}</td>)
-                  }
-                  if (showInOut && idx === outHoles.length + inHoles.length - 1) {
-                    acc.push(<td key="in" style={{ ...subtotalCell, opacity: 0.55 }}>{player.inGross}</td>)
-                  }
-                  return acc
-                }, [])}
-                <td style={{ ...subtotalCell, opacity: 0.55 }}>{player.totalGross}</td>
-              </tr>
-            ) : null
-
-            // Pts row (only when Stableford)
-            const ptsRow = isStableford ? (
-              <tr key={`${player.id}-pts`}>
-                <td style={{ ...cellBase, fontSize: '0.65rem', color: 'var(--gold)', fontWeight: 600 }}>PTS</td>
-                {orderedHoles.map((h, hi) => {
-                  const isFirstIn = h.number > midpoint && hi > 0 && orderedHoles[hi - 1].number <= midpoint
-                  const r = holeMap.get(h.number)
-                  const pts = r?.pts ?? null
-                  const style: React.CSSProperties = {
-                    ...cellBase,
-                    color: pts != null && pts > 0 ? 'var(--gold)' : 'var(--text-dim)',
-                    fontWeight: pts != null && pts > 0 ? 600 : 400,
-                    ...(isFirstIn && showInOut ? { borderLeft: '2px solid var(--border2)' } : {}),
-                  }
-                  return (
-                    <td key={h.number} style={style}>
-                      {pts != null ? pts : <span style={{ color: 'var(--text-dim)' }}>—</span>}
-                    </td>
-                  )
-                }).reduce<React.ReactNode[]>((acc, cell, idx) => {
-                  acc.push(cell)
-                  if (showInOut && outHoles.length > 0 && idx === outHoles.length - 1) {
-                    acc.push(<td key="out" style={{ ...subtotalCell, color: 'var(--gold)' }}>{player.outPts}</td>)
-                  }
-                  if (showInOut && idx === outHoles.length + inHoles.length - 1) {
-                    acc.push(<td key="in" style={{ ...subtotalCell, color: 'var(--gold)' }}>{player.inPts}</td>)
-                  }
-                  return acc
-                }, [])}
-                <td style={{ ...subtotalCell, color: 'var(--gold)', fontWeight: 700 }}>{player.totalPts}</td>
-              </tr>
-            ) : null
-
-            return [netRow, rawRow, ptsRow]
           })}
         </tbody>
       </table>
