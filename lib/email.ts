@@ -178,25 +178,27 @@ function buildGhinTableHtml(
   const hdrBg = '#0d3d1a'
   const totBg = 'background:#111d11;'
 
-  // Score cell with GHIN-style decorators (circle for birdie, square for double bogey+)
+  // Score cell with GHIN-style decorators
   function scoreDecorator(score: number, par: number): string {
     if (!score) return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">—</td>`
     const rel = score - par
+    const gold = '#c9a84c'
+    const txt = `font-size:11px;font-weight:600;color:${gold};font-family:Georgia,serif;line-height:1;`
     if (rel <= -2) {
-      // Eagle or better: gold filled circle
-      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#c9a84c;line-height:22px;text-align:center;font-size:10px;color:#0a120a;font-weight:700;font-family:Georgia,serif;">${score}</div></td>`
+      // Eagle or better: double circle
+      return `<td style="padding:3px 2px;text-align:center;"><span style="display:inline-block;border:1px solid ${gold};border-radius:50%;padding:3px;line-height:0;"><span style="display:inline-block;border:1px solid ${gold};border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;${txt}">${score}</span></span></td>`
     } else if (rel === -1) {
-      // Birdie: gold outline circle
-      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1.5px solid #c9a84c;line-height:17px;text-align:center;font-size:10px;color:#c9a84c;font-weight:600;font-family:Georgia,serif;">${score}</div></td>`
+      // Birdie: single circle
+      return `<td style="padding:3px 2px;text-align:center;"><span style="display:inline-block;border:1.5px solid ${gold};border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;${txt}">${score}</span></td>`
     } else if (rel === 0) {
-      // Par: muted green
+      // Par: muted green, no border
       return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-family:Georgia,serif;">${score}</td>`
     } else if (rel === 1) {
-      // Bogey: amber, no border
-      return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:#d4a017;font-family:Georgia,serif;">${score}</td>`
+      // Bogey: single square
+      return `<td style="padding:3px 2px;text-align:center;"><span style="display:inline-block;border:1.5px solid ${gold};width:20px;height:20px;line-height:20px;text-align:center;${txt}">${score}</span></td>`
     } else {
-      // Double bogey+: amber outline square
-      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:20px;height:20px;border:1.5px solid #d4a017;line-height:17px;text-align:center;font-size:10px;color:#d4a017;font-weight:600;font-family:Georgia,serif;">${score}</div></td>`
+      // Double bogey+: double square
+      return `<td style="padding:3px 2px;text-align:center;"><span style="display:inline-block;border:1px solid ${gold};padding:2px;line-height:0;"><span style="display:inline-block;border:1px solid ${gold};width:14px;height:14px;line-height:14px;text-align:center;${txt}">${score}</span></span></td>`
     }
   }
 

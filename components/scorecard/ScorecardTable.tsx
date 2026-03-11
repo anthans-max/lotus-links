@@ -46,29 +46,23 @@ interface Props {
 function ScoreDecorator({ score, par }: { score: number | null; par: number }) {
   if (score == null) return <span style={{ color: 'var(--text-dim)' }}>—</span>
   const rel = score - par
+  const gold = 'var(--gold)'
+  const txt: React.CSSProperties = { fontSize: '0.78rem', fontWeight: 600, color: gold, lineHeight: 1 }
 
   if (rel <= -2) {
-    // Eagle or better: gold filled circle
+    // Eagle or better: double circle
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 22, height: 22, borderRadius: '50%',
-        background: 'var(--gold)', color: '#0a120a',
-        fontSize: '0.75rem', fontWeight: 700,
-      }}>
-        {score}
+      <span style={{ display: 'inline-block', border: `1px solid ${gold}`, borderRadius: '50%', padding: 3, lineHeight: 0 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${gold}`, borderRadius: '50%', width: 18, height: 18, ...txt }}>
+          {score}
+        </span>
       </span>
     )
   }
   if (rel === -1) {
-    // Birdie: gold outline circle
+    // Birdie: single circle
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 22, height: 22, borderRadius: '50%',
-        border: '1.5px solid var(--gold)', color: 'var(--gold)',
-        fontSize: '0.75rem', fontWeight: 600,
-      }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${gold}`, borderRadius: '50%', width: 22, height: 22, ...txt }}>
         {score}
       </span>
     )
@@ -77,18 +71,19 @@ function ScoreDecorator({ score, par }: { score: number | null; par: number }) {
     return <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{score}</span>
   }
   if (rel === 1) {
-    // Bogey: amber, no border
-    return <span style={{ color: 'var(--over)', fontSize: '0.8rem' }}>{score}</span>
+    // Bogey: single square
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${gold}`, width: 22, height: 22, ...txt }}>
+        {score}
+      </span>
+    )
   }
-  // Double bogey+: amber outline square
+  // Double bogey+: double square
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 22, height: 22,
-      border: '1.5px solid var(--over)', color: 'var(--over)',
-      fontSize: '0.75rem', fontWeight: 600,
-    }}>
-      {score}
+    <span style={{ display: 'inline-block', border: `1px solid ${gold}`, padding: 2, lineHeight: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${gold}`, width: 16, height: 16, ...txt }}>
+        {score}
+      </span>
     </span>
   )
 }
