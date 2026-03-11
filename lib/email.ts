@@ -451,7 +451,7 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
                   <td style="padding:6px 0 6px 12px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">#</td>
                   <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;">Player</td>
                   <td style="padding:6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">${leaderboardScoreHeader}</td>
-                  <td style="padding:6px 12px 6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Gross</td>
+                  <td style="padding:6px 12px 6px 6px;font-size:9px;letter-spacing:2px;color:rgba(138,173,138,0.5);text-transform:uppercase;font-family:Georgia,serif;text-align:right;">Total</td>
                 </tr>
                 ${leaderboardRows}
               </table>

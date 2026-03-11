@@ -385,7 +385,7 @@ export async function POST(req: NextRequest) {
     const ranked = [...computedPlayers].sort((a, b) =>
       isStrokePlayFormat ? a.netVsPar - b.netVsPar : b.totalPts - a.totalPts
     )
-    const leaderboardSummary = ranked.map((p, i) => ({ rank: i + 1, name: p.name, totalPts: p.totalPts, gross: p.totalGross, netVsPar: p.netVsPar }))
+    const leaderboardSummary = ranked.map((p, i) => ({ rank: i + 1, name: p.name, totalPts: p.totalPts, gross: p.totalNet, netVsPar: p.netVsPar }))
 
     const playersWithEmail = computedPlayers.filter(p => p.email)
     const skipped = computedPlayers.length - playersWithEmail.length
