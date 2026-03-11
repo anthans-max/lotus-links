@@ -168,11 +168,12 @@ function buildGhinTableHtml(
   holes: { number: number; par: number; raw: number; adjScore: number; received: number; strokeIndex: number | null; yardage: number | null }[]
 ): string {
   const n = holes.length
-  const splitIdx = n > 9 ? Math.floor(n / 2) : n
+  const isFullRound = n >= 18
+  const splitIdx = isFullRound ? Math.floor(n / 2) : n
   const sections: Array<{ holes: typeof holes; label: string }> = [
-    { holes: holes.slice(0, splitIdx), label: n > 9 ? 'OUT' : 'TOTAL' },
+    { holes: holes.slice(0, splitIdx), label: isFullRound ? 'OUT' : 'TOTAL' },
   ]
-  if (n > 9) sections.push({ holes: holes.slice(splitIdx), label: 'IN' })
+  if (isFullRound) sections.push({ holes: holes.slice(splitIdx), label: 'IN' })
 
   // Header cell: dark navy bg, bold
   const hdrBg = '#0d3d1a'
@@ -224,7 +225,7 @@ function buildGhinTableHtml(
   })
 
   // If split into OUT+IN, append a TOTAL summary row
-  if (n > 9) {
+  if (isFullRound) {
     const totGross = holes.reduce((s, h) => s + (h.raw || 0), 0)
     const totAdj = holes.reduce((s, h) => s + (h.adjScore || 0), 0)
     tables.push(`<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #2d482d;border-radius:4px;overflow:hidden;"><tr style="background:#162416;"><td style="padding:5px 6px 5px 8px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;border-right:1px solid #2d482d;">TOTAL</td><td colspan="2" style="padding:5px 8px;text-align:right;font-size:10px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Gross</td><td style="padding:5px 8px;text-align:center;font-size:12px;color:#f0ece4;font-weight:700;font-family:Georgia,serif;">${totGross}</td><td style="padding:5px 8px;text-align:right;font-size:10px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Adj.</td><td style="padding:5px 8px;text-align:center;font-size:11px;color:rgba(240,236,228,0.65);font-family:Georgia,serif;">${totAdj}</td></tr></table>`)

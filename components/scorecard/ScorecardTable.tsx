@@ -95,7 +95,7 @@ export default function ScorecardTable({ holes, players, format, holeCount }: Pr
   const midpoint = Math.floor(holeCount / 2)
   const outHoles = holes.filter(h => h.number <= midpoint)
   const inHoles = holes.filter(h => h.number > midpoint)
-  const showInOut = midpoint > 0 && inHoles.length > 0
+  const showInOut = holes.length >= 18
   const orderedHoles = [...outHoles, ...inHoles]
 
   const outPar = outHoles.reduce((s, h) => s + h.par, 0)
