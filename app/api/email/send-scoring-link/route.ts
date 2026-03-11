@@ -369,13 +369,12 @@ export async function POST(req: NextRequest) {
       const holeDetails = holeList.map(h => {
         const raw = playerScores.get(h.number) ?? null
         const received = courseHcp > 0 ? getStrokesOnHole(courseHcp, h.strokeIndex, holeCount) : 0
-        const net = raw != null ? raw - received : null
         const pts = raw != null ? computeStablefordPoints(raw, h.par, received, stablefordConfig) : null
-        if (raw != null) totalGross += raw
-        if (net != null) totalNet += net
-        if (pts != null) totalPts += pts
         const adjScore = raw != null ? Math.min(raw, h.par + 2 + received) : null
-        return { number: h.number, par: h.par, raw: raw ?? 0, net: net ?? 0, pts: pts ?? 0, received, strokeIndex: h.strokeIndex, adjScore: adjScore ?? 0, yardage: h.yardage }
+        if (raw != null) totalGross += raw
+        if (adjScore != null) totalNet += adjScore
+        if (pts != null) totalPts += pts
+        return { number: h.number, par: h.par, raw: raw ?? 0, net: adjScore ?? 0, pts: pts ?? 0, received, strokeIndex: h.strokeIndex, adjScore: adjScore ?? 0, yardage: h.yardage }
       })
       const netVsPar = totalNet - totalPar
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

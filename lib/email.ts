@@ -170,20 +170,35 @@ function buildGhinTableHtml(
   const n = holes.length
   const splitIdx = n > 9 ? Math.floor(n / 2) : n
   const sections: Array<{ holes: typeof holes; label: string }> = [
-    { holes: holes.slice(0, splitIdx), label: n > 9 ? 'OUT' : 'TOT' },
+    { holes: holes.slice(0, splitIdx), label: n > 9 ? 'OUT' : 'TOTAL' },
   ]
   if (n > 9) sections.push({ holes: holes.slice(splitIdx), label: 'IN' })
 
-  function cellStyle(raw: number, par: number): string {
-    if (raw === 0) return ''
-    if (raw <= par - 1) return 'background-color:rgba(184,151,106,0.2);color:#c9a84c;font-weight:700;'
-    if (raw === par) return 'color:rgba(138,173,138,0.75);'
-    if (raw === par + 1) return 'color:#d4a017;'
-    return 'color:#d4a017;font-weight:700;'
-  }
+  // Header cell: dark navy bg, bold
+  const hdrBg = '#0d3d1a'
+  const totBg = 'background:#111d11;'
 
-  const lbl = `padding:4px 6px 4px 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;`
-  const tot = `padding:4px 6px;text-align:center;font-family:Georgia,serif;border-left:1px solid #2d482d;`
+  // Score cell with GHIN-style decorators (circle for birdie, square for double bogey+)
+  function scoreDecorator(score: number, par: number): string {
+    if (!score) return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">—</td>`
+    const rel = score - par
+    if (rel <= -2) {
+      // Eagle or better: gold filled circle
+      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#c9a84c;line-height:22px;text-align:center;font-size:10px;color:#0a120a;font-weight:700;font-family:Georgia,serif;">${score}</div></td>`
+    } else if (rel === -1) {
+      // Birdie: gold outline circle
+      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1.5px solid #c9a84c;line-height:17px;text-align:center;font-size:10px;color:#c9a84c;font-weight:600;font-family:Georgia,serif;">${score}</div></td>`
+    } else if (rel === 0) {
+      // Par: muted green
+      return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-family:Georgia,serif;">${score}</td>`
+    } else if (rel === 1) {
+      // Bogey: amber, no border
+      return `<td style="padding:4px 3px;text-align:center;font-size:11px;color:#d4a017;font-family:Georgia,serif;">${score}</td>`
+    } else {
+      // Double bogey+: amber outline square
+      return `<td style="padding:3px 2px;text-align:center;"><div style="display:inline-block;width:20px;height:20px;border:1.5px solid #d4a017;line-height:17px;text-align:center;font-size:10px;color:#d4a017;font-weight:600;font-family:Georgia,serif;">${score}</div></td>`
+    }
+  }
 
   const tables = sections.map(({ holes: sh, label }) => {
     const sumYards = sh.reduce((s, h) => s + (h.yardage || 0), 0)
@@ -191,27 +206,26 @@ function buildGhinTableHtml(
     const sumGross = sh.reduce((s, h) => s + (h.raw || 0), 0)
     const sumAdj = sh.reduce((s, h) => s + (h.adjScore || 0), 0)
 
-    const holeRow = `<tr><td style="${lbl}">HOLE</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(138,173,138,0.6);font-family:Georgia,serif;">${h.number}</td>`).join('')}<td style="${tot}font-size:10px;letter-spacing:1px;color:rgba(138,173,138,0.5);">${label}</td></tr>`
-    const yardsRow = `<tr><td style="${lbl}">YARDS</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">${h.yardage || '—'}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.3);">${sumYards || '—'}</td></tr>`
-    const parRow = `<tr style="background:rgba(13,61,26,0.4);"><td style="${lbl}">PAR</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-family:Georgia,serif;">${h.par}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(138,173,138,0.75);">${sumPar}</td></tr>`
-    const siRow = `<tr><td style="${lbl}">SI</td>${sh.map(h => `<td style="padding:4px 5px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">${h.strokeIndex ?? '—'}</td>`).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.2);">—</td></tr>`
-    const scoreRow = `<tr style="border-top:1px solid #2d482d;"><td style="${lbl}">SCORE</td>${sh.map(h => {
-      const s = cellStyle(h.raw, h.par)
-      return `<td style="padding:5px;text-align:center;font-size:12px;${s}font-family:Georgia,serif;">${h.raw || '—'}</td>`
-    }).join('')}<td style="${tot}font-size:12px;color:#f0ece4;font-weight:700;">${sumGross || '—'}</td></tr>`
-    const adjRow = `<tr style="border-top:1px solid rgba(45,72,45,0.4);"><td style="${lbl}">ADJ.</td>${sh.map(h => {
-      const s = cellStyle(h.adjScore, h.par)
-      return `<td style="padding:4px 5px;text-align:center;font-size:11px;${s}font-family:Georgia,serif;">${h.adjScore || '—'}</td>`
-    }).join('')}<td style="${tot}font-size:11px;color:rgba(240,236,228,0.65);">${sumAdj || '—'}</td></tr>`
+    const holeRow = `<tr style="background:${hdrBg};"><td style="padding:5px 6px 5px 8px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#8aad8a;font-family:Georgia,serif;font-weight:700;white-space:nowrap;border-right:1px solid #1f5a2f;">HOLE</td>${sh.map(h => `<td style="padding:5px 3px;text-align:center;font-size:11px;color:#c9a84c;font-family:Georgia,serif;font-weight:700;border-right:1px solid #1f5a2f;">${h.number}</td>`).join('')}<td style="padding:5px 6px;text-align:center;font-size:9px;letter-spacing:1.5px;font-weight:700;color:#8aad8a;font-family:Georgia,serif;${totBg}">${label}</td></tr>`
 
-    return `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px;border:1px solid #2d482d;border-radius:4px;overflow:hidden;">${holeRow}${yardsRow}${parRow}${siRow}${scoreRow}${adjRow}</table>`
+    const yardsRow = `<tr style="border-bottom:1px solid #2d482d;"><td style="padding:4px 6px 4px 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;">YARDS</td>${sh.map(h => `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;">${h.yardage || '—'}</td>`).join('')}<td style="padding:4px 6px;text-align:center;font-size:11px;color:rgba(240,236,228,0.3);font-family:Georgia,serif;${totBg}">${sumYards || '—'}</td></tr>`
+
+    const parRow = `<tr style="background:rgba(13,61,26,0.3);border-bottom:1px solid #2d482d;"><td style="padding:4px 6px 4px 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;">PAR</td>${sh.map(h => `<td style="padding:4px 3px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-family:Georgia,serif;">${h.par}</td>`).join('')}<td style="padding:4px 6px;text-align:center;font-size:11px;color:rgba(138,173,138,0.75);font-weight:700;font-family:Georgia,serif;${totBg}">${sumPar}</td></tr>`
+
+    const siRow = `<tr style="border-bottom:1px solid #2d482d;"><td style="padding:4px 6px 4px 8px;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:rgba(138,173,138,0.35);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;line-height:1.3;">STROKE<br>INDEX</td>${sh.map(h => `<td style="padding:4px 3px;text-align:center;font-size:10px;color:rgba(240,236,228,0.25);font-family:Georgia,serif;">${h.strokeIndex ?? '—'}</td>`).join('')}<td style="padding:4px 6px;text-align:center;font-size:10px;color:rgba(240,236,228,0.2);font-family:Georgia,serif;${totBg}">—</td></tr>`
+
+    const scoreRow = `<tr style="border-bottom:1px solid #2d482d;"><td style="padding:4px 6px 4px 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;">SCORE</td>${sh.map(h => scoreDecorator(h.raw, h.par)).join('')}<td style="padding:4px 6px;text-align:center;font-size:12px;color:#f0ece4;font-weight:700;font-family:Georgia,serif;${totBg}">${sumGross || '—'}</td></tr>`
+
+    const adjRow = `<tr><td style="padding:4px 6px 4px 8px;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;background:#162416;border-right:1px solid #2d482d;line-height:1.3;">ADJ.<br>SCORE</td>${sh.map(h => scoreDecorator(h.adjScore, h.par)).join('')}<td style="padding:4px 6px;text-align:center;font-size:11px;color:rgba(240,236,228,0.65);font-family:Georgia,serif;${totBg}">${sumAdj || '—'}</td></tr>`
+
+    return `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px;border:1px solid #2d482d;border-radius:4px;overflow:hidden;font-size:11px;">${holeRow}${yardsRow}${parRow}${siRow}${scoreRow}${adjRow}</table>`
   })
 
-  // If split into OUT+IN, append a TOT summary row
+  // If split into OUT+IN, append a TOTAL summary row
   if (n > 9) {
     const totGross = holes.reduce((s, h) => s + (h.raw || 0), 0)
     const totAdj = holes.reduce((s, h) => s + (h.adjScore || 0), 0)
-    tables.push(`<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #2d482d;border-radius:4px;overflow:hidden;"><tr style="background:#162416;"><td style="${lbl}">TOT</td><td colspan="2" style="padding:5px 6px;text-align:right;font-size:11px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Gross</td><td style="padding:5px 6px;text-align:center;font-size:12px;color:#f0ece4;font-weight:700;font-family:Georgia,serif;">${totGross}</td><td style="padding:5px 6px;text-align:right;font-size:11px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Adj.</td><td style="padding:5px 6px;text-align:center;font-size:11px;color:rgba(240,236,228,0.65);font-family:Georgia,serif;">${totAdj}</td></tr></table>`)
+    tables.push(`<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #2d482d;border-radius:4px;overflow:hidden;"><tr style="background:#162416;"><td style="padding:5px 6px 5px 8px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(138,173,138,0.5);font-family:Georgia,serif;white-space:nowrap;border-right:1px solid #2d482d;">TOTAL</td><td colspan="2" style="padding:5px 8px;text-align:right;font-size:10px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Gross</td><td style="padding:5px 8px;text-align:center;font-size:12px;color:#f0ece4;font-weight:700;font-family:Georgia,serif;">${totGross}</td><td style="padding:5px 8px;text-align:right;font-size:10px;color:rgba(138,173,138,0.5);font-family:Georgia,serif;">Adj.</td><td style="padding:5px 8px;text-align:center;font-size:11px;color:rgba(240,236,228,0.65);font-family:Georgia,serif;">${totAdj}</td></tr></table>`)
   }
 
   return tables.join('')
@@ -392,7 +406,7 @@ function buildScorecardSummaryEmailHtml(data: Omit<ScorecardSummaryEmailPayload,
         <tr><td style="padding:12px 10px;">
           ${ghinHtml}
           <div style="font-size:12px;color:rgba(138,173,138,0.65);font-family:Georgia,serif;margin-top:8px;padding-top:8px;border-top:1px solid #2d482d;">
-            Gross: <strong style="color:#f0ece4;">${gross}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Net: <strong style="color:#f0ece4;">${net}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;${summaryScore}
+            Gross: <strong style="color:#f0ece4;">${gross}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;Adj: <strong style="color:#f0ece4;">${net}</strong>&nbsp;&nbsp;&middot;&nbsp;&nbsp;${summaryScore}
           </div>
         </td></tr>
       </table>`

@@ -244,7 +244,7 @@ export default function LiveLeaderboard({
         if (!hole) return
         const received = getStrokesOnHole(pCourseHcp, hole.strokeIndex ?? null, holes.length)
         totalGross += s.strokes
-        totalNet += s.strokes - received
+        totalNet += Math.min(s.strokes, hole.par + 2 + received)
         parForCompleted += hole.par
         netPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
         grossPts += computeStablefordPoints(s.strokes, hole.par, 0, tournament.stablefordConfig)
