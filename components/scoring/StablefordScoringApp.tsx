@@ -86,7 +86,12 @@ function resolveHandicap(player: PlayerInfo, tournament: TournamentInfo, totalPa
   return player.handicap
 }
 
-/** Initialize draft scores for ALL players × ALL holes from initialScores; default to par. */
+/**
+ * Initialize draft scores for all players × all holes from saved scores.
+ * Holes with no saved score are left as `undefined` (not defaulted to par) so
+ * that save functions can distinguish "explicitly scored" from "unplayed".
+ * Display code should use `?? hole.par` for rendering only.
+ */
 function initAllDraftScores(
   players: PlayerInfo[],
   holes: HoleInfo[],
@@ -99,7 +104,10 @@ function initAllDraftScores(
       const existing = initialScores.find(
         s => s.playerId === player.id && s.holeNumber === hole.number
       )
-      draft[player.id][hole.number] = existing ? existing.strokes : hole.par
+      // Only populate if a real score exists — unplayed holes stay absent
+      if (existing) {
+        draft[player.id][hole.number] = existing.strokes
+      }
     }
   }
   return draft
@@ -394,11 +402,15 @@ export default function StablefordScoringApp({
     setSaving(true)
     setSaveError(null)
     try {
+      // Only save holes that were explicitly scored (in scoredKeys) — never write
+      // par defaults for unplayed holes to the DB.
       const allEntries: Array<{ playerId: string; holeNumber: number; strokes: number }> = []
       for (const player of players) {
         const playerDraft = allDraftScores[player.id] ?? {}
         for (const [holeNumStr, strokes] of Object.entries(playerDraft)) {
-          allEntries.push({ playerId: player.id, holeNumber: parseInt(holeNumStr), strokes })
+          const holeNumber = parseInt(holeNumStr)
+          if (!scoredKeys.has(`${player.id}:${holeNumber}`)) continue
+          allEntries.push({ playerId: player.id, holeNumber, strokes })
         }
       }
 
@@ -485,17 +497,27 @@ export default function StablefordScoringApp({
 
   // ─── Auto-save current hole scores when advancing to next hole ─────────────
   const saveCurrentHole = useCallback(async (holeNumber: number) => {
-    // Navigating away confirms all players' scores for this hole
+    // Only confirm players who actually have a score for this hole (either
+    // pre-existing from the DB or explicitly entered this session). Do NOT
+    // mark unscored players as "scored" — that would make par defaults appear
+    // as real scores in running totals and on the leaderboard.
+    const explicitlyScored = players.filter(p =>
+      changedKeys.has(`${p.id}:${holeNumber}`) ||
+      initialScores.some(s => s.playerId === p.id && s.holeNumber === holeNumber)
+    )
+
     setScoredKeys(prev => {
       const next = new Set(prev)
-      for (const player of players) {
+      for (const player of explicitlyScored) {
         next.add(`${player.id}:${holeNumber}`)
       }
       return next
     })
 
+    if (explicitlyScored.length === 0) return
+
     const parFallback = holes.find(h => h.number === holeNumber)?.par ?? 3
-    const toSave = players.map(player => ({
+    const toSave = explicitlyScored.map(player => ({
       playerId: player.id,
       holeNumber,
       strokes: allDraftScores[player.id]?.[holeNumber] ?? parFallback,
@@ -528,7 +550,7 @@ export default function StablefordScoringApp({
         }
       })
     )
-  }, [players, allDraftScores, holes, supabase, tournamentId])
+  }, [players, allDraftScores, holes, supabase, tournamentId, changedKeys, initialScores])
 
   // ─── Player selection ──────────────────────────────────────────────────────
   const handleSelectPlayer = useCallback((player: PlayerInfo) => {
@@ -1239,13 +1261,15 @@ export default function StablefordScoringApp({
               let grandTotal = 0
               let grandNetRelative = 0
               const holeBreakdown = holes.map(hole => {
+                const isScored = scoredKeys.has(`${player.id}:${hole.number}`)
                 const strokes = allDraftScores[player.id]?.[hole.number] ?? hole.par
                 const received = getPlayerStrokesOnHole(player.id, hole.number)
-                const pts = computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig)
-                const netRel = (strokes - received) - hole.par
-                grandTotal += pts
-                grandNetRelative += netRel
-                return { hole, strokes, pts, netRel }
+                const pts = isScored ? computeStablefordPoints(strokes, hole.par, received, tournament.stablefordConfig) : null
+                const netRel = isScored ? (strokes - received) - hole.par : null
+                // Only accumulate scored holes — unplayed holes must not inflate totals
+                if (isScored && pts != null) grandTotal += pts
+                if (isScored && netRel != null) grandNetRelative += netRel
+                return { hole, strokes: isScored ? strokes : null, pts, netRel }
               })
 
               return (
@@ -1277,15 +1301,21 @@ export default function StablefordScoringApp({
                   {/* Hole breakdown */}
                   <div style={{ padding: '0.5rem 0.875rem 0.625rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                     {holeBreakdown.map(({ hole, strokes, pts, netRel }) => {
-                      const b = ptsBadgeStyle(pts)
+                      const b = ptsBadgeStyle(pts ?? 0)
                       return (
                         <div key={hole.number} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', minWidth: 26 }}>
                           <div style={{ fontSize: '0.52rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>H{hole.number}</div>
-                          <div style={{ fontSize: '0.7rem', fontFamily: 'var(--fm)', color: 'var(--text-muted)', fontWeight: 500 }}>{strokes}</div>
+                          <div style={{ fontSize: '0.7rem', fontFamily: 'var(--fm)', color: strokes == null ? 'var(--text-dim)' : 'var(--text-muted)', fontWeight: 500 }}>
+                            {strokes ?? '—'}
+                          </div>
                           {isStableford ? (
-                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: b.color, fontWeight: b.fontWeight }}>{pts}p</div>
+                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: pts == null ? 'var(--text-dim)' : b.color, fontWeight: pts == null ? 400 : b.fontWeight }}>
+                              {pts == null ? '—' : `${pts}p`}
+                            </div>
                           ) : (
-                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: netRel < 0 ? '#4CAF50' : netRel > 0 ? 'var(--over)' : 'var(--text-muted)', fontWeight: 600 }}>{fmtRelative(netRel)}</div>
+                            <div style={{ fontSize: '0.58rem', fontFamily: 'var(--fm)', color: netRel == null ? 'var(--text-dim)' : netRel < 0 ? '#4CAF50' : netRel > 0 ? 'var(--over)' : 'var(--text-muted)', fontWeight: 600 }}>
+                              {netRel == null ? '—' : fmtRelative(netRel)}
+                            </div>
                           )}
                         </div>
                       )
