@@ -314,10 +314,12 @@ export async function POST(req: NextRequest) {
 
   // ─── Scorecard summary mode: send post-round scorecard to all players ─────────
   if (body.mode === 'scorecard-summary') {
-    const { tournamentId, baseUrl } = body as {
+    const { tournamentId, baseUrl, excludeEmails } = body as {
       mode: 'scorecard-summary'
       tournamentId: string
       baseUrl: string
+      /** Optional: skip these addresses (e.g. already sent in a prior run) */
+      excludeEmails?: string[]
     }
 
     if (!tournamentId || !baseUrl) {
@@ -387,8 +389,11 @@ export async function POST(req: NextRequest) {
     )
     const leaderboardSummary = ranked.map((p, i) => ({ rank: i + 1, name: p.name, totalPts: p.totalPts, gross: p.totalNet, netVsPar: p.netVsPar }))
 
-    const playersWithEmail = computedPlayers.filter(p => p.email)
-    const skipped = computedPlayers.length - playersWithEmail.length
+    const excludeSet = new Set((excludeEmails ?? []).map(e => e.toLowerCase()))
+    // Filter: must have email, and not in the exclude list
+    const playersWithEmail = computedPlayers.filter(p => p.email && !excludeSet.has(p.email.toLowerCase()))
+    const skipped = computedPlayers.length - playersWithEmail.length  // no email on file
+    const excluded = computedPlayers.filter(p => p.email && excludeSet.has(p.email.toLowerCase())).length
 
     const scorecardUrl = `${baseUrl}/scorecard/${tournamentId}`
     const formattedDate = (() => {
@@ -397,9 +402,15 @@ export async function POST(req: NextRequest) {
       } catch { return tournament.date }
     })()
 
-    const results = await Promise.allSettled(
-      playersWithEmail.map(p =>
-        sendScorecardSummaryEmail({
+    console.log(`[scorecard-summary] ${computedPlayers.length} total players, ${playersWithEmail.length} to send, ${skipped} skipped (no email), ${excluded} excluded`)
+
+    // Send sequentially — 600ms gap to stay under Resend's 2 req/s rate limit.
+    // Previously used Promise.allSettled (concurrent) which caused rate-limit failures.
+    let sent = 0
+    const errors: Array<{ name: string; email: string; reason: string }> = []
+    for (const p of playersWithEmail) {
+      try {
+        await sendScorecardSummaryEmail({
           to: p.email!,
           playerName: p.name,
           tournamentName: tournament.name,
@@ -419,13 +430,17 @@ export async function POST(req: NextRequest) {
             netVsPar: p.netVsPar,
           },
         })
-      )
-    )
+        sent++
+      } catch (err) {
+        errors.push({ name: p.name, email: p.email!, reason: (err as Error)?.message ?? 'Unknown error' })
+      }
+      // 600ms between sends — stays comfortably under 2 req/s
+      await new Promise(res => setTimeout(res, 600))
+    }
 
-    const sent = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
+    if (errors.length > 0) console.error('[scorecard-summary] failures:', JSON.stringify(errors))
 
-    return NextResponse.json({ sent, failed, skipped })
+    return NextResponse.json({ sent, failed: errors.length, skipped, excluded, errors })
   }
 
   // ─── Chaperone-token mode: token URL email to formally assigned chaperone ─────
