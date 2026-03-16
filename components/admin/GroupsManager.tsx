@@ -17,9 +17,8 @@ import {
 import {
   assignChaperoneToGroup,
   removeChaperoneFromGroup,
+  removeChaperoneFromGroupById,
   getOrCreateGroupToken,
-  createChaperone,
-  deleteChaperone,
   sendGroupChaperoneEmails,
 } from '@/lib/actions/chaperones'
 
@@ -32,7 +31,7 @@ interface GroupsManagerProps {
   pairingPrefs: PairingPreference[]
   isWish?: boolean
   chaperones?: Chaperone[]
-  groupChaperoneMap?: Record<string, string>  // groupId → chaperoneId
+  groupChaperoneMap?: Record<string, string[]>  // groupId → chaperoneId[]
 }
 
 export default function GroupsManager({
@@ -109,13 +108,12 @@ export default function GroupsManager({
   // Build chaperone lookup map
   const chaperoneById = useMemo(() => new Map(chaperones.map(c => [c.id, c])), [chaperones])
 
-  // Groups with a formally assigned chaperone that has an email
+  // Groups with at least one assigned chaperone that has an email
   const groupsWithChaperoneToken = useMemo(
     () =>
       groups.filter(g => {
-        const cid = groupChaperoneMap[g.id]
-        if (!cid) return false
-        return !!chaperoneById.get(cid)?.email
+        const cids = groupChaperoneMap[g.id] ?? []
+        return cids.some(cid => !!chaperoneById.get(cid)?.email)
       }),
     [groups, groupChaperoneMap, chaperoneById]
   )
@@ -453,6 +451,17 @@ export default function GroupsManager({
     })
   }
 
+  const handleRemoveChaperoneById = (groupId: string, chaperoneId: string) => {
+    startTransition(async () => {
+      try {
+        await removeChaperoneFromGroupById(groupId, chaperoneId)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to remove chaperone')
+      }
+    })
+  }
+
   const handleEmailChaperoneToken = async (groupId: string) => {
     setSendingChaperoneToken(groupId)
     setConfirmEmailChaperoneToken(null)
@@ -517,35 +526,6 @@ export default function GroupsManager({
     })
   }
 
-  const handleAddChaperone = (groupId: string) => {
-    if (!newChapName.trim()) return
-    startTransition(async () => {
-      try {
-        await createChaperone(tournamentId, {
-          name: newChapName.trim(),
-          email: newChapEmail.trim() || undefined,
-          group_id: groupId,
-        })
-        setAddingChaperoneGroup(null)
-        setNewChapName('')
-        setNewChapEmail('')
-        router.refresh()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to add chaperone')
-      }
-    })
-  }
-
-  const handleRemoveInlineChaperone = (chaperoneId: string) => {
-    startTransition(async () => {
-      try {
-        await deleteChaperone(chaperoneId)
-        router.refresh()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to remove chaperone')
-      }
-    })
-  }
 
   const handleSendGroupLink = async (groupId: string) => {
     setSendingGroupLink(groupId)
@@ -1154,88 +1134,57 @@ export default function GroupsManager({
                   </div>
                 )}
 
-                {/* Chaperone assignment */}
+                {/* Chaperone assignment — unified multi-chaperone section */}
                 {chaperones.length > 0 && (() => {
-                  const assignedCid = groupChaperoneMap[group.id]
-                  const assignedChaperone = assignedCid ? chaperoneById.get(assignedCid) : null
-                  const unassignedChaperones = chaperones.filter(c => {
-                    // Allow reassigning the currently assigned chaperone
-                    if (c.id === assignedCid) return false
-                    // Show chaperones not assigned to any other group
-                    const alreadyUsed = Object.entries(groupChaperoneMap).some(
-                      ([gid, cid]) => gid !== group.id && cid === c.id
-                    )
-                    return !alreadyUsed
-                  })
+                  const assignedCids = groupChaperoneMap[group.id] ?? []
+                  const assignedChaperones = assignedCids
+                    .map(cid => chaperoneById.get(cid))
+                    .filter((c): c is Chaperone => !!c)
+                  const available = chaperones.filter(c => !assignedCids.includes(c.id))
                   return (
-                    <div
-                      style={{
-                        padding: '0.6rem 0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface2)',
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '0.62rem',
-                          color: 'var(--text-dim)',
-                          fontFamily: 'var(--fm)',
-                          letterSpacing: '0.12em',
-                          textTransform: 'uppercase',
-                          marginBottom: '0.4rem',
-                        }}
-                      >
-                        Chaperone
+                    <div style={{ padding: '0.55rem 0.75rem', marginBottom: '0.5rem', background: 'var(--surface2)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                        Chaperones{assignedChaperones.length > 0 ? ` (${assignedChaperones.length})` : ''}
                       </div>
-                      {assignedChaperone ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {assignedChaperones.map(chap => (
+                        <div key={chap.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.28rem 0', borderBottom: '1px solid var(--border)' }}>
                           <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{assignedChaperone.name}</span>
+                            <span style={{ fontSize: '0.82rem', color: 'var(--text)' }}>{chap.name}</span>
                             <span
-                              className={`badge badge-${assignedChaperone.role === 'parent' ? 'blue' : assignedChaperone.role === 'coach' ? 'gold' : 'green'}`}
-                              style={{ fontSize: '0.55rem', marginLeft: '0.35rem', textTransform: 'capitalize' }}
+                              className={`badge badge-${chap.role === 'parent' ? 'blue' : chap.role === 'coach' ? 'gold' : 'green'}`}
+                              style={{ fontSize: '0.5rem', marginLeft: '0.35rem', textTransform: 'capitalize' }}
                             >
-                              {assignedChaperone.role}
+                              {chap.role}
                             </span>
-                            {assignedChaperone.email && (
-                              <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.1rem' }}>
-                                {assignedChaperone.email}
-                              </div>
+                            {chap.email && (
+                              <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '0.05rem' }}>{chap.email}</div>
                             )}
                           </div>
                           <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.6rem', color: 'var(--over)', borderColor: 'var(--over-border)' }}
-                            onClick={() => handleRemoveChaperone(group.id)}
+                            className="btn btn-icon"
+                            style={{ width: 24, height: 24, fontSize: '0.6rem', flexShrink: 0 }}
+                            onClick={() => handleRemoveChaperoneById(group.id, chap.id)}
                             disabled={isPending}
-                            title="Remove chaperone assignment"
+                            title="Remove chaperone"
                           >
-                            Unassign
+                            ✕
                           </button>
                         </div>
-                      ) : (
+                      ))}
+                      {available.length > 0 && (
                         <select
                           className="input"
-                          style={{ fontSize: '0.82rem', padding: '0.3rem 0.5rem', minHeight: 32 }}
+                          style={{ fontSize: '0.82rem', padding: '0.3rem 0.5rem', minHeight: 32, marginTop: assignedChaperones.length > 0 ? '0.45rem' : 0 }}
                           value=""
-                          onChange={e => {
-                            if (e.target.value) handleAssignChaperone(group.id, e.target.value)
-                          }}
+                          onChange={e => { if (e.target.value) handleAssignChaperone(group.id, e.target.value) }}
                           disabled={isPending}
                         >
-                          <option value="">Assign chaperone...</option>
-                          {chaperones.map(c => {
-                            const takenByOther = Object.entries(groupChaperoneMap).some(
-                              ([gid, cid]) => gid !== group.id && cid === c.id
-                            )
-                            return (
-                              <option key={c.id} value={c.id} disabled={takenByOther}>
-                                {c.name} ({c.role}){takenByOther ? ' — assigned' : ''}
-                              </option>
-                            )
-                          })}
+                          <option value="">+ Add chaperone...</option>
+                          {available.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({c.role}){c.email ? ` — ${c.email}` : ''}
+                            </option>
+                          ))}
                         </select>
                       )}
                     </div>
@@ -1336,119 +1285,12 @@ export default function GroupsManager({
                   </div>
                 )}
 
-                {/* Inline chaperones section */}
-                {(() => {
-                  const inlineChaps = chaperones.filter(c => c.group_id === group.id)
-                  const isAdding = addingChaperoneGroup === group.id
-                  return (
-                    <div style={{ paddingTop: '0.6rem', marginTop: '0.6rem', borderTop: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                        Chaperones{inlineChaps.length > 0 ? ` (${inlineChaps.length})` : ''}
-                      </div>
-                      {inlineChaps.map(chap => (
-                        <div
-                          key={chap.id}
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.28rem 0', borderBottom: '1px solid var(--border)' }}
-                        >
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flex: 1, lineHeight: 1.3 }}>
-                            {chap.name}
-                            {chap.email && (
-                              <span style={{ color: 'var(--text-dim)', marginLeft: '0.4rem', fontSize: '0.65rem' }}>
-                                {chap.email}
-                              </span>
-                            )}
-                            {chap.token_sent_at && (
-                              <span style={{ color: 'var(--gold)', marginLeft: '0.35rem', fontSize: '0.62rem', fontFamily: 'var(--fm)' }}>✓ sent</span>
-                            )}
-                          </span>
-                          <button
-                            className="btn btn-icon"
-                            style={{ width: 22, height: 22, fontSize: '0.58rem', flexShrink: 0 }}
-                            onClick={() => handleRemoveInlineChaperone(chap.id)}
-                            disabled={isPending}
-                            title="Remove chaperone"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                      {isAdding ? (
-                        <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          {/* Roster quick-select */}
-                          {chaperones.filter(c => !c.group_id).length > 0 && (
-                            <select
-                              className="input"
-                              style={{ fontSize: '0.82rem' }}
-                              value=""
-                              onChange={e => {
-                                const c = chaperones.find(ch => ch.id === e.target.value)
-                                if (c) { setNewChapName(c.name); setNewChapEmail(c.email ?? '') }
-                              }}
-                            >
-                              <option value="">Select from roster...</option>
-                              {chaperones
-                                .filter(c => !c.group_id && !inlineChaps.some(ic => ic.name === c.name))
-                                .map(c => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}{c.email ? ` — ${c.email}` : ''}
-                                  </option>
-                                ))}
-                            </select>
-                          )}
-                          <input
-                            className="input"
-                            placeholder="Name *"
-                            value={newChapName}
-                            onChange={e => setNewChapName(e.target.value)}
-                            style={{ fontSize: '0.82rem' }}
-                            autoFocus={chaperones.filter(c => !c.group_id).length === 0}
-                            onKeyDown={e => e.key === 'Enter' && handleAddChaperone(group.id)}
-                          />
-                          <input
-                            className="input"
-                            type="email"
-                            placeholder="Email (optional)"
-                            value={newChapEmail}
-                            onChange={e => setNewChapEmail(e.target.value)}
-                            style={{ fontSize: '0.82rem' }}
-                          />
-                          <div style={{ display: 'flex', gap: '0.35rem' }}>
-                            <button
-                              className="btn btn-gold btn-sm"
-                              onClick={() => handleAddChaperone(group.id)}
-                              disabled={isPending || !newChapName.trim()}
-                            >
-                              Add
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => { setAddingChaperoneGroup(null); setNewChapName(''); setNewChapEmail('') }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ fontSize: '0.62rem', marginTop: '0.35rem' }}
-                          onClick={() => { setAddingChaperoneGroup(group.id); setNewChapName(''); setNewChapEmail('') }}
-                        >
-                          + Add Chaperone
-                        </button>
-                      )}
-                    </div>
-                  )
-                })()}
-
                 {/* Group actions */}
                 {(() => {
                   const playersWithEmail = groupPlayers.filter(p => p.player_email)
-                  const assignedCid = groupChaperoneMap[group.id]
-                  const assignedChaperone = assignedCid ? chaperoneById.get(assignedCid) : null
-                  const inlineChapsForGroup = chaperones.filter(c => c.group_id === group.id)
-                  const anyChapEmail = inlineChapsForGroup.some(c => c.email) || !!assignedChaperone?.email
-                  const hasSentLink = sentGroupLinks.has(group.id) || inlineChapsForGroup.some(c => c.token_sent_at)
+                  const assignedCids = groupChaperoneMap[group.id] ?? []
+                  const anyChapEmail = assignedCids.some(cid => !!chaperoneById.get(cid)?.email)
+                  const hasSentLink = sentGroupLinks.has(group.id)
                   return (
                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {/* Send Scoring Link — appears when any chaperone has email */}
@@ -1493,46 +1335,6 @@ export default function GroupsManager({
                         >
                           {copyingToken === `copied-${group.id}` ? 'Copied!' : copyingToken === group.id ? '...' : 'Copy Token Link'}
                         </button>
-                      )}
-
-                      {/* Email Chaperone (token-based) — formal assignment */}
-                      {assignedChaperone?.email && (
-                        confirmEmailChaperoneToken === group.id ? (
-                          <>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                              Send token link to {assignedChaperone.name}?
-                            </span>
-                            <button
-                              className="btn btn-gold btn-sm"
-                              style={{ fontSize: '0.65rem' }}
-                              onClick={() => handleEmailChaperoneToken(group.id)}
-                              disabled={sendingChaperoneToken === group.id}
-                            >
-                              {sendingChaperoneToken === group.id ? 'Sending...' : 'Confirm'}
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              style={{ fontSize: '0.65rem' }}
-                              onClick={() => setConfirmEmailChaperoneToken(null)}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.65rem' }}
-                            onClick={() => {
-                              setConfirmEmailChaperoneToken(group.id)
-                              setConfirmEmailScorer(null)
-                              setConfirmEmailGroup(null)
-                              setConfirmDelete(null)
-                            }}
-                            disabled={sendingChaperoneToken === group.id}
-                          >
-                            Email Chaperone
-                          </button>
-                        )
                       )}
 
                       {/* Email Scorer — with inline confirm */}

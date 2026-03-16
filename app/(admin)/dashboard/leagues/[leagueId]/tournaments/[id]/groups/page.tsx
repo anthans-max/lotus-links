@@ -32,10 +32,11 @@ export default async function GroupsPage({ params }: Props) {
     supabase.from('group_chaperones').select('group_id, chaperone_id'),
   ])
 
-  // Build groupId → chaperoneId map
-  const groupChaperoneMap: Record<string, string> = {}
+  // Build groupId → chaperoneId[] map (supports multiple chaperones per group)
+  const groupChaperoneMap: Record<string, string[]> = {}
   for (const row of groupChaperoneRows ?? []) {
-    groupChaperoneMap[row.group_id] = row.chaperone_id
+    if (!groupChaperoneMap[row.group_id]) groupChaperoneMap[row.group_id] = []
+    groupChaperoneMap[row.group_id].push(row.chaperone_id)
   }
 
   if (!league || !tournament) notFound()

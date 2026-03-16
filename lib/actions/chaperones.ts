@@ -66,10 +66,10 @@ export async function deleteChaperone(id: string) {
 
 export async function assignChaperoneToGroup(groupId: string, chaperoneId: string) {
   const supabase = await createClient()
-  // Upsert so re-assigning replaces the old one
+  // Upsert on the composite PK — silently ignores if already assigned
   const { error } = await supabase
     .from('group_chaperones')
-    .upsert({ group_id: groupId, chaperone_id: chaperoneId }, { onConflict: 'group_id' })
+    .upsert({ group_id: groupId, chaperone_id: chaperoneId }, { onConflict: 'group_id, chaperone_id', ignoreDuplicates: true })
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
 }
@@ -77,6 +77,17 @@ export async function assignChaperoneToGroup(groupId: string, chaperoneId: strin
 export async function removeChaperoneFromGroup(groupId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('group_chaperones').delete().eq('group_id', groupId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function removeChaperoneFromGroupById(groupId: string, chaperoneId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('group_chaperones')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('chaperone_id', chaperoneId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
 }
