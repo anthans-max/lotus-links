@@ -29,12 +29,16 @@ export default async function PairingsPage({ params }: Props) {
 
   if (!tournament) notFound()
 
-  const [{ data: league }, { data: groups }, { data: players }, { data: gcRows }] = await Promise.all([
+  const [{ data: league }, { data: groups }, { data: players }] = await Promise.all([
     supabase.from('leagues').select('name, primary_color, logo_url').eq('id', tournament.league_id).single(),
-    supabase.from('groups').select('*, group_players(player_id)').eq('tournament_id', tournament.id).order('tee_time', { ascending: true, nullsFirst: false }),
+    supabase.from('groups').select('*, group_players(player_id)').eq('tournament_id', tournament.id),
     supabase.from('players').select('id, name, grade').eq('tournament_id', tournament.id),
-    supabase.from('group_chaperones').select('group_id, chaperones(id, name)').eq('chaperones.tournament_id', tournament.id),
   ])
+
+  const groupIds = (groups ?? []).map(g => g.id)
+  const { data: gcRows } = groupIds.length > 0
+    ? await supabase.from('group_chaperones').select('group_id, chaperones(id, name)').in('group_id', groupIds)
+    : { data: [] as { group_id: string; chaperones: unknown }[] }
 
   const playerMap = new Map((players ?? []).map(p => [p.id, p]))
 
