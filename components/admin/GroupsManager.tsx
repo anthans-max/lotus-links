@@ -1235,8 +1235,17 @@ export default function GroupsManager({
                           {p.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.2 }}>
-                            {p.name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', lineHeight: 1.2 }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{p.name}</span>
+                            {p.status === 'checked_in' && (
+                              <span style={{ fontSize: '0.5rem', fontFamily: 'var(--fm)', letterSpacing: '0.08em', color: '#4CAF50', background: 'rgba(76,175,80,0.12)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: 3, padding: '0.1rem 0.35rem', textTransform: 'uppercase', flexShrink: 0 }}>✓ In</span>
+                            )}
+                            {p.status === 'registered' && (
+                              <span style={{ fontSize: '0.5rem', fontFamily: 'var(--fm)', letterSpacing: '0.08em', color: 'var(--blue,#5b8fd4)', background: 'rgba(91,143,212,0.1)', border: '1px solid rgba(91,143,212,0.25)', borderRadius: 3, padding: '0.1rem 0.35rem', textTransform: 'uppercase', flexShrink: 0 }}>Reg</span>
+                            )}
+                            {p.status === 'pre-registered' && (
+                              <span style={{ fontSize: '0.5rem', fontFamily: 'var(--fm)', letterSpacing: '0.08em', color: 'var(--text-dim)', background: 'var(--surface3)', border: '1px solid var(--border)', borderRadius: 3, padding: '0.1rem 0.35rem', textTransform: 'uppercase', flexShrink: 0 }}>Pre</span>
+                            )}
                           </div>
                           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
                             {p.grade && (
