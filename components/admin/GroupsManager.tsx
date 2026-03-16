@@ -77,6 +77,8 @@ export default function GroupsManager({
   const [confirmSendAllChaperones, setConfirmSendAllChaperones] = useState(false)
   const [sendingAllChaperones, setSendingAllChaperones] = useState(false)
   const [copyingToken, setCopyingToken] = useState<string | null>(null)
+  const [editTeeTime, setEditTeeTime] = useState('')
+  const [confirmAutoGenerate, setConfirmAutoGenerate] = useState(false)
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -141,6 +143,24 @@ export default function GroupsManager({
     return pairs
   }, [pairingMap])
 
+  // Sort groups: by tee_time ascending (nulls last), then by created_at
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => {
+      if (!a.tee_time && !b.tee_time) return 0
+      if (!a.tee_time) return 1
+      if (!b.tee_time) return -1
+      return a.tee_time.localeCompare(b.tee_time)
+    })
+  }, [groups])
+
+  function formatTeeTime(t: string) {
+    const [h, m] = t.split(':')
+    const hour = parseInt(h, 10)
+    const ampm = hour >= 12 ? 'pm' : 'am'
+    const h12 = hour % 12 || 12
+    return `${h12}:${m} ${ampm}`
+  }
+
   const handleCreate = () => {
     if (!newName.trim()) return
     setError(null)
@@ -170,6 +190,11 @@ export default function GroupsManager({
   }
 
   const handleAutoGenerate = () => {
+    if (groups.length > 0 && !confirmAutoGenerate) {
+      setConfirmAutoGenerate(true)
+      return
+    }
+    setConfirmAutoGenerate(false)
     setError(null)
     const size = parseInt(groupSize) || 4
     startTransition(async () => {
@@ -195,6 +220,38 @@ export default function GroupsManager({
         setError(e instanceof Error ? e.message : 'Failed to delete group')
       }
     })
+  }
+
+  const handleExportCSV = () => {
+    const rows: string[][] = [['Group', 'Tee Time', 'Player', 'Grade', 'Handicap']]
+    for (const group of sortedGroups) {
+      const gPlayers = group.group_players
+        .map(gp => playerMap.get(gp.player_id))
+        .filter((p): p is Player => !!p)
+      if (gPlayers.length === 0) {
+        rows.push([group.name, group.tee_time ? formatTeeTime(group.tee_time) : '', '', '', ''])
+      } else {
+        for (const p of gPlayers) {
+          rows.push([
+            group.name,
+            group.tee_time ? formatTeeTime(group.tee_time) : '',
+            p.name,
+            p.grade ?? '',
+            String(p.handicap_index ?? p.handicap ?? ''),
+          ])
+        }
+      }
+    }
+    const csv = rows
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `groups-${tournamentId}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleAssign = (groupId: string, playerId: string) => {
@@ -229,6 +286,7 @@ export default function GroupsManager({
           chaperone_email: editEmail || null,
           chaperone_phone: editPhone || null,
           starting_hole: editStarting ? parseInt(editStarting) : null,
+          tee_time: editTeeTime || null,
         })
         setEditGroup(null)
         setSuccess('Group updated')
@@ -535,6 +593,23 @@ export default function GroupsManager({
         </div>
       )}
 
+      {/* Auto-generate confirm banner */}
+      {confirmAutoGenerate && (
+        <div className="card card-gold" style={{ marginBottom: '1rem', padding: '0.75rem 1rem', animation: 'fadeUp 0.2s ease' }}>
+          <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+            This will delete all {groups.length} existing group{groups.length !== 1 ? 's' : ''} and regenerate from scratch. Continue?
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button className="btn btn-gold btn-sm" onClick={handleAutoGenerate} disabled={isPending}>
+              {isPending ? 'Generating...' : 'Yes, Regenerate'}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmAutoGenerate(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Action bar */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn btn-gold btn-sm" onClick={() => setShowCreate(true)}>
@@ -545,7 +620,7 @@ export default function GroupsManager({
             <button
               className="btn btn-outline btn-sm"
               onClick={handleAutoGenerate}
-              disabled={isPending}
+              disabled={isPending || confirmAutoGenerate}
             >
               {isPending ? 'Generating...' : 'Auto-Generate Groups'}
             </button>
@@ -625,6 +700,26 @@ export default function GroupsManager({
                 {sendingAllPlayers ? 'Sending...' : `Email All Players (${playersWithEmailCount})`}
               </button>
             )}
+          </>
+        )}
+        {/* Divider before utility buttons */}
+        {groups.length > 0 && (
+          <>
+            <div style={{ width: 1, height: 24, background: 'var(--border2)', margin: '0 0.25rem' }} />
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.72rem' }}
+              onClick={() => window.print()}
+            >
+              Print Sheet
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.72rem' }}
+              onClick={handleExportCSV}
+            >
+              Export CSV
+            </button>
           </>
         )}
       </div>
@@ -727,7 +822,7 @@ export default function GroupsManager({
         </div>
       ) : (
         <div className="g2">
-          {groups.map(group => {
+          {sortedGroups.map(group => {
             const groupPlayers = group.group_players
               .map(gp => playerMap.get(gp.player_id))
               .filter((p): p is Player => !!p)
@@ -759,9 +854,15 @@ export default function GroupsManager({
                         <input className="input" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} style={{ fontSize: '0.85rem' }} placeholder="(555) 555-5555" />
                       </div>
                     </div>
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <div className="label">Starting Hole</div>
-                      <input className="input" type="number" min="1" max={tournament.holes} value={editStarting} onChange={e => setEditStarting(e.target.value)} style={{ fontSize: '0.85rem', width: 80 }} />
+                    <div className="g2" style={{ marginBottom: '0.75rem' }}>
+                      <div>
+                        <div className="label">Starting Hole</div>
+                        <input className="input" type="number" min="1" max={tournament.holes} value={editStarting} onChange={e => setEditStarting(e.target.value)} style={{ fontSize: '0.85rem', width: 80 }} />
+                      </div>
+                      <div>
+                        <div className="label">Tee Time</div>
+                        <input className="input" type="time" value={editTeeTime} onChange={e => setEditTeeTime(e.target.value)} style={{ fontSize: '0.85rem', width: 130 }} />
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button className="btn btn-gold btn-sm" onClick={() => handleUpdate(group.id)} disabled={isPending}>
@@ -790,6 +891,11 @@ export default function GroupsManager({
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {group.tee_time && (
+                        <span className="badge badge-gold" style={{ fontFamily: 'var(--fm)', fontSize: '0.68rem' }}>
+                          {formatTeeTime(group.tee_time)}
+                        </span>
+                      )}
                       {group.starting_hole && (
                         <span className="badge badge-gray">H{group.starting_hole}</span>
                       )}
@@ -811,6 +917,7 @@ export default function GroupsManager({
                           setEditEmail(group.chaperone_email ?? '')
                           setEditPhone(group.chaperone_phone ?? '')
                           setEditStarting(String(group.starting_hole ?? ''))
+                          setEditTeeTime(group.tee_time ?? '')
                         }}
                         title="Edit group"
                       >
@@ -1183,6 +1290,117 @@ export default function GroupsManager({
           })}
         </div>
       )}
+
+      {/* ── Print-only sheet ── rendered in DOM, shown only via @media print ── */}
+      <div className="gm-print-sheet">
+        <div className="gm-print-title">{tournament.name} — Group Sheet</div>
+        <div className="gm-print-subtitle">
+          {sortedGroups.length} group{sortedGroups.length !== 1 ? 's' : ''} &middot; {players.length} player{players.length !== 1 ? 's' : ''}
+        </div>
+        <div className="gm-print-grid">
+          {sortedGroups.map(group => {
+            const gPlayers = group.group_players
+              .map(gp => playerMap.get(gp.player_id))
+              .filter((p): p is Player => !!p)
+            return (
+              <div key={group.id} className="gm-print-group">
+                <div className="gm-print-group-header">
+                  <span className="gm-print-group-name">{group.name}</span>
+                  {group.tee_time && (
+                    <span className="gm-print-tee-time">{formatTeeTime(group.tee_time)}</span>
+                  )}
+                </div>
+                {group.starting_hole && (
+                  <div className="gm-print-meta">Hole {group.starting_hole}</div>
+                )}
+                <ul className="gm-print-players">
+                  {gPlayers.map(p => (
+                    <li key={p.id}>
+                      {p.name}
+                      {p.grade ? ` — Grade ${p.grade}` : ''}
+                    </li>
+                  ))}
+                  {gPlayers.length === 0 && <li className="gm-print-empty">No players</li>}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <style>{`
+        .gm-print-sheet { display: none; }
+        @media print {
+          .gm-print-sheet {
+            display: block;
+            font-family: Georgia, serif;
+            color: #000;
+            padding: 1.5rem;
+          }
+          .gm-print-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+          }
+          .gm-print-subtitle {
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 1.25rem;
+          }
+          .gm-print-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+          }
+          @media (max-width: 640px) {
+            .gm-print-grid { grid-template-columns: 1fr 1fr; }
+          }
+          .gm-print-group {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+            break-inside: avoid;
+          }
+          .gm-print-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.35rem;
+            margin-bottom: 0.35rem;
+          }
+          .gm-print-group-name {
+            font-weight: bold;
+            font-size: 0.95rem;
+          }
+          .gm-print-tee-time {
+            font-size: 0.8rem;
+            color: #555;
+          }
+          .gm-print-meta {
+            font-size: 0.72rem;
+            color: #777;
+            margin-bottom: 0.25rem;
+          }
+          .gm-print-players {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+          }
+          .gm-print-players li {
+            font-size: 0.82rem;
+            padding: 0.15rem 0;
+            border-bottom: 1px solid #eee;
+          }
+          .gm-print-players li:last-child { border-bottom: none; }
+          .gm-print-empty { color: #999; font-style: italic; }
+          /* Hide all non-print elements */
+          body > *:not(.gm-print-sheet),
+          nav, header, footer,
+          [data-no-print] { display: none !important; }
+          .gm-print-sheet { display: block !important; }
+        }
+      `}</style>
     </div>
   )
 }

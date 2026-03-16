@@ -87,12 +87,11 @@ RESEND_FROM_EMAIL=
 
 ## Key Architecture Decisions
 
-- **Tournament formats** — `tournament.format` drives both routing and scoring UI. Three values:
-  - `'Scramble'` → chaperone at `/score/[groupId]` (`ScoreEntryApp`), one team score per hole
-  - `'Stableford'` → `StablefordScoringApp` at `/t/[token]`, hole-by-hole group entry, computes Stableford points
+- **Tournament formats** — `tournament.format` drives routing and scoring UI:
+  - `'Scramble'` → `ScoreEntryApp` at `/score/[groupId]`, PIN-gated chaperone entry, one team score per hole
+  - `'Stableford'` → `StablefordScoringApp` at `/t/[token]`, hole-by-hole, computes Stableford points
   - `'Stroke Play'` → `StablefordScoringApp` at `/t/[token]`, scrollable per-player net stroke entry
-- **Two scoring modes**: (1) Scramble — one team score per group per hole via chaperone at `/score/[groupId]`; (2) Stableford/individual — per-player per-hole scores via public token link at `/t/[token]` using `StablefordScoringApp`
-- **Chaperone auth** — group PIN only, no login. Direct URL: `/score/[groupId]`
+- **Chaperone auth** — group PIN only, no login. Token-based no-PIN alternative via `/score/t/[token]` → `group_scoring_tokens` table, created via `getOrCreateGroupToken()`
 - **Scores** — upsert per-hole immediately (not full-card submit). Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
 - **Server Actions** — all DB mutations go through `lib/actions/*.ts` files marked `'use server'`. Pages/components import these directly (no separate API routes for mutations). Always call `revalidatePath()` after mutations.
 - **Leaderboard** — Supabase Realtime + 15s polling fallback. Gated by `leaderboard_public` flag
@@ -104,54 +103,23 @@ RESEND_FROM_EMAIL=
 - **Supabase browser client** — singleton in `lib/supabase/client.ts` (one instance per page load) to prevent concurrent Web Locks acquisitions deadlocking auth token refresh
 - **Modal overlay** — `components/ui/Modal.tsx` uses `createPortal(content, document.body)` + body scroll lock. This bypasses parent CSS stacking contexts that break `position: fixed`
 - **FK policy** — all child FKs CASCADE on delete, except `tournaments.season_id` which is SET NULL
-- **RLS** — disabled on all tables (permissive for MVP)
+- **RLS** — enabled on all tables (migration 015). Three helper functions (`is_super_admin()`, `get_my_league_ids()`, `is_league_admin(lid)`) are SECURITY DEFINER to avoid recursive RLS. Chaperone score entry (INSERT/UPDATE on `scores`, UPDATE on `groups`) remains open to `anon` — chaperones authenticate via PIN/token in-app, not Supabase auth. Public registration (INSERT/UPDATE on `players`, `pairing_preferences`) also remains open to `anon`. `profiles.role` column (`super_admin | user`) controls super-admin access. After running migration 015, grant yourself super_admin: `UPDATE profiles SET role = 'super_admin' WHERE email = 'your@email.com'`
+- **`players_safe` view** — excludes PII columns (`parent_name`, `parent_phone`, `parent_email`). Public-facing pages should query this view; league admins query `players` directly (TODO: not yet migrated in app code)
 
 ## DB Schema
 
-### leagues
-`id` (uuid PK), `name`, `admin_email`, `logo_url`, `primary_color` (default `#1a5c2a`), `league_type`, `created_at`, `updated_at`
+Full column detail is in `supabase/migrations/` (001–015, run manually in Supabase SQL editor — no CLI workflow). Key non-obvious points:
 
-### league_admins
-`id` (uuid PK), `league_id` FK→leagues (CASCADE), `email`, `role` (`owner` | `admin`), `invited_at`, `accepted_at` (null until first login), `invited_by`
-UNIQUE on `(league_id, email)`. Seeded from `leagues.admin_email` on migration. New leagues seed an owner row in `createLeague`.
-
-### seasons
-`id`, `league_id` FK→leagues, `name`, `start_date`, `end_date`, `points_system` (default `fedex`)
-
-### tournaments
-`id`, `league_id` FK→leagues, `season_id` FK→seasons (SET NULL on delete), `name`, `date`, `course`, `format` (default `Scramble`), `holes` (int, 1-18), `status` (upcoming/active/completed), `course_source`, `tournament_type`, `login_required`, `shotgun_start`, `leaderboard_public`, `notes`, `public_token` (uuid, auto-generated — used for `/t/[token]` scoring link), `slope_rating`, `course_rating`, `stableford_points_config` (JSONB)
-
-### holes
-`id`, `tournament_id` FK, `hole_number`, `par`, `yardage` (nullable), `handicap` (nullable)
-
-### players
-`id`, `tournament_id` FK, `name`, `grade`, `handicap` (default 0, integer), `handicap_index` (USGA decimal), `skill_level`, `status` (pre-registered/registered/checked_in), `player_email`, `parent_name`, `parent_phone`, `parent_email`, `willing_to_chaperone` (boolean), `registration_comments`, `registered_at`
-
-### groups
-`id`, `tournament_id` FK, `name`, `chaperone_name`, `chaperone_email`, `chaperone_phone`, `pin`, `starting_hole` (default 1), `tee_time`, `current_hole` (default 1), `status` (not_started/in_progress/completed)
-
-### group_players
-`group_id` FK→groups, `player_id` FK→players (junction table)
-
-### scores
-`id`, `group_id` FK (nullable — null for individual scores), `player_id` FK→players (nullable — null for scramble scores), `tournament_id` FK, `hole_number`, `strokes`, `entered_by`, `submitted_at`
-Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` for scramble; partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` for individual
-
-### pairing_preferences
-`id`, `tournament_id` FK, `player_id` FK, `preferred_player_id` FK
-UNIQUE on `(player_id, preferred_player_id)`
-
-### chaperones
-`id`, `tournament_id` FK (CASCADE), `name`, `email`, `phone`, `role` (`parent` | `coach` | `volunteer`), `created_at`
-Formal chaperone registry — separate from the `players` table and from `groups.chaperone_name`.
-
-### group_chaperones
-`group_id` PK FK→groups (CASCADE), `chaperone_id` FK→chaperones (CASCADE), `assigned_at`
-One formal chaperone per group. Managed via `lib/actions/chaperones.ts → assignChaperoneToGroup / removeChaperoneFromGroup`.
-
-### group_scoring_tokens
-`id`, `group_id` FK (CASCADE), `tournament_id` FK (CASCADE), `token` (uuid, UNIQUE), `created_at`, `expires_at`
-UNIQUE INDEX on `(group_id, tournament_id)` — one token per group. Used for `/score/t/[token]` (no-PIN URL). Created via `getOrCreateGroupToken()`.
+| Table | Notes |
+|---|---|
+| `profiles` | Created by OAuth callback; `role` column: `super_admin\|user` (default `user`). Used by RLS helper functions. |
+| `leagues` | `admin_email` is legacy — access is controlled via `league_admins` |
+| `league_admins` | `role`: `owner\|admin`; `accepted_at` null until first login; UNIQUE `(league_id, email)` |
+| `tournaments` | `public_token` (uuid) → `/t/[token]`; `stableford_points_config` (JSONB); `holes.handicap` = Stroke Index (SI), not player handicap |
+| `players` | `handicap` (int, fallback) + `handicap_index` (USGA decimal, preferred); `status`: `pre-registered→registered→checked_in` |
+| `scores` | `group_id` null for individual; `player_id` null for scramble. Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` and partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` |
+| `chaperones` | Formal registry — separate from `players` table and `groups.chaperone_name` inline field |
+| `group_scoring_tokens` | One token per group; maps `/score/t/[token]` → group (no PIN needed) |
 
 ## Component Organization
 
@@ -194,11 +162,7 @@ All domain logic and DB access is in `lib/`:
 /api/chat                         → Chat assistant (AI-powered scoring Q&A)
 ```
 
-Migrations live in `supabase/migrations/` — numbered sequentially (001–014). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+Migrations live in `supabase/migrations/` — numbered sequentially (001–015). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
 
 `lib/course-data.ts` contains WISH tournament hole configuration pre-loaded (10 holes, all par-3). Use `createTournamentWithWishHoles()` server action to bootstrap a WISH tournament.
 
-## Pre-Launch TODO
-
-- [ ] Custom Resend domain needed before tournament day (currently `onboarding@resend.dev`, only delivers to verified account email)
-- [ ] Leaderboard link on chaperone scoring success page

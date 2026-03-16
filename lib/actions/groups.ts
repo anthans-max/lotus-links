@@ -51,6 +51,7 @@ export async function updateGroup(
     chaperone_email?: string | null
     chaperone_phone?: string | null
     starting_hole?: number | null
+    tee_time?: string | null
   }
 ) {
   const supabase = await createClient()
