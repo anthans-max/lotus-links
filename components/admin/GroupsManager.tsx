@@ -256,18 +256,23 @@ export default function GroupsManager({
   }
 
   const handleExportCSV = () => {
-    const rows: string[][] = [['Group', 'Tee Time', 'Player', 'Grade', 'Handicap']]
+    const rows: string[][] = [['Group', 'Tee Time', 'Chaperones', 'Player', 'Grade', 'Handicap']]
     for (const group of sortedGroups) {
       const gPlayers = group.group_players
         .map(gp => playerMap.get(gp.player_id))
         .filter((p): p is Player => !!p)
+      const chapNames = (groupChaperoneMap[group.id] ?? [])
+        .map(cid => chaperoneById.get(cid)?.name)
+        .filter(Boolean)
+        .join(', ')
       if (gPlayers.length === 0) {
-        rows.push([group.name, group.tee_time ? formatTeeTime(group.tee_time) : '', '', '', ''])
+        rows.push([group.name, group.tee_time ? formatTeeTime(group.tee_time) : '', chapNames, '', '', ''])
       } else {
         for (const p of gPlayers) {
           rows.push([
             group.name,
             group.tee_time ? formatTeeTime(group.tee_time) : '',
+            chapNames,
             p.name,
             p.grade ?? '',
             String(p.handicap_index ?? p.handicap ?? ''),
@@ -879,6 +884,13 @@ export default function GroupsManager({
                   const holeLine = group.starting_hole
                     ? `<div class="meta">Hole ${group.starting_hole}</div>`
                     : ''
+                  const chapNames = (groupChaperoneMap[group.id] ?? [])
+                    .map(cid => chaperoneById.get(cid)?.name)
+                    .filter(Boolean)
+                    .join(', ')
+                  const chapLine = chapNames
+                    ? `<div class="chap">${scorerLabel}: ${chapNames}</div>`
+                    : ''
                   return `
                     <div class="group">
                       <div class="group-header">
@@ -886,6 +898,7 @@ export default function GroupsManager({
                         ${teeTimeLine}
                       </div>
                       ${holeLine}
+                      ${chapLine}
                       <ul>${playersHtml}</ul>
                     </div>`
                 }).join('')
@@ -905,6 +918,7 @@ export default function GroupsManager({
     .group-name { font-weight: bold; font-size: 0.95rem; }
     .tee-time { font-size: 0.78rem; color: #555; }
     .meta { font-size: 0.7rem; color: #777; margin-bottom: 0.2rem; }
+    .chap { font-size: 0.72rem; color: #444; font-style: italic; margin-bottom: 0.3rem; }
     ul { list-style: none; }
     li { font-size: 0.82rem; padding: 0.12rem 0; border-bottom: 1px solid #eee; }
     li:last-child { border-bottom: none; }
