@@ -67,6 +67,7 @@ export default function GroupsManager({
   const [editStarting, setEditStarting] = useState('')
   const [copiedPin, setCopiedPin] = useState<string | null>(null)
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
+  const [copiedPairings, setCopiedPairings] = useState(false)
   const [sendingEmail, setSendingEmail] = useState<string | null>(null)
   const [confirmSendAll, setConfirmSendAll] = useState(false)
   const [sendingAll, setSendingAll] = useState(false)
@@ -952,6 +953,19 @@ export default function GroupsManager({
             >
               Export CSV
             </button>
+            {tournament.public_token && (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.72rem' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${getBaseUrl()}/pairings/${tournament.public_token}`)
+                  setCopiedPairings(true)
+                  setTimeout(() => setCopiedPairings(false), 1500)
+                }}
+              >
+                {copiedPairings ? '✓ Link Copied!' : 'Share Pairings'}
+              </button>
+            )}
           </>
         )}
       </div>
