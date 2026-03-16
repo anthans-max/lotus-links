@@ -1374,13 +1374,34 @@ export default function GroupsManager({
                       ))}
                       {isAdding ? (
                         <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          {/* Roster quick-select */}
+                          {chaperones.filter(c => !c.group_id).length > 0 && (
+                            <select
+                              className="input"
+                              style={{ fontSize: '0.82rem' }}
+                              value=""
+                              onChange={e => {
+                                const c = chaperones.find(ch => ch.id === e.target.value)
+                                if (c) { setNewChapName(c.name); setNewChapEmail(c.email ?? '') }
+                              }}
+                            >
+                              <option value="">Select from roster...</option>
+                              {chaperones
+                                .filter(c => !c.group_id && !inlineChaps.some(ic => ic.name === c.name))
+                                .map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}{c.email ? ` — ${c.email}` : ''}
+                                  </option>
+                                ))}
+                            </select>
+                          )}
                           <input
                             className="input"
                             placeholder="Name *"
                             value={newChapName}
                             onChange={e => setNewChapName(e.target.value)}
                             style={{ fontSize: '0.82rem' }}
-                            autoFocus
+                            autoFocus={chaperones.filter(c => !c.group_id).length === 0}
                             onKeyDown={e => e.key === 'Enter' && handleAddChaperone(group.id)}
                           />
                           <input
