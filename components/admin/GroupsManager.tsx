@@ -12,11 +12,15 @@ import {
   removePlayerFromGroup,
   autoGenerateGroups,
   regenerateGroupPin,
+  bulkAssignTeeTimes,
 } from '@/lib/actions/groups'
 import {
   assignChaperoneToGroup,
   removeChaperoneFromGroup,
   getOrCreateGroupToken,
+  createChaperone,
+  deleteChaperone,
+  sendGroupChaperoneEmails,
 } from '@/lib/actions/chaperones'
 
 interface GroupsManagerProps {
@@ -79,6 +83,18 @@ export default function GroupsManager({
   const [copyingToken, setCopyingToken] = useState<string | null>(null)
   const [editTeeTime, setEditTeeTime] = useState('')
   const [confirmAutoGenerate, setConfirmAutoGenerate] = useState(false)
+  // Tee time assignment modal
+  const [showTeeTimeModal, setShowTeeTimeModal] = useState(false)
+  const [teeStartTime, setTeeStartTime] = useState('08:00')
+  const [teeIntervalMin, setTeeIntervalMin] = useState('10')
+  const [assigningTeeTimes, setAssigningTeeTimes] = useState(false)
+  // Inline chaperone add
+  const [addingChaperoneGroup, setAddingChaperoneGroup] = useState<string | null>(null)
+  const [newChapName, setNewChapName] = useState('')
+  const [newChapEmail, setNewChapEmail] = useState('')
+  // Per-group send scoring link
+  const [sendingGroupLink, setSendingGroupLink] = useState<string | null>(null)
+  const [sentGroupLinks, setSentGroupLinks] = useState<Set<string>>(new Set())
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -159,6 +175,14 @@ export default function GroupsManager({
     const ampm = hour >= 12 ? 'pm' : 'am'
     const h12 = hour % 12 || 12
     return `${h12}:${m} ${ampm}`
+  }
+
+  function computeTeeTimeStr(startTime: string, intervalMin: number, index: number): string {
+    const [h, m] = startTime.split(':').map(Number)
+    const total = h * 60 + m + index * intervalMin
+    const hour = Math.floor(total / 60) % 24
+    const min = total % 60
+    return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`
   }
 
   const handleCreate = () => {
@@ -471,6 +495,76 @@ export default function GroupsManager({
     }
   }
 
+  const handleAssignTeeTimes = () => {
+    const interval = parseInt(teeIntervalMin) || 10
+    const groupTeeTimes = sortedGroups.map((g, i) => ({
+      id: g.id,
+      tee_time: computeTeeTimeStr(teeStartTime, interval, i),
+    }))
+    setAssigningTeeTimes(true)
+    startTransition(async () => {
+      try {
+        await bulkAssignTeeTimes(groupTeeTimes)
+        setShowTeeTimeModal(false)
+        setSuccess(`Tee times assigned to ${groupTeeTimes.length} groups`)
+        setTimeout(() => setSuccess(null), 3000)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to assign tee times')
+      } finally {
+        setAssigningTeeTimes(false)
+      }
+    })
+  }
+
+  const handleAddChaperone = (groupId: string) => {
+    if (!newChapName.trim()) return
+    startTransition(async () => {
+      try {
+        await createChaperone(tournamentId, {
+          name: newChapName.trim(),
+          email: newChapEmail.trim() || undefined,
+          group_id: groupId,
+        })
+        setAddingChaperoneGroup(null)
+        setNewChapName('')
+        setNewChapEmail('')
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to add chaperone')
+      }
+    })
+  }
+
+  const handleRemoveInlineChaperone = (chaperoneId: string) => {
+    startTransition(async () => {
+      try {
+        await deleteChaperone(chaperoneId)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to remove chaperone')
+      }
+    })
+  }
+
+  const handleSendGroupLink = async (groupId: string) => {
+    setSendingGroupLink(groupId)
+    setError(null)
+    try {
+      const result = await sendGroupChaperoneEmails(groupId)
+      setSentGroupLinks(prev => new Set([...prev, groupId]))
+      setSuccess(
+        `Scoring link sent to ${result.sent} chaperone${result.sent !== 1 ? 's' : ''}${result.failed ? `, ${result.failed} failed` : ''}`
+      )
+      setTimeout(() => setSuccess(null), 4000)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send scoring link')
+    } finally {
+      setSendingGroupLink(null)
+    }
+  }
+
   const handleCopyTokenLink = async (groupId: string) => {
     setCopyingToken(groupId)
     try {
@@ -610,6 +704,64 @@ export default function GroupsManager({
         </div>
       )}
 
+      {/* Tee time assignment modal */}
+      {showTeeTimeModal && (
+        <div className="card card-gold" style={{ marginBottom: '1rem', animation: 'fadeUp 0.25s ease' }}>
+          <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.75rem' }}>
+            Assign Sequential Tee Times
+          </div>
+          <div className="g2" style={{ marginBottom: '0.75rem' }}>
+            <div>
+              <div className="label">Start Time</div>
+              <input
+                className="input"
+                type="time"
+                value={teeStartTime}
+                onChange={e => setTeeStartTime(e.target.value)}
+                style={{ fontSize: '0.85rem' }}
+              />
+            </div>
+            <div>
+              <div className="label">Interval (min)</div>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="60"
+                value={teeIntervalMin}
+                onChange={e => setTeeIntervalMin(e.target.value)}
+                style={{ fontSize: '0.85rem', width: 80 }}
+              />
+            </div>
+          </div>
+          {/* Preview */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div className="label" style={{ marginBottom: '0.35rem', fontSize: '0.65rem' }}>
+              Preview ({Math.min(3, sortedGroups.length)} of {sortedGroups.length})
+            </div>
+            {sortedGroups.slice(0, 3).map((g, i) => {
+              const computed = computeTeeTimeStr(teeStartTime, parseInt(teeIntervalMin) || 10, i)
+              return (
+                <div key={g.id} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '0.1rem 0', fontFamily: 'var(--fm)' }}>
+                  {g.name} → {formatTeeTime(computed)}
+                </div>
+              )
+            })}
+            {sortedGroups.length > 3 && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                ...and {sortedGroups.length - 3} more
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button className="btn btn-gold btn-sm" onClick={handleAssignTeeTimes} disabled={assigningTeeTimes || isPending}>
+              {assigningTeeTimes ? 'Assigning...' : `Apply to All ${sortedGroups.length} Groups`}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowTeeTimeModal(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Action bar */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn btn-gold btn-sm" onClick={() => setShowCreate(true)}>
@@ -638,6 +790,14 @@ export default function GroupsManager({
               </select>
             </div>
           </div>
+        )}
+        {groups.length > 0 && (
+          <button
+            className={`btn btn-outline btn-sm${showTeeTimeModal ? ' btn-gold' : ''}`}
+            onClick={() => setShowTeeTimeModal(v => !v)}
+          >
+            Assign Tee Times
+          </button>
         )}
         {groupsWithEmail.length > 0 && (
           <>
@@ -1176,13 +1336,124 @@ export default function GroupsManager({
                   </div>
                 )}
 
+                {/* Inline chaperones section */}
+                {(() => {
+                  const inlineChaps = chaperones.filter(c => c.group_id === group.id)
+                  const isAdding = addingChaperoneGroup === group.id
+                  return (
+                    <div style={{ paddingTop: '0.6rem', marginTop: '0.6rem', borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                        Chaperones{inlineChaps.length > 0 ? ` (${inlineChaps.length})` : ''}
+                      </div>
+                      {inlineChaps.map(chap => (
+                        <div
+                          key={chap.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.28rem 0', borderBottom: '1px solid var(--border)' }}
+                        >
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flex: 1, lineHeight: 1.3 }}>
+                            {chap.name}
+                            {chap.email && (
+                              <span style={{ color: 'var(--text-dim)', marginLeft: '0.4rem', fontSize: '0.65rem' }}>
+                                {chap.email}
+                              </span>
+                            )}
+                            {chap.token_sent_at && (
+                              <span style={{ color: 'var(--gold)', marginLeft: '0.35rem', fontSize: '0.62rem', fontFamily: 'var(--fm)' }}>✓ sent</span>
+                            )}
+                          </span>
+                          <button
+                            className="btn btn-icon"
+                            style={{ width: 22, height: 22, fontSize: '0.58rem', flexShrink: 0 }}
+                            onClick={() => handleRemoveInlineChaperone(chap.id)}
+                            disabled={isPending}
+                            title="Remove chaperone"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      {isAdding ? (
+                        <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          <input
+                            className="input"
+                            placeholder="Name *"
+                            value={newChapName}
+                            onChange={e => setNewChapName(e.target.value)}
+                            style={{ fontSize: '0.82rem' }}
+                            autoFocus
+                            onKeyDown={e => e.key === 'Enter' && handleAddChaperone(group.id)}
+                          />
+                          <input
+                            className="input"
+                            type="email"
+                            placeholder="Email (optional)"
+                            value={newChapEmail}
+                            onChange={e => setNewChapEmail(e.target.value)}
+                            style={{ fontSize: '0.82rem' }}
+                          />
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <button
+                              className="btn btn-gold btn-sm"
+                              onClick={() => handleAddChaperone(group.id)}
+                              disabled={isPending || !newChapName.trim()}
+                            >
+                              Add
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => { setAddingChaperoneGroup(null); setNewChapName(''); setNewChapEmail('') }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: '0.62rem', marginTop: '0.35rem' }}
+                          onClick={() => { setAddingChaperoneGroup(group.id); setNewChapName(''); setNewChapEmail('') }}
+                        >
+                          + Add Chaperone
+                        </button>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 {/* Group actions */}
                 {(() => {
                   const playersWithEmail = groupPlayers.filter(p => p.player_email)
                   const assignedCid = groupChaperoneMap[group.id]
                   const assignedChaperone = assignedCid ? chaperoneById.get(assignedCid) : null
+                  const inlineChapsForGroup = chaperones.filter(c => c.group_id === group.id)
+                  const anyChapEmail = inlineChapsForGroup.some(c => c.email) || !!assignedChaperone?.email
+                  const hasSentLink = sentGroupLinks.has(group.id) || inlineChapsForGroup.some(c => c.token_sent_at)
                   return (
                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {/* Send Scoring Link — appears when any chaperone has email */}
+                      {anyChapEmail && (
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                          {!group.tee_time && (
+                            <div style={{ fontSize: '0.65rem', color: 'var(--over)' }}>
+                              No tee time set — email will not include a tee time
+                            </div>
+                          )}
+                          <div>
+                            <button
+                              className={`btn btn-sm ${hasSentLink ? 'btn-outline' : 'btn-gold'}`}
+                              style={{ fontSize: '0.7rem' }}
+                              onClick={() => handleSendGroupLink(group.id)}
+                              disabled={sendingGroupLink === group.id}
+                            >
+                              {sendingGroupLink === group.id
+                                ? 'Sending...'
+                                : hasSentLink
+                                ? '✓ Resend Link'
+                                : 'Send Scoring Link'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ fontSize: '0.65rem' }}

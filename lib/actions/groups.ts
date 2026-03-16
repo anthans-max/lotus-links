@@ -276,6 +276,18 @@ export async function autoGenerateGroups(
   return { groupCount: groups.length }
 }
 
+export async function bulkAssignTeeTimes(groupTeeTimes: { id: string; tee_time: string }[]) {
+  const supabase = await createClient()
+  for (const g of groupTeeTimes) {
+    const { error } = await supabase
+      .from('groups')
+      .update({ tee_time: g.tee_time })
+      .eq('id', g.id)
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/dashboard')
+}
+
 export async function autoAssignPlayers(tournamentId: string) {
   const supabase = await createClient()
 

@@ -217,6 +217,8 @@ export interface Chaperone {
   email: string | null
   phone: string | null
   role: 'parent' | 'coach' | 'volunteer'
+  group_id: string | null       // set when chaperone is added inline to a specific group
+  token_sent_at: string | null  // timestamp of last scoring-link email send
   created_at: string
 }
 
