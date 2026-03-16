@@ -709,7 +709,74 @@ export default function GroupsManager({
             <button
               className="btn btn-ghost btn-sm"
               style={{ fontSize: '0.72rem' }}
-              onClick={() => window.print()}
+              onClick={() => {
+                const win = window.open('', '_blank')
+                if (!win) return
+                const groupsHtml = sortedGroups.map(group => {
+                  const gPlayers = group.group_players
+                    .map(gp => playerMap.get(gp.player_id))
+                    .filter((p): p is Player => !!p)
+                  const playersHtml = gPlayers.length > 0
+                    ? gPlayers.map(p => {
+                        const hcp = p.handicap_index != null ? p.handicap_index : p.handicap
+                        return `<li>${p.name}${hcp != null ? ` <span class="hcp">(${hcp})</span>` : ''}</li>`
+                      }).join('')
+                    : '<li class="empty">No players assigned</li>'
+                  const teeTimeLine = group.tee_time
+                    ? `<span class="tee-time">${formatTeeTime(group.tee_time)}</span>`
+                    : ''
+                  const holeLine = group.starting_hole
+                    ? `<div class="meta">Hole ${group.starting_hole}</div>`
+                    : ''
+                  return `
+                    <div class="group">
+                      <div class="group-header">
+                        <span class="group-name">${group.name}</span>
+                        ${teeTimeLine}
+                      </div>
+                      ${holeLine}
+                      <ul>${playersHtml}</ul>
+                    </div>`
+                }).join('')
+                win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${tournament.name} — Group Pairings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; color: #000; background: #fff; padding: 1.5rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+    .subtitle { font-size: 0.82rem; color: #555; margin-bottom: 1.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .group { border: 1px solid #bbb; border-radius: 4px; padding: 0.6rem 0.75rem; break-inside: avoid; }
+    .group-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; margin-bottom: 0.3rem; }
+    .group-name { font-weight: bold; font-size: 0.95rem; }
+    .tee-time { font-size: 0.78rem; color: #555; }
+    .meta { font-size: 0.7rem; color: #777; margin-bottom: 0.2rem; }
+    ul { list-style: none; }
+    li { font-size: 0.82rem; padding: 0.12rem 0; border-bottom: 1px solid #eee; }
+    li:last-child { border-bottom: none; }
+    .hcp { color: #666; font-size: 0.75rem; }
+    .empty { color: #aaa; font-style: italic; }
+    @media print {
+      body { padding: 0.5rem; }
+      @page { margin: 1cm; }
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${tournament.name} — Group Pairings</h1>
+  <div class="subtitle">${sortedGroups.length} group${sortedGroups.length !== 1 ? 's' : ''} &middot; ${players.length} player${players.length !== 1 ? 's' : ''}</div>
+  <div class="grid">${groupsHtml}</div>
+</body>
+</html>`)
+                win.document.close()
+                setTimeout(() => win.print(), 300)
+              }}
             >
               Print Sheet
             </button>
@@ -1291,116 +1358,6 @@ export default function GroupsManager({
         </div>
       )}
 
-      {/* ── Print-only sheet ── rendered in DOM, shown only via @media print ── */}
-      <div className="gm-print-sheet">
-        <div className="gm-print-title">{tournament.name} — Group Sheet</div>
-        <div className="gm-print-subtitle">
-          {sortedGroups.length} group{sortedGroups.length !== 1 ? 's' : ''} &middot; {players.length} player{players.length !== 1 ? 's' : ''}
-        </div>
-        <div className="gm-print-grid">
-          {sortedGroups.map(group => {
-            const gPlayers = group.group_players
-              .map(gp => playerMap.get(gp.player_id))
-              .filter((p): p is Player => !!p)
-            return (
-              <div key={group.id} className="gm-print-group">
-                <div className="gm-print-group-header">
-                  <span className="gm-print-group-name">{group.name}</span>
-                  {group.tee_time && (
-                    <span className="gm-print-tee-time">{formatTeeTime(group.tee_time)}</span>
-                  )}
-                </div>
-                {group.starting_hole && (
-                  <div className="gm-print-meta">Hole {group.starting_hole}</div>
-                )}
-                <ul className="gm-print-players">
-                  {gPlayers.map(p => (
-                    <li key={p.id}>
-                      {p.name}
-                      {p.grade ? ` — Grade ${p.grade}` : ''}
-                    </li>
-                  ))}
-                  {gPlayers.length === 0 && <li className="gm-print-empty">No players</li>}
-                </ul>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <style>{`
-        .gm-print-sheet { display: none; }
-        @media print {
-          .gm-print-sheet {
-            display: block;
-            font-family: Georgia, serif;
-            color: #000;
-            padding: 1.5rem;
-          }
-          .gm-print-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 0.25rem;
-          }
-          .gm-print-subtitle {
-            font-size: 0.85rem;
-            color: #555;
-            margin-bottom: 1.25rem;
-          }
-          .gm-print-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-          }
-          @media (max-width: 640px) {
-            .gm-print-grid { grid-template-columns: 1fr 1fr; }
-          }
-          .gm-print-group {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 0.6rem 0.75rem;
-            break-inside: avoid;
-          }
-          .gm-print-group-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 0.35rem;
-            margin-bottom: 0.35rem;
-          }
-          .gm-print-group-name {
-            font-weight: bold;
-            font-size: 0.95rem;
-          }
-          .gm-print-tee-time {
-            font-size: 0.8rem;
-            color: #555;
-          }
-          .gm-print-meta {
-            font-size: 0.72rem;
-            color: #777;
-            margin-bottom: 0.25rem;
-          }
-          .gm-print-players {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-          }
-          .gm-print-players li {
-            font-size: 0.82rem;
-            padding: 0.15rem 0;
-            border-bottom: 1px solid #eee;
-          }
-          .gm-print-players li:last-child { border-bottom: none; }
-          .gm-print-empty { color: #999; font-style: italic; }
-          /* Hide all non-print elements */
-          body > *:not(.gm-print-sheet),
-          nav, header, footer,
-          [data-no-print] { display: none !important; }
-          .gm-print-sheet { display: block !important; }
-        }
-      `}</style>
     </div>
   )
 }
