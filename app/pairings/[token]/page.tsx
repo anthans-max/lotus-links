@@ -64,10 +64,11 @@ export default async function PairingsPage({ params }: Props) {
   }
 
   const sortedGroups = [...(groups ?? [])].sort((a, b) => {
-    if (!a.tee_time && !b.tee_time) return 0
+    if (!a.tee_time && !b.tee_time) return (a.name ?? '').localeCompare(b.name ?? '')
     if (!a.tee_time) return 1
     if (!b.tee_time) return -1
-    return a.tee_time.localeCompare(b.tee_time)
+    const timeCmp = a.tee_time.localeCompare(b.tee_time)
+    return timeCmp !== 0 ? timeCmp : (a.name ?? '').localeCompare(b.name ?? '')
   })
 
   const totalPlayers = (groups ?? []).reduce((n, g) => n + (g.group_players as { player_id: string }[]).length, 0)
