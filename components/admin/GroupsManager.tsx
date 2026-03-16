@@ -118,6 +118,17 @@ export default function GroupsManager({
     [groups, groupChaperoneMap, chaperoneById]
   )
 
+  // Total unique chaperones with email across all groups
+  const chaperoneEmailCount = useMemo(() => {
+    const seen = new Set<string>()
+    for (const g of groups) {
+      for (const cid of groupChaperoneMap[g.id] ?? []) {
+        if (chaperoneById.get(cid)?.email) seen.add(cid)
+      }
+    }
+    return seen.size
+  }, [groups, groupChaperoneMap, chaperoneById])
+
   const groupsWithEmail = groups.filter(g => g.chaperone_email)
   const playersWithEmailCount = useMemo(() => {
     const seen = new Set<string>()
@@ -816,7 +827,7 @@ export default function GroupsManager({
                 onClick={() => setConfirmSendAllChaperones(true)}
                 disabled={sendingAllChaperones}
               >
-                {sendingAllChaperones ? 'Sending...' : `Email All Chaperones (${groupsWithChaperoneToken.length})`}
+                {sendingAllChaperones ? 'Sending...' : `Email All Chaperones (${chaperoneEmailCount})`}
               </button>
             )}
           </>
