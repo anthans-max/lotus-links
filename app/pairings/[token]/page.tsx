@@ -112,9 +112,6 @@ export default async function PairingsPage({ params }: Props) {
                       {formatTeeTime(group.tee_time)}
                     </span>
                   )}
-                  {group.starting_hole && (
-                    <span className="badge badge-gray" style={{ fontSize: '0.65rem' }}>H{group.starting_hole}</span>
-                  )}
                 </div>
               </div>
 
