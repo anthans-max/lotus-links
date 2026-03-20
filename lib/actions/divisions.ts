@@ -5,12 +5,16 @@ import { createClient } from '@/lib/supabase/server'
 import type { Division } from '@/lib/types'
 
 // Grade → division bucket index (0 = youngest, 2 = oldest)
+// Handles both "4" and "4th" formats
 function gradeToBucket(grade: string | null | undefined): number | null {
   if (!grade) return null
-  const g = grade.trim()
-  if (g === '3' || g === '4') return 0
-  if (g === '5') return 1
-  if (g === '6' || g === '7' || g === '8') return 2
+  // Extract leading digit(s) — handles "4", "4th", "3rd", "8th", etc.
+  const match = grade.trim().match(/^(\d+)/)
+  if (!match) return null
+  const n = parseInt(match[1], 10)
+  if (n === 3 || n === 4) return 0
+  if (n === 5) return 1
+  if (n === 6 || n === 7 || n === 8) return 2
   return null
 }
 
