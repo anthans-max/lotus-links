@@ -139,9 +139,19 @@ export async function POST(req: NextRequest) {
     )
 
     const sent = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
+    const failures: Array<{ email: string; groupName: string; error: string }> = []
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        failures.push({
+          email: groups[i].chaperone_email!,
+          groupName: groups[i].name,
+          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+        })
+      }
+    })
+    if (failures.length > 0) console.error('[send-scoring-link] all-chaperones failures:', JSON.stringify(failures))
 
-    return NextResponse.json({ sent, failed })
+    return NextResponse.json({ sent, failed: failures.length, failures })
   }
 
   // ─── Group-players mode: send to all players in group with player_email ───────
@@ -631,9 +641,21 @@ export async function POST(req: NextRequest) {
     )
 
     const sent = results.filter(r => r.status === 'fulfilled').length
-    const failed = results.filter(r => r.status === 'rejected').length
+    const failures: Array<{ email: string; groupName: string; error: string }> = []
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        const chaperone = (eligible[i].chaperones as unknown) as { name: string; email: string }
+        const group = (groups ?? []).find(g => g.id === eligible[i].group_id)
+        failures.push({
+          email: chaperone.email,
+          groupName: group?.name ?? 'Unknown',
+          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+        })
+      }
+    })
+    if (failures.length > 0) console.error('[send-scoring-link] all-chaperones-token failures:', JSON.stringify(failures))
 
-    return NextResponse.json({ sent, failed })
+    return NextResponse.json({ sent, failed: failures.length, failures })
   }
 
   return NextResponse.json({ error: 'Invalid mode' }, { status: 400 })

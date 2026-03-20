@@ -7,6 +7,7 @@ import { createTournamentWithWishHoles, updateTournament } from '@/lib/actions/t
 import { WISH_HOLES } from '@/lib/course-data'
 
 interface TournamentSetupProps {
+  leagueId: string
   tournament: Tournament | null
   holes: Hole[]
   onCreated: () => void
@@ -14,16 +15,17 @@ interface TournamentSetupProps {
 
 const STEPS = ['Details', 'Course Preview']
 
-export default function TournamentSetup({ tournament, holes, onCreated }: TournamentSetupProps) {
+export default function TournamentSetup({ leagueId, tournament, holes, onCreated }: TournamentSetupProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
+    league_id: leagueId,
     name: tournament?.name ?? 'WISH Charter School Golf Tournament',
     date: tournament?.date ?? new Date().toISOString().split('T')[0],
-    course_name: tournament?.course || 'The Lakes at El Segundo',
+    course: tournament?.course || 'The Lakes at El Segundo',
     format: tournament?.format ?? 'Scramble',
   })
 
@@ -185,8 +187,8 @@ export default function TournamentSetup({ tournament, holes, onCreated }: Tourna
                 <div className="label">Course Name</div>
                 <input
                   className="input"
-                  value={form.course_name}
-                  onChange={e => upd('course_name', e.target.value)}
+                  value={form.course}
+                  onChange={e => upd('course', e.target.value)}
                 />
               </div>
             </div>
@@ -227,7 +229,7 @@ export default function TournamentSetup({ tournament, holes, onCreated }: Tourna
                 lineHeight: 1.6,
               }}
             >
-              {form.course_name} &middot; {displayHoles.length} holes &middot; All Par 3 &middot;{' '}
+              {form.course} &middot; {displayHoles.length} holes &middot; All Par 3 &middot;{' '}
               {totalYards.toLocaleString()} yards total
             </div>
 

@@ -17,10 +17,11 @@ export interface DashboardData {
 }
 
 interface DashboardShellProps {
+  leagueId: string
   data: DashboardData
 }
 
-export default function DashboardShell({ data }: DashboardShellProps) {
+export default function DashboardShell({ leagueId, data }: DashboardShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>(
     data.tournament ? 'dashboard' : 'setup'
   )
@@ -34,6 +35,7 @@ export default function DashboardShell({ data }: DashboardShellProps) {
       )}
       {activeTab === 'setup' && (
         <TournamentSetup
+          leagueId={leagueId}
           tournament={data.tournament}
           holes={data.holes}
           onCreated={() => setActiveTab('dashboard')}

@@ -546,8 +546,13 @@ export default function GroupsManager({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to send emails')
-      setSuccess(`Sent ${data.sent} chaperone email${data.sent !== 1 ? 's' : ''}${data.failed ? `, ${data.failed} failed` : ''}`)
-      setTimeout(() => setSuccess(null), 4000)
+      let msg = `Sent ${data.sent} chaperone email${data.sent !== 1 ? 's' : ''}`
+      if (data.failures?.length > 0) {
+        const failedNames = data.failures.map((f: { groupName: string; email: string }) => f.groupName || f.email).join(', ')
+        msg += `. ${data.failures.length} failed: ${failedNames}`
+      }
+      setSuccess(msg)
+      setTimeout(() => setSuccess(null), 6000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send emails')
     } finally {

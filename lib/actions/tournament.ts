@@ -46,9 +46,10 @@ export async function createTournament(formData: {
 }
 
 export async function createTournamentWithWishHoles(formData: {
+  league_id: string
   name: string
   date: string
-  course_name: string
+  course: string
   format: string
 }) {
   const supabase = await createClient()
@@ -56,10 +57,12 @@ export async function createTournamentWithWishHoles(formData: {
   const { data: tournament, error } = await supabase
     .from('tournaments')
     .insert({
+      league_id: formData.league_id,
       name: formData.name,
       date: formData.date,
-      course: formData.course_name,
+      course: formData.course,
       format: formData.format,
+      holes: 10,
       status: 'upcoming' as const,
     })
     .select()
@@ -77,6 +80,7 @@ export async function createTournamentWithWishHoles(formData: {
   const { error: holesError } = await supabase.from('holes').insert(holesData)
   if (holesError) throw new Error(holesError.message)
 
+  revalidatePath(`/dashboard/leagues/${formData.league_id}`)
   revalidatePath('/dashboard')
   return tournament
 }
