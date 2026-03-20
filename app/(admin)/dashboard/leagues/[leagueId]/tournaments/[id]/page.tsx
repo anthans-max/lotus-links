@@ -9,6 +9,7 @@ import TournamentTabs from '@/components/admin/TournamentTabs'
 import TournamentInfoCard from '@/components/admin/TournamentInfoCard'
 import CopyTokenButton from '@/components/admin/CopyTokenButton'
 import SendScorecardButton from '@/components/admin/SendScorecardButton'
+import VolunteerCard from '@/components/admin/VolunteerCard'
 import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     { count: registeredCount },
     { count: scoreCount },
     { count: completedGroupCount },
+    { data: volunteers },
   ] = await Promise.all([
     supabase.from('holes').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
     supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
@@ -47,6 +49,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     supabase.from('players').select('*', { count: 'exact', head: true }).eq('tournament_id', id).in('status', ['registered', 'checked_in']),
     supabase.from('scores').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
     supabase.from('groups').select('*', { count: 'exact', head: true }).eq('tournament_id', id).eq('status', 'completed'),
+    supabase.from('volunteers').select('*').eq('tournament_id', id).order('created_at', { ascending: true }),
   ])
 
   const totalPar = holeCount && holeCount > 0
@@ -169,6 +172,15 @@ export default async function TournamentDetailPage({ params }: Props) {
             </div>
             <CopyTokenButton token={tournament.public_token} />
           </div>
+        )}
+
+        {/* Volunteer sign-ups */}
+        {isAdmin && (
+          <VolunteerCard
+            tournamentId={id}
+            leagueId={leagueId}
+            initialVolunteers={(volunteers ?? []) as any[]}
+          />
         )}
 
         {/* Scorecard — Stableford / Stroke Play only */}

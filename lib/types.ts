@@ -256,6 +256,17 @@ export interface GroupWithPlayers extends Group {
   players: Player[]
 }
 
+export interface Volunteer {
+  id: string
+  tournament_id: string
+  name: string
+  email: string
+  phone: string | null
+  roles: string[]
+  notes: string | null
+  created_at: string
+}
+
 export interface Profile {
   id: string
   email: string | null
