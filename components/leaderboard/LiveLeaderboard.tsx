@@ -539,44 +539,54 @@ export default function LiveLeaderboard({
         )}
 
         {/* Celebration / podium section — shown when results published */}
-        {resultsPublished && !isIndividual && (groupLeaderboard.length > 0 || divisionWinners.length > 0) && (
+        {resultsPublished && !isIndividual && displayedGroupLeaderboard.length > 0 && (
           <div style={{ marginBottom: '2rem', animation: 'fadeUp 0.5s ease' }}>
-            {/* Overall champion */}
-            {groupLeaderboard[0] && (
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(200,168,75,0.18), rgba(200,168,75,0.06))',
-                border: '2px solid var(--gold-border)',
-                borderRadius: 16,
-                padding: '1.75rem 1.5rem',
-                textAlign: 'center',
-                marginBottom: '1rem',
-                position: 'relative',
-                overflow: 'hidden',
-              }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(200,168,75,0.12), transparent 60%)', pointerEvents: 'none' }} />
-                <div style={{ fontSize: '2.75rem', marginBottom: '0.5rem', animation: 'pop 0.5s ease 0.1s both' }}>🏆</div>
-                <div style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.25em', textTransform: 'uppercase', fontFamily: 'var(--fm)', marginBottom: '0.4rem' }}>Overall Champion</div>
-                <div style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.4rem, 4vw, 1.9rem)', color: 'var(--text)', marginBottom: '0.35rem', fontWeight: 400 }}>
-                  {groupLeaderboard[0].name}
-                </div>
-                {groupLeaderboard[0].players && groupLeaderboard[0].players.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
-                    {groupLeaderboard[0].players.map((name, i) => (
-                      <span key={i} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4, padding: '0.15rem 0.4rem', fontFamily: 'var(--fm)' }}>{name}</span>
-                    ))}
+            {/* Champion card — uses the filtered leaderboard's #1 */}
+            {displayedGroupLeaderboard[0] && (() => {
+              const champ = displayedGroupLeaderboard[0]
+              const isOverall = selectedDivisionId === null
+              const champLabel = isOverall
+                ? 'Overall Champion'
+                : `${selectedDivision?.name ?? 'Division'} Champion`
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(200,168,75,0.18), rgba(200,168,75,0.06))',
+                  border: '2px solid var(--gold-border)',
+                  borderRadius: 16,
+                  padding: '1.75rem 1.5rem',
+                  textAlign: 'center',
+                  marginBottom: '1rem',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(200,168,75,0.12), transparent 60%)', pointerEvents: 'none' }} />
+                  <div style={{ fontSize: '2.75rem', marginBottom: '0.5rem', animation: 'pop 0.5s ease 0.1s both' }}>🏆</div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.25em', textTransform: 'uppercase', fontFamily: 'var(--fm)', marginBottom: '0.4rem' }}>{champLabel}</div>
+                  {!isOverall && selectedDivision?.description && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{selectedDivision.description}</div>
+                  )}
+                  <div style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.4rem, 4vw, 1.9rem)', color: 'var(--text)', marginBottom: '0.35rem', fontWeight: 400 }}>
+                    {champ.name}
                   </div>
-                )}
-                <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: groupLeaderboard[0].scoreToPar < 0 ? '#4CAF50' : groupLeaderboard[0].scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
-                  {fmtRelative(groupLeaderboard[0].scoreToPar)}
+                  {champ.players && champ.players.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                      {champ.players.map((name, i) => (
+                        <span key={i} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4, padding: '0.15rem 0.4rem', fontFamily: 'var(--fm)' }}>{name}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: champ.scoreToPar < 0 ? '#4CAF50' : champ.scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                    {fmtRelative(champ.scoreToPar)}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginTop: '0.15rem' }}>
+                    {champ.totalStrokes} strokes &middot; {champ.holesCompleted}/{holes.length} holes
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginTop: '0.15rem' }}>
-                  {groupLeaderboard[0].totalStrokes} strokes &middot; {groupLeaderboard[0].holesCompleted}/{holes.length} holes
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
-            {/* Division winners */}
-            {divisionWinners.length > 0 && (
+            {/* Division winners — only on Overall tab */}
+            {selectedDivisionId === null && divisionWinners.length > 0 && (
               <div>
                 <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: 'var(--fm)', textAlign: 'center', marginBottom: '0.75rem' }}>
                   Division Champions
