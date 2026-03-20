@@ -71,6 +71,8 @@ export default async function GroupsPage({ params }: Props) {
           chaperones={(chaperones ?? []) as any}
           groupChaperoneMap={groupChaperoneMap}
           divisions={(divisions ?? []) as any}
+          logoUrl={logoUrl}
+          leagueName={(league as any).name}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

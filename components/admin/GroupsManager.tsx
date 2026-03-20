@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Tournament, Player, Group, GroupPlayer, PairingPreference, Chaperone } from '@/lib/types'
 import { getBaseUrl } from '@/lib/url'
+import { openPrintSheet } from '@/lib/printPairingsTemplate'
 import {
   createGroup,
   updateGroup,
@@ -44,6 +45,8 @@ interface GroupsManagerProps {
   chaperones?: Chaperone[]
   groupChaperoneMap?: Record<string, string[]>  // groupId → chaperoneId[]
   divisions?: Division[]
+  logoUrl?: string | null
+  leagueName?: string
 }
 
 export default function GroupsManager({
@@ -57,6 +60,8 @@ export default function GroupsManager({
   chaperones = [],
   groupChaperoneMap = {},
   divisions: initialDivisions = [],
+  logoUrl,
+  leagueName,
 }: GroupsManagerProps) {
   const scorerLabel = isWish ? 'Chaperone' : 'Scorer'
   const router = useRouter()
@@ -1211,81 +1216,39 @@ export default function GroupsManager({
               className="btn btn-ghost btn-sm"
               style={{ fontSize: '0.72rem' }}
               onClick={() => {
-                const win = window.open('', '_blank')
-                if (!win) return
-                const groupsHtml = sortedGroups.map(group => {
+                const base = getBaseUrl()
+                const pairingsUrl = tournament.public_token ? `${base}/pairings/${tournament.public_token}` : ''
+                const dateStr = tournament.date
+                  ? new Date(tournament.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                  : ''
+                const printGroups = sortedGroups.map((group, i) => {
                   const gPlayers = group.group_players
                     .map(gp => playerMap.get(gp.player_id))
                     .filter((p): p is Player => !!p)
-                  const playersHtml = gPlayers.length > 0
-                    ? gPlayers.map(p => {
-                        const hcp = p.handicap_index != null ? p.handicap_index : p.handicap
-                        return `<li>${p.name}${hcp != null ? ` <span class="hcp">(${hcp})</span>` : ''}</li>`
-                      }).join('')
-                    : '<li class="empty">No players assigned</li>'
-                  const teeTimeLine = group.tee_time
-                    ? `<span class="tee-time">${formatTeeTime(group.tee_time)}</span>`
-                    : ''
-                  const holeLine = group.starting_hole
-                    ? `<div class="meta">Hole ${group.starting_hole}</div>`
-                    : ''
                   const chapNames = (groupChaperoneMap[group.id] ?? [])
                     .map(cid => chaperoneById.get(cid)?.name)
-                    .filter(Boolean)
-                    .join(', ')
-                  const chapLine = chapNames
-                    ? `<div class="chap">${scorerLabel}: ${chapNames}</div>`
-                    : ''
-                  return `
-                    <div class="group">
-                      <div class="group-header">
-                        <span class="group-name">${group.name}</span>
-                        ${teeTimeLine}
-                      </div>
-                      ${holeLine}
-                      ${chapLine}
-                      <ul>${playersHtml}</ul>
-                    </div>`
-                }).join('')
-                win.document.write(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>${tournament.name} — Group Pairings</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Georgia, serif; color: #000; background: #fff; padding: 1.5rem; }
-    h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
-    .subtitle { font-size: 0.82rem; color: #555; margin-bottom: 1.5rem; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-    .group { border: 1px solid #bbb; border-radius: 4px; padding: 0.6rem 0.75rem; break-inside: avoid; }
-    .group-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; margin-bottom: 0.3rem; }
-    .group-name { font-weight: bold; font-size: 0.95rem; }
-    .tee-time { font-size: 0.78rem; color: #555; }
-    .meta { font-size: 0.7rem; color: #777; margin-bottom: 0.2rem; }
-    .chap { font-size: 0.72rem; color: #444; font-style: italic; margin-bottom: 0.3rem; }
-    ul { list-style: none; }
-    li { font-size: 0.82rem; padding: 0.12rem 0; border-bottom: 1px solid #eee; }
-    li:last-child { border-bottom: none; }
-    .hcp { color: #666; font-size: 0.75rem; }
-    .empty { color: #aaa; font-style: italic; }
-    @media print {
-      body { padding: 0.5rem; }
-      @page { margin: 1cm; }
-    }
-    @media (max-width: 600px) {
-      .grid { grid-template-columns: 1fr 1fr; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${tournament.name} — Group Pairings</h1>
-  <div class="subtitle">${sortedGroups.length} group${sortedGroups.length !== 1 ? 's' : ''} &middot; ${players.length} player${players.length !== 1 ? 's' : ''}</div>
-  <div class="grid">${groupsHtml}</div>
-</body>
-</html>`)
-                win.document.close()
-                setTimeout(() => win.print(), 300)
+                    .filter((n): n is string => !!n)
+                  return {
+                    num: i + 1,
+                    time: group.tee_time ? formatTeeTime(group.tee_time) : '',
+                    chaperones: chapNames,
+                    players: gPlayers.map(p => ({
+                      name: p.name,
+                      grade: p.grade ?? '',
+                    })),
+                  }
+                })
+                openPrintSheet({
+                  tournamentName: tournament.name,
+                  tournamentDate: dateStr,
+                  courseName: tournament.course || tournament.course_name || '',
+                  tournamentNotes: tournament.notes || `Format: ${tournament.format}`,
+                  logoUrl: logoUrl ?? null,
+                  groupCount: sortedGroups.length,
+                  playerCount: players.length,
+                  pairingsUrl,
+                  groups: printGroups,
+                })
               }}
             >
               Print Sheet
