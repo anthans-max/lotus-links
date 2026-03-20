@@ -119,6 +119,7 @@ export async function assignGroupDivision(
 export interface AutoAssignResult {
   assigned: number
   unassigned: number
+  assignments: Record<string, string>  // groupId → divisionId
 }
 
 export async function autoAssignDivisions(
@@ -158,7 +159,7 @@ export async function autoAssignDivisions(
     .select('id')
     .eq('tournament_id', tournamentId)
 
-  if (!groups || groups.length === 0) return { assigned: 0, unassigned: 0 }
+  if (!groups || groups.length === 0) return { assigned: 0, unassigned: 0, assignments: {} }
 
   // Fetch group_players with player grades
   const groupIds = groups.map(g => g.id)
@@ -183,6 +184,7 @@ export async function autoAssignDivisions(
 
   let assigned = 0
   let unassigned = 0
+  const assignments: Record<string, string> = {}
 
   for (const group of groups) {
     const playerIdsInGroup = groupPlayersByGroup[group.id] ?? []
@@ -198,15 +200,12 @@ export async function autoAssignDivisions(
 
     const maxCount = Math.max(bucketCounts[0], bucketCounts[1], bucketCounts[2])
     if (maxCount === 0) {
-      // No grades — leave unassigned
       unassigned++
       continue
     }
 
-    // Find bucket with max count; check for tie
     const topBuckets = [0, 1, 2].filter(b => bucketCounts[b] === maxCount)
     if (topBuckets.length > 1) {
-      // Tie — leave unassigned
       unassigned++
       continue
     }
@@ -219,11 +218,12 @@ export async function autoAssignDivisions(
     }
 
     await supabase.from('groups').update({ division_id: divisionId }).eq('id', group.id)
+    assignments[group.id] = divisionId
     assigned++
   }
 
   revalidatePath(`/dashboard/leagues/${leagueId}/tournaments/${tournamentId}/groups`)
-  return { assigned, unassigned }
+  return { assigned, unassigned, assignments }
 }
 
 export async function setResultsPublished(

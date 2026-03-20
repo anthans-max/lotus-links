@@ -712,6 +712,8 @@ export default function GroupsManager({
     try {
       const result = await autoAssignDivisions(tournamentId, leagueId)
       setAutoAssignResult(result)
+      // Apply returned assignments to local state immediately
+      setLocalGroupDivisions(prev => ({ ...prev, ...result.assignments }))
       setSuccess(`Assigned ${result.assigned} group${result.assigned !== 1 ? 's' : ''}${result.unassigned > 0 ? `. ${result.unassigned} need manual assignment.` : '.'}`)
       setTimeout(() => { setSuccess(null); setAutoAssignResult(null) }, 5000)
       router.refresh()
