@@ -623,9 +623,6 @@ export default function LiveLeaderboard({
                     <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 600, color: entry.scoreToPar < 0 ? '#4CAF50' : entry.scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
                       {fmtRelative(entry.scoreToPar)}
                     </div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
-                      {entry.totalStrokes}
-                    </div>
                   </div>
                 </div>
               )
