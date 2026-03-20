@@ -13,6 +13,7 @@ import {
   autoGenerateGroups,
   regenerateGroupPin,
   bulkAssignTeeTimes,
+  renumberGroupsByTeeTime,
 } from '@/lib/actions/groups'
 import {
   assignChaperoneToGroup,
@@ -83,6 +84,7 @@ export default function GroupsManager({
   const [copyingToken, setCopyingToken] = useState<string | null>(null)
   const [editTeeTime, setEditTeeTime] = useState('')
   const [confirmAutoGenerate, setConfirmAutoGenerate] = useState(false)
+  const [confirmRenumber, setConfirmRenumber] = useState(false)
   // Tee time assignment modal
   const [showTeeTimeModal, setShowTeeTimeModal] = useState(false)
   const [teeStartTime, setTeeStartTime] = useState('08:00')
@@ -544,6 +546,21 @@ export default function GroupsManager({
   }
 
 
+  const handleRenumber = () => {
+    setConfirmRenumber(false)
+    setError(null)
+    startTransition(async () => {
+      try {
+        await renumberGroupsByTeeTime(tournamentId)
+        setSuccess('Groups renumbered by tee time')
+        setTimeout(() => setSuccess(null), 3000)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to renumber groups')
+      }
+    })
+  }
+
   const handleSendGroupLink = async (groupId: string) => {
     setSendingGroupLink(groupId)
     setError(null)
@@ -795,6 +812,25 @@ export default function GroupsManager({
           >
             Assign Tee Times
           </button>
+        )}
+        {groups.some(g => g.tee_time) && (
+          confirmRenumber ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Rename all groups by tee time order?
+              </span>
+              <button className="btn btn-gold btn-sm" onClick={handleRenumber} disabled={isPending}>Confirm</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmRenumber(false)}>Cancel</button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => setConfirmRenumber(true)}
+              disabled={isPending}
+            >
+              Renumber by Tee Time
+            </button>
+          )
         )}
         {groupsWithEmail.length > 0 && (
           <>

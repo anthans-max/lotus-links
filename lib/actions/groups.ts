@@ -276,6 +276,37 @@ export async function autoGenerateGroups(
   return { groupCount: groups.length }
 }
 
+export async function renumberGroupsByTeeTime(tournamentId: string) {
+  const supabase = await createClient()
+
+  const { data: groups, error } = await supabase
+    .from('groups')
+    .select('id, tee_time, name')
+    .eq('tournament_id', tournamentId)
+
+  if (error) throw new Error(error.message)
+  if (!groups || groups.length === 0) return
+
+  // Sort: tee_time ascending (nulls last), then name as tiebreaker
+  const sorted = [...groups].sort((a, b) => {
+    if (!a.tee_time && !b.tee_time) return a.name.localeCompare(b.name)
+    if (!a.tee_time) return 1
+    if (!b.tee_time) return -1
+    const cmp = a.tee_time.localeCompare(b.tee_time)
+    return cmp !== 0 ? cmp : a.name.localeCompare(b.name)
+  })
+
+  for (let i = 0; i < sorted.length; i++) {
+    const { error: upErr } = await supabase
+      .from('groups')
+      .update({ name: `Group ${i + 1}` })
+      .eq('id', sorted[i].id)
+    if (upErr) throw new Error(upErr.message)
+  }
+
+  revalidatePath('/dashboard')
+}
+
 export async function bulkAssignTeeTimes(groupTeeTimes: { id: string; tee_time: string }[]) {
   const supabase = await createClient()
   for (const g of groupTeeTimes) {
