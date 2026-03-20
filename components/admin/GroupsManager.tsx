@@ -22,17 +22,28 @@ import {
   getOrCreateGroupToken,
   sendGroupChaperoneEmails,
 } from '@/lib/actions/chaperones'
+import {
+  createDivision,
+  updateDivision,
+  deleteDivision,
+  createWishDefaultDivisions,
+  assignGroupDivision,
+  autoAssignDivisions,
+  type AutoAssignResult,
+} from '@/lib/actions/divisions'
+import type { Division } from '@/lib/types'
 
 interface GroupsManagerProps {
   tournamentId: string
   leagueId: string
   tournament: Tournament
   players: Player[]
-  groups: (Group & { group_players: GroupPlayer[] })[]
+  groups: (Group & { group_players: GroupPlayer[]; division_id?: string | null })[]
   pairingPrefs: PairingPreference[]
   isWish?: boolean
   chaperones?: Chaperone[]
   groupChaperoneMap?: Record<string, string[]>  // groupId → chaperoneId[]
+  divisions?: Division[]
 }
 
 export default function GroupsManager({
@@ -45,6 +56,7 @@ export default function GroupsManager({
   isWish = false,
   chaperones = [],
   groupChaperoneMap = {},
+  divisions: initialDivisions = [],
 }: GroupsManagerProps) {
   const scorerLabel = isWish ? 'Chaperone' : 'Scorer'
   const router = useRouter()
@@ -97,6 +109,26 @@ export default function GroupsManager({
   // Per-group send scoring link
   const [sendingGroupLink, setSendingGroupLink] = useState<string | null>(null)
   const [sentGroupLinks, setSentGroupLinks] = useState<Set<string>>(new Set())
+
+  // Divisions
+  const [localDivisions, setLocalDivisions] = useState<Division[]>(initialDivisions)
+  const [localGroupDivisions, setLocalGroupDivisions] = useState<Record<string, string | null>>(
+    () => {
+      const map: Record<string, string | null> = {}
+      for (const g of groups) map[g.id] = g.division_id ?? null
+      return map
+    }
+  )
+  const [showDivisionsPanel, setShowDivisionsPanel] = useState(false)
+  const [editingDivisionId, setEditingDivisionId] = useState<string | null>(null)
+  const [editDivName, setEditDivName] = useState('')
+  const [editDivDesc, setEditDivDesc] = useState('')
+  const [showNewDivForm, setShowNewDivForm] = useState(false)
+  const [newDivName, setNewDivName] = useState('')
+  const [newDivDesc, setNewDivDesc] = useState('')
+  const [confirmDeleteDivision, setConfirmDeleteDivision] = useState<string | null>(null)
+  const [divisionPending, setDivisionPending] = useState(false)
+  const [autoAssignResult, setAutoAssignResult] = useState<AutoAssignResult | null>(null)
 
   // Build assigned player ID set
   const assignedPlayerIds = useMemo(() => {
@@ -579,6 +611,117 @@ export default function GroupsManager({
     }
   }
 
+  // Division handlers
+  const handleCreateWishDefaults = async () => {
+    setDivisionPending(true)
+    setError(null)
+    try {
+      const result = await createWishDefaultDivisions(tournamentId, leagueId)
+      setLocalDivisions(result)
+      setSuccess('WISH default divisions created')
+      setTimeout(() => setSuccess(null), 3000)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create divisions')
+    } finally {
+      setDivisionPending(false)
+    }
+  }
+
+  const handleCreateDivision = async () => {
+    if (!newDivName.trim()) return
+    setDivisionPending(true)
+    setError(null)
+    try {
+      const nextOrder = localDivisions.length > 0
+        ? Math.max(...localDivisions.map(d => d.display_order)) + 1
+        : 1
+      await createDivision(tournamentId, leagueId, newDivName, newDivDesc || undefined, nextOrder)
+      setNewDivName('')
+      setNewDivDesc('')
+      setShowNewDivForm(false)
+      setSuccess('Division created')
+      setTimeout(() => setSuccess(null), 2000)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create division')
+    } finally {
+      setDivisionPending(false)
+    }
+  }
+
+  const handleUpdateDivision = async (divisionId: string) => {
+    setDivisionPending(true)
+    setError(null)
+    try {
+      await updateDivision(divisionId, leagueId, tournamentId, {
+        name: editDivName,
+        description: editDivDesc || null,
+      })
+      setLocalDivisions(prev =>
+        prev.map(d => d.id === divisionId ? { ...d, name: editDivName, description: editDivDesc || null } : d)
+      )
+      setEditingDivisionId(null)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update division')
+    } finally {
+      setDivisionPending(false)
+    }
+  }
+
+  const handleDeleteDivision = async (divisionId: string) => {
+    setDivisionPending(true)
+    setError(null)
+    try {
+      await deleteDivision(divisionId, leagueId, tournamentId)
+      setLocalDivisions(prev => prev.filter(d => d.id !== divisionId))
+      setConfirmDeleteDivision(null)
+      // Clear local group assignments for this division
+      setLocalGroupDivisions(prev => {
+        const next = { ...prev }
+        for (const gid of Object.keys(next)) {
+          if (next[gid] === divisionId) next[gid] = null
+        }
+        return next
+      })
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete division')
+    } finally {
+      setDivisionPending(false)
+    }
+  }
+
+  const handleGroupDivisionChange = async (groupId: string, divisionId: string | null) => {
+    // Optimistic update
+    setLocalGroupDivisions(prev => ({ ...prev, [groupId]: divisionId }))
+    try {
+      await assignGroupDivision(groupId, divisionId, leagueId, tournamentId)
+    } catch (e) {
+      // Revert on error
+      setLocalGroupDivisions(prev => ({ ...prev, [groupId]: groups.find(g => g.id === groupId)?.division_id ?? null }))
+      setError(e instanceof Error ? e.message : 'Failed to assign division')
+    }
+  }
+
+  const handleAutoAssign = async () => {
+    setDivisionPending(true)
+    setError(null)
+    setAutoAssignResult(null)
+    try {
+      const result = await autoAssignDivisions(tournamentId, leagueId)
+      setAutoAssignResult(result)
+      setSuccess(`Assigned ${result.assigned} group${result.assigned !== 1 ? 's' : ''}${result.unassigned > 0 ? `. ${result.unassigned} need manual assignment.` : '.'}`)
+      setTimeout(() => { setSuccess(null); setAutoAssignResult(null) }, 5000)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to auto-assign divisions')
+    } finally {
+      setDivisionPending(false)
+    }
+  }
+
   const handleCopyTokenLink = async (groupId: string) => {
     setCopyingToken(groupId)
     try {
@@ -635,6 +778,164 @@ export default function GroupsManager({
           {success}
         </div>
       )}
+
+      {/* Divisions panel */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <button
+          className={`btn btn-sm ${showDivisionsPanel ? 'btn-gold' : 'btn-outline'}`}
+          onClick={() => setShowDivisionsPanel(v => !v)}
+        >
+          {showDivisionsPanel ? 'Hide' : 'Manage'} Divisions ({localDivisions.length})
+        </button>
+
+        {showDivisionsPanel && (
+          <div className="card card-gold" style={{ marginTop: '0.75rem', animation: 'fadeUp 0.3s ease' }}>
+            <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.75rem' }}>
+              Divisions
+            </div>
+
+            {localDivisions.length === 0 ? (
+              <div style={{ marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                  No divisions yet. Use WISH defaults or add your own.
+                </p>
+                <button
+                  className="btn btn-gold btn-sm"
+                  onClick={handleCreateWishDefaults}
+                  disabled={divisionPending}
+                >
+                  {divisionPending ? 'Creating...' : '⚡ Quick Setup: WISH Defaults'}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {localDivisions.map(div => (
+                    <div key={div.id} style={{ background: 'var(--surface)', borderRadius: 6, padding: '0.6rem 0.75rem', border: '1px solid var(--border)' }}>
+                      {editingDivisionId === div.id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <input
+                            className="input"
+                            value={editDivName}
+                            onChange={e => setEditDivName(e.target.value)}
+                            style={{ fontSize: '0.85rem' }}
+                            placeholder="Division name"
+                          />
+                          <input
+                            className="input"
+                            value={editDivDesc}
+                            onChange={e => setEditDivDesc(e.target.value)}
+                            style={{ fontSize: '0.82rem' }}
+                            placeholder="Description (optional)"
+                          />
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <button className="btn btn-gold btn-sm" onClick={() => handleUpdateDivision(div.id)} disabled={divisionPending}>
+                              Save
+                            </button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingDivisionId(null)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--gold)' }}>{div.name}</div>
+                            {div.description && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{div.description}</div>
+                            )}
+                          </div>
+                          <button
+                            className="btn btn-icon"
+                            style={{ width: 26, height: 26, fontSize: '0.6rem' }}
+                            onClick={() => { setEditingDivisionId(div.id); setEditDivName(div.name); setEditDivDesc(div.description ?? '') }}
+                            title="Edit division"
+                          >
+                            ✎
+                          </button>
+                          {confirmDeleteDivision === div.id ? (
+                            <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--over)' }}>Remove?</span>
+                              <button className="btn btn-sm" style={{ fontSize: '0.68rem', background: 'var(--over)', color: '#fff', border: 'none', padding: '0.18rem 0.45rem' }} onClick={() => handleDeleteDivision(div.id)} disabled={divisionPending}>Yes</button>
+                              <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.68rem' }} onClick={() => setConfirmDeleteDivision(null)}>No</button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btn-icon"
+                              style={{ width: 26, height: 26, fontSize: '0.6rem', color: 'var(--text-dim)' }}
+                              onClick={() => setConfirmDeleteDivision(div.id)}
+                              title="Delete division"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Auto-assign button */}
+                {groups.length > 0 && (
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={handleAutoAssign}
+                      disabled={divisionPending || localDivisions.length < 2}
+                      title={localDivisions.length < 2 ? 'Need at least 2 divisions' : undefined}
+                    >
+                      {divisionPending ? 'Assigning...' : 'Auto-Assign by Grade'}
+                    </button>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginLeft: '0.5rem', fontFamily: 'var(--fm)' }}>
+                      Uses majority player grade per group
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Add new division */}
+            {showNewDivForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+                <input
+                  className="input"
+                  value={newDivName}
+                  onChange={e => setNewDivName(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
+                  placeholder="Division name"
+                  autoFocus
+                />
+                <input
+                  className="input"
+                  value={newDivDesc}
+                  onChange={e => setNewDivDesc(e.target.value)}
+                  style={{ fontSize: '0.82rem' }}
+                  placeholder="Description (optional)"
+                />
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <button className="btn btn-gold btn-sm" onClick={handleCreateDivision} disabled={divisionPending || !newDivName.trim()}>
+                    {divisionPending ? 'Creating...' : 'Add Division'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowNewDivForm(false); setNewDivName(''); setNewDivDesc('') }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.5rem', borderTop: localDivisions.length > 0 ? '1px solid var(--border)' : 'none', paddingTop: localDivisions.length > 0 ? '0.75rem' : 0 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowNewDivForm(true)}>
+                  + Add Division
+                </button>
+                {localDivisions.length > 0 && (
+                  <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.72rem' }} onClick={handleCreateWishDefaults} disabled={divisionPending}>
+                    Reset to WISH Defaults
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Pairing preferences toggle */}
       {pairingPrefs.length > 0 && (
@@ -1180,6 +1481,19 @@ export default function GroupsManager({
                       )}
                       {group.starting_hole && (
                         <span className="badge badge-gray">H{group.starting_hole}</span>
+                      )}
+                      {localDivisions.length > 0 && (
+                        <select
+                          className="input"
+                          style={{ fontSize: '0.68rem', padding: '0.15rem 0.35rem', minHeight: 24, height: 24, borderRadius: 999, border: localGroupDivisions[group.id] ? '1px solid var(--gold-border)' : '1px solid var(--border2)', background: localGroupDivisions[group.id] ? 'var(--gold-dim)' : 'var(--surface2)', color: localGroupDivisions[group.id] ? 'var(--gold)' : 'var(--text-dim)', cursor: 'pointer', maxWidth: 120 }}
+                          value={localGroupDivisions[group.id] ?? ''}
+                          onChange={e => handleGroupDivisionChange(group.id, e.target.value || null)}
+                        >
+                          <option value="">No Division</option>
+                          {localDivisions.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
                       )}
                       <button
                         className="badge badge-gold tap"

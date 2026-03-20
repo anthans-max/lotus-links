@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, type StablefordPointsConfig } from '@/lib/scoring/stableford'
@@ -28,6 +29,13 @@ interface HoleInfo {
   strokeIndex?: number | null
 }
 
+interface DivisionInfo {
+  id: string
+  name: string
+  description: string | null
+  displayOrder: number
+}
+
 interface GroupInfo {
   id: string
   name: string
@@ -35,6 +43,7 @@ interface GroupInfo {
   currentHole: number
   status: string
   players?: string[]
+  divisionId?: string | null
 }
 
 interface PlayerInfo {
@@ -66,6 +75,9 @@ interface LiveLeaderboardProps {
   initialScores: GroupScoreData[]
   players: PlayerInfo[]
   initialPlayerScores: PlayerScoreData[]
+  divisions?: DivisionInfo[]
+  resultsPublished?: boolean
+  initialDivisionId?: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,14 +112,20 @@ export default function LiveLeaderboard({
   initialScores,
   players,
   initialPlayerScores,
+  divisions = [],
+  resultsPublished = false,
+  initialDivisionId = null,
 }: LiveLeaderboardProps) {
+  const router = useRouter()
   const [groupScores, setGroupScores] = useState(initialScores)
   const [playerScores, setPlayerScores] = useState(initialPlayerScores)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const isCompleted = tournament.status === 'completed'
+  const isFinal = resultsPublished || isCompleted
   const [showConfetti, setShowConfetti] = useState(false)
   const confettiShown = useRef(false)
   const [useGross, setUseGross] = useState(false)
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(initialDivisionId)
 
   const isStableford = tournament.format === 'Stableford'
   const isIndividual = tournament.format === 'Stableford' || tournament.format === 'Stroke Play'
@@ -195,6 +213,18 @@ export default function LiveLeaderboard({
     return () => clearInterval(interval)
   }, [fetchScores, isCompleted])
 
+  // Division tab selection — update URL state
+  const handleSelectDivision = useCallback((divId: string | null) => {
+    setSelectedDivisionId(divId)
+    const url = new URL(window.location.href)
+    if (divId) {
+      url.searchParams.set('division', divId)
+    } else {
+      url.searchParams.delete('division')
+    }
+    router.replace(url.pathname + url.search, { scroll: false })
+  }, [router])
+
   // Confetti on completed
   useEffect(() => {
     if (isCompleted && !confettiShown.current) {
@@ -280,6 +310,24 @@ export default function LiveLeaderboard({
       })
   }, [players, playerScores, holes, tournament, totalPar, isIndividual, isStableford, useGross])
 
+  // Filter group leaderboard by selected division (if any)
+  const filteredGroupLeaderboard = useMemo(() => {
+    if (!selectedDivisionId || isIndividual) return groupLeaderboard
+    return groupLeaderboard.filter(g => g.divisionId === selectedDivisionId)
+  }, [groupLeaderboard, selectedDivisionId, isIndividual])
+
+  const displayedGroupLeaderboard = filteredGroupLeaderboard
+
+  const selectedDivision = divisions.find(d => d.id === selectedDivisionId) ?? null
+
+  // Per-division winners (for celebration view)
+  const divisionWinners = useMemo(() => {
+    return divisions.map(div => {
+      const divGroups = groupLeaderboard.filter(g => g.divisionId === div.id)
+      return { division: div, winner: divGroups[0] ?? null }
+    }).filter(dw => dw.winner !== null)
+  }, [divisions, groupLeaderboard])
+
   const notStartedGroups = groups.filter(g => {
     const hasScores = groupScores.some(s => s.groupId === g.id)
     return !hasScores && g.status !== 'in_progress'
@@ -316,8 +364,8 @@ export default function LiveLeaderboard({
 
   const accentStyle = leagueColor ? ({ '--league-accent': leagueColor, '--league-accent-dim': `color-mix(in srgb, ${leagueColor} 15%, transparent)`, '--league-accent-border': `color-mix(in srgb, ${leagueColor} 25%, transparent)` } as React.CSSProperties) : {}
 
-  const leaderboardEmpty = isIndividual ? playerLeaderboard.length === 0 : groupLeaderboard.length === 0
-  const topEntry = isIndividual ? playerLeaderboard[0] : groupLeaderboard[0]
+  const leaderboardEmpty = isIndividual ? playerLeaderboard.length === 0 : displayedGroupLeaderboard.length === 0
+  const topEntry = isIndividual ? playerLeaderboard[0] : displayedGroupLeaderboard[0]
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', position: 'relative', overflow: 'hidden', ...accentStyle }}>
@@ -356,21 +404,74 @@ export default function LiveLeaderboard({
           {isIndividual && <span style={{ marginLeft: '0.4rem' }}>· {tournament.format}</span>}
         </div>
 
+        {selectedDivision && (
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.35rem', fontFamily: 'var(--fd)' }}>
+            {selectedDivision.name}{selectedDivision.description ? ` — ${selectedDivision.description}` : ''}
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isCompleted ? (
+          {isFinal ? (
             <span className="badge badge-gold" style={{ fontSize: '0.7rem', padding: '0.3rem 0.75rem', letterSpacing: '0.1em' }}>
-              FINAL RESULTS
+              FINAL
             </span>
           ) : isLive ? (
             <span className="badge badge-green pulse" style={{ fontSize: '0.65rem' }}>LIVE</span>
           ) : null}
 
-          {!isCompleted && (
+          {!isFinal && (
             <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
               Updated {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>
+
+        {/* Division filter tabs */}
+        {!isIndividual && divisions.length > 0 && (
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.4rem', justifyContent: 'center', overflowX: 'auto', paddingBottom: '0.25rem', WebkitOverflowScrolling: 'touch' }}>
+            <button
+              onClick={() => handleSelectDivision(null)}
+              style={{
+                flexShrink: 0,
+                padding: '0.4rem 0.9rem',
+                borderRadius: 999,
+                border: `1px solid ${selectedDivisionId === null ? 'var(--gold)' : 'var(--border2)'}`,
+                background: selectedDivisionId === null ? 'var(--gold)' : 'var(--forest)',
+                color: selectedDivisionId === null ? '#0a120a' : 'var(--text-muted)',
+                fontFamily: 'var(--fm)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.15s, border-color 0.15s',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              Overall
+            </button>
+            {divisions.map(div => (
+              <button
+                key={div.id}
+                onClick={() => handleSelectDivision(div.id)}
+                style={{
+                  flexShrink: 0,
+                  padding: '0.4rem 0.9rem',
+                  borderRadius: 999,
+                  border: `1px solid ${selectedDivisionId === div.id ? 'var(--gold)' : 'var(--border2)'}`,
+                  background: selectedDivisionId === div.id ? 'var(--gold)' : 'var(--forest)',
+                  color: selectedDivisionId === div.id ? '#0a120a' : 'var(--text-muted)',
+                  fontFamily: 'var(--fm)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {div.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {isIndividual && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
@@ -434,6 +535,92 @@ export default function LiveLeaderboard({
                 ? `${(topEntry as any).totalGross} gross · ${(topEntry as any).holesCompleted}/${holes.length} holes`
                 : `${(topEntry as any).totalStrokes} strokes · ${(topEntry as any).holesCompleted}/${holes.length} holes`}
             </div>
+          </div>
+        )}
+
+        {/* Celebration / podium section — shown when results published */}
+        {resultsPublished && !isIndividual && (groupLeaderboard.length > 0 || divisionWinners.length > 0) && (
+          <div style={{ marginBottom: '2rem', animation: 'fadeUp 0.5s ease' }}>
+            {/* Overall champion */}
+            {groupLeaderboard[0] && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(200,168,75,0.18), rgba(200,168,75,0.06))',
+                border: '2px solid var(--gold-border)',
+                borderRadius: 16,
+                padding: '1.75rem 1.5rem',
+                textAlign: 'center',
+                marginBottom: '1rem',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(200,168,75,0.12), transparent 60%)', pointerEvents: 'none' }} />
+                <div style={{ fontSize: '2.75rem', marginBottom: '0.5rem', animation: 'pop 0.5s ease 0.1s both' }}>🏆</div>
+                <div style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.25em', textTransform: 'uppercase', fontFamily: 'var(--fm)', marginBottom: '0.4rem' }}>Overall Champion</div>
+                <div style={{ fontFamily: 'var(--fd)', fontSize: 'clamp(1.4rem, 4vw, 1.9rem)', color: 'var(--text)', marginBottom: '0.35rem', fontWeight: 400 }}>
+                  {groupLeaderboard[0].name}
+                </div>
+                {groupLeaderboard[0].players && groupLeaderboard[0].players.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                    {groupLeaderboard[0].players.map((name, i) => (
+                      <span key={i} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4, padding: '0.15rem 0.4rem', fontFamily: 'var(--fm)' }}>{name}</span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontFamily: 'var(--fd)', fontSize: '2rem', fontWeight: 600, color: groupLeaderboard[0].scoreToPar < 0 ? '#4CAF50' : groupLeaderboard[0].scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                  {fmtRelative(groupLeaderboard[0].scoreToPar)}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)', marginTop: '0.15rem' }}>
+                  {groupLeaderboard[0].totalStrokes} strokes &middot; {groupLeaderboard[0].holesCompleted}/{holes.length} holes
+                </div>
+              </div>
+            )}
+
+            {/* Division winners */}
+            {divisionWinners.length > 0 && (
+              <div>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: 'var(--fm)', textAlign: 'center', marginBottom: '0.75rem' }}>
+                  Division Champions
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {divisionWinners.map(({ division, winner }) => winner && (
+                    <div key={division.id} style={{
+                      background: 'linear-gradient(90deg, rgba(200,168,75,0.08), transparent)',
+                      border: '1px solid var(--gold-border)',
+                      borderRadius: 10,
+                      padding: '1rem 1.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                    }}>
+                      <div style={{ fontSize: '1.4rem' }}>🥇</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.62rem', color: 'var(--gold)', letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'var(--fm)', marginBottom: '0.15rem' }}>
+                          {division.name}{division.description ? ` — ${division.description}` : ''}
+                        </div>
+                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', color: 'var(--text)' }}>{winner.name}</div>
+                        {winner.players && winner.players.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.2rem' }}>
+                            {winner.players.map((name, i) => (
+                              <span key={i} style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>{i > 0 ? '· ' : ''}{name}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--fd)', fontSize: '1.25rem', fontWeight: 600, color: winner.scoreToPar < 0 ? '#4CAF50' : winner.scoreToPar > 0 ? 'var(--over)' : 'var(--text-muted)' }}>
+                          {fmtRelative(winner.scoreToPar)}
+                        </div>
+                        <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontFamily: 'var(--fm)' }}>
+                          {winner.holesCompleted}/{holes.length} holes
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ height: '1px', background: 'var(--border)', margin: '1.5rem 0' }} />
           </div>
         )}
 
@@ -563,7 +750,7 @@ export default function LiveLeaderboard({
               <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--text-dim)', fontFamily: 'var(--fm)', textTransform: 'uppercase', textAlign: 'right' }}>Score</div>
             </div>
 
-            {groupLeaderboard.map((entry, i) => {
+            {displayedGroupLeaderboard.map((entry, i) => {
               const isLeader = i === 0
               const isTop3 = i < 3
               const isFinished = entry.holesCompleted === holes.length
@@ -631,7 +818,7 @@ export default function LiveLeaderboard({
         )}
 
         {/* Not started groups */}
-        {!isIndividual && notStartedGroups.length > 0 && groupLeaderboard.length > 0 && (
+        {!isIndividual && notStartedGroups.length > 0 && displayedGroupLeaderboard.length > 0 && (
           <div style={{ marginTop: '1.5rem' }}>
             <div className="label" style={{ marginBottom: '0.5rem' }}>
               {isCompleted ? 'Did Not Start' : 'Not Yet Started'}
@@ -646,7 +833,7 @@ export default function LiveLeaderboard({
 
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          {!isCompleted && (
+          {!isFinal && (
             <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.75rem' }}>Auto-refreshes every 15 seconds</div>
           )}
           <PoweredByFooter />

@@ -108,18 +108,20 @@ RESEND_FROM_EMAIL=
 
 ## DB Schema
 
-Full column detail is in `supabase/migrations/` (001–015, run manually in Supabase SQL editor — no CLI workflow). Key non-obvious points:
+Full column detail is in `supabase/migrations/` (001–020, run manually in Supabase SQL editor — no CLI workflow). Key non-obvious points:
 
 | Table | Notes |
 |---|---|
 | `profiles` | Created by OAuth callback; `role` column: `super_admin\|user` (default `user`). Used by RLS helper functions. |
 | `leagues` | `admin_email` is legacy — access is controlled via `league_admins` |
 | `league_admins` | `role`: `owner\|admin`; `accepted_at` null until first login; UNIQUE `(league_id, email)` |
-| `tournaments` | `public_token` (uuid) → `/t/[token]`; `stableford_points_config` (JSONB); `holes.handicap` = Stroke Index (SI), not player handicap |
+| `tournaments` | `public_token` (uuid) → `/t/[token]`; `stableford_points_config` (JSONB); `results_published` (bool, default false) — activates celebration leaderboard view |
 | `players` | `handicap` (int, fallback) + `handicap_index` (USGA decimal, preferred); `status`: `pre-registered→registered→checked_in` |
 | `scores` | `group_id` null for individual; `player_id` null for scramble. Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` and partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` |
 | `chaperones` | Formal registry — separate from `players` table and `groups.chaperone_name` inline field |
 | `group_scoring_tokens` | One token per group; maps `/score/t/[token]` → group (no PIN needed) |
+| `volunteers` | Public sign-up (anon INSERT); `roles` is `TEXT[]`; UNIQUE `(tournament_id, email)` |
+| `divisions` | Tournament sub-divisions by grade/skill; `display_order` controls sort; public SELECT, authenticated write. `groups.division_id` FK references this. |
 
 ## Component Organization
 
@@ -131,12 +133,13 @@ components/
   leaderboard/  → LiveLeaderboard (Realtime + polling)
   registration/ → RegistrationForm (public player self-registration)
   scorecard/    → ScorecardTable (read-only scorecard view)
+  volunteer/    → VolunteerSignUpForm (public unauthenticated sign-up)
   chat/         → ChatAssistant (AI-powered Q&A)
   ui/           → shared primitives: Modal, Badge, Button, Card, Input, Select, Spinner, etc.
 ```
 
 All domain logic and DB access is in `lib/`:
-- `lib/actions/` — server actions (groups, leagues, players, registration, scores, storage, tournament)
+- `lib/actions/` — server actions (groups, leagues, players, registration, scores, storage, tournament, volunteers)
 - `lib/scoring/` — pure scoring utilities: `handicap.ts`, `stableford.ts` (unit-tested)
 - `lib/auth.ts` — `checkLeagueAccess`, `getLeagueRole`
 - `lib/types.ts` — all TypeScript interfaces matching DB schema
@@ -160,9 +163,10 @@ All domain logic and DB access is in `lib/`:
 /score/t/[token]                  → token-based scramble scoring (no PIN) — maps token→group via group_scoring_tokens
 /api/email/send-scoring-link      → Resend email trigger (modes: single, bulk, group-players, all-players, scorecard-summary, chaperone-token, all-chaperones-token)
 /api/chat                         → Chat assistant (AI-powered scoring Q&A)
+/volunteer/[tournamentId]         → public volunteer sign-up (unauthenticated)
 ```
 
-Migrations live in `supabase/migrations/` — numbered sequentially (001–015). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+Migrations live in `supabase/migrations/` — numbered sequentially (001–020). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
 
 `lib/course-data.ts` contains WISH tournament hole configuration pre-loaded (10 holes, all par-3). Use `createTournamentWithWishHoles()` server action to bootstrap a WISH tournament.
 

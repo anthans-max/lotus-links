@@ -267,6 +267,15 @@ export interface Volunteer {
   created_at: string
 }
 
+export interface Division {
+  id: string
+  tournament_id: string
+  name: string
+  description: string | null
+  display_order: number
+  created_at: string
+}
+
 export interface Profile {
   id: string
   email: string | null

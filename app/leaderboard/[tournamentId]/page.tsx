@@ -11,15 +11,18 @@ export const metadata: Metadata = {
 
 interface Props {
   params: Promise<{ tournamentId: string }>
+  searchParams?: Promise<{ division?: string }>
 }
 
-export default async function LeaderboardPage({ params }: Props) {
+export default async function LeaderboardPage({ params, searchParams }: Props) {
   const { tournamentId } = await params
+  const sp = searchParams ? await searchParams : {}
+  const initialDivisionId = sp.division ?? null
   const supabase = await createClient()
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, name, date, course, format, holes, status, leaderboard_public, league_id, slope_rating, course_rating, stableford_points_config')
+    .select('id, name, date, course, format, holes, status, leaderboard_public, league_id, slope_rating, course_rating, stableford_points_config, results_published')
     .eq('id', tournamentId)
     .single()
 
@@ -46,6 +49,20 @@ export default async function LeaderboardPage({ params }: Props) {
     .select('name, primary_color, logo_url')
     .eq('id', tournament.league_id)
     .single()
+
+  // Fetch divisions (for tab filtering)
+  const { data: rawDivisions } = await supabase
+    .from('divisions')
+    .select('id, name, description, display_order')
+    .eq('tournament_id', tournamentId)
+    .order('display_order')
+
+  const divisions = (rawDivisions ?? []).map(d => ({
+    id: d.id as string,
+    name: d.name as string,
+    description: d.description as string | null,
+    displayOrder: d.display_order as number,
+  }))
 
   // Fetch holes for par data + stroke indexes
   const { data: holes } = await supabase
@@ -131,7 +148,7 @@ export default async function LeaderboardPage({ params }: Props) {
   const [{ data: groups }, { data: scores }] = await Promise.all([
     supabase
       .from('groups')
-      .select('id, name, chaperone_name, current_hole, status, tee_time')
+      .select('id, name, chaperone_name, current_hole, status, tee_time, division_id')
       .eq('tournament_id', tournamentId)
       .order('name'),
     supabase
@@ -176,6 +193,7 @@ export default async function LeaderboardPage({ params }: Props) {
         }}
         leagueName={league?.name ?? ''}
         leagueColor={league?.primary_color ?? undefined}
+        leagueLogoUrl={(league as any)?.logo_url ?? null}
         holes={(holes ?? []).map(h => ({ number: h.hole_number, par: h.par, strokeIndex: h.handicap }))}
         groups={(groups ?? []).map(g => ({
           id: g.id,
@@ -184,6 +202,7 @@ export default async function LeaderboardPage({ params }: Props) {
           currentHole: g.current_hole ?? 1,
           status: g.status,
           players: playersByGroup[g.id] ?? [],
+          divisionId: (g as any).division_id ?? null,
         }))}
         initialScores={(scores ?? []).map(s => ({
           groupId: s.group_id,
@@ -192,6 +211,9 @@ export default async function LeaderboardPage({ params }: Props) {
         }))}
         players={[]}
         initialPlayerScores={[]}
+        divisions={divisions}
+        resultsPublished={(tournament as any).results_published ?? false}
+        initialDivisionId={initialDivisionId}
       />
       <ChatAssistant
         tournamentId={tournamentId}

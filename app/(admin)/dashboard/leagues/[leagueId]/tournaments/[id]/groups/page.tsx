@@ -22,7 +22,7 @@ export default async function GroupsPage({ params }: Props) {
   const isAdmin = !!user && hasAccess
 
   const supabase = await createClient()
-  const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }, { data: chaperones }, { data: groupChaperoneRows }] = await Promise.all([
+  const [{ data: league }, { data: tournament }, { data: players }, { data: groups }, { data: pairingPrefs }, { data: chaperones }, { data: groupChaperoneRows }, { data: divisions }] = await Promise.all([
     supabase.from('leagues').select('id, name, primary_color, logo_url, league_type').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('players').select('*').eq('tournament_id', id).order('name'),
@@ -30,6 +30,7 @@ export default async function GroupsPage({ params }: Props) {
     supabase.from('pairing_preferences').select('*').eq('tournament_id', id),
     supabase.from('chaperones').select('*').eq('tournament_id', id).order('name'),
     supabase.from('group_chaperones').select('group_id, chaperone_id'),
+    supabase.from('divisions').select('*').eq('tournament_id', id).order('display_order'),
   ])
 
   // Build groupId → chaperoneId[] map (supports multiple chaperones per group)
@@ -69,6 +70,7 @@ export default async function GroupsPage({ params }: Props) {
           isWish={isWish}
           chaperones={(chaperones ?? []) as any}
           groupChaperoneMap={groupChaperoneMap}
+          divisions={(divisions ?? []) as any}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

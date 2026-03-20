@@ -10,6 +10,7 @@ import TournamentInfoCard from '@/components/admin/TournamentInfoCard'
 import CopyTokenButton from '@/components/admin/CopyTokenButton'
 import SendScorecardButton from '@/components/admin/SendScorecardButton'
 import VolunteerCard from '@/components/admin/VolunteerCard'
+import PublishResultsButton from '@/components/admin/PublishResultsButton'
 import ChatAssistant from '@/components/chat/ChatAssistant'
 
 export const metadata: Metadata = {
@@ -180,6 +181,15 @@ export default async function TournamentDetailPage({ params }: Props) {
             tournamentId={id}
             leagueId={leagueId}
             initialVolunteers={(volunteers ?? []) as any[]}
+          />
+        )}
+
+        {/* Publish Results — for completed tournaments (or any with leaderboard public) */}
+        {isAdmin && tournament.leaderboard_public && (
+          <PublishResultsButton
+            tournamentId={id}
+            leagueId={leagueId}
+            resultsPublished={(tournament as any).results_published ?? false}
           />
         )}
 
