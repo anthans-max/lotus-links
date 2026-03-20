@@ -31,7 +31,7 @@ export async function createChaperone(
     email: data.email?.trim() || null,
     phone: data.phone?.trim() || null,
     role: data.role ?? 'parent',
-    group_id: data.group_id ?? null,
+    ...(data.group_id != null ? { group_id: data.group_id } : {}),
   })
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
