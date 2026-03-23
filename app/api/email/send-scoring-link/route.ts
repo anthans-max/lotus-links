@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
         chaperoneName: group.chaperone_name ?? null,
         players: (players ?? []).map(p => p.name),
         startingHole: group.starting_hole ?? 1,
+        teeTime: group.tee_time ?? null,
         scoringUrl: `${baseUrl}/score/${group.id}`,
         tournamentName: tournament.name,
         courseName: tournament.course,
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
           chaperoneName: group.chaperone_name ?? null,
           players: playerNames,
           startingHole: group.starting_hole ?? 1,
+          teeTime: group.tee_time ?? null,
           scoringUrl: `${baseUrl}/score/${group.id}`,
           tournamentName: tournament.name,
           courseName: tournament.course,
@@ -543,6 +545,7 @@ export async function POST(req: NextRequest) {
         chaperoneName: chaperone.name,
         players: (players ?? []).map(p => p.name),
         startingHole: group.starting_hole ?? 1,
+        teeTime: group.tee_time ?? null,
         scoringUrl: `${baseUrl}/score/t/${token}`,
         tournamentName: tournament.name,
         courseName: tournament.course,
@@ -633,6 +636,7 @@ export async function POST(req: NextRequest) {
       groupName: string
       playerNames: string[]
       startingHole: number
+      teeTime: string | null
       scoringUrl: string
     }> = []
 
@@ -654,6 +658,7 @@ export async function POST(req: NextRequest) {
         groupName: group.name,
         playerNames,
         startingHole: group.starting_hole ?? 1,
+        teeTime: group.tee_time ?? null,
         scoringUrl: `${baseUrl}/score/t/${token}`,
       })
     }
@@ -690,6 +695,7 @@ export async function POST(req: NextRequest) {
           chaperoneName: payload.chaperoneName,
           players: payload.playerNames,
           startingHole: payload.startingHole,
+          teeTime: payload.teeTime,
           scoringUrl: payload.scoringUrl,
           tournamentName: tournament.name,
           courseName: tournament.course,

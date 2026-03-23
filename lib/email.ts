@@ -108,6 +108,7 @@ interface ScoringLinkEmailPayload {
   chaperoneName: string | null
   players: string[]
   startingHole: number
+  teeTime: string | null
   scoringUrl: string
   tournamentName: string
   courseName: string
@@ -157,6 +158,17 @@ function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return name.slice(0, 2).toUpperCase()
+}
+
+/** Format a DB time string like "13:30:00" → "1:30 PM" */
+function formatTeeTime(time: string): string {
+  const [hStr, mStr] = time.split(':')
+  let h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  if (h > 12) h -= 12
+  if (h === 0) h = 12
+  return `${h}:${m} ${ampm}`
 }
 
 function fmtNetVsPar(n: number): string {
@@ -494,6 +506,7 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
     chaperoneName,
     players,
     startingHole,
+    teeTime,
     scoringUrl,
     tournamentName,
     courseName,
@@ -547,7 +560,10 @@ function buildScoringEmailHtml(data: Omit<ScoringLinkEmailPayload, 'to'>) {
             <tr><td style="background:#162416;padding:12px 16px;border-bottom:1px solid #2d482d;">
               <div style="font-size:10px;letter-spacing:2.5px;color:rgba(138,173,138,0.6);text-transform:uppercase;margin-bottom:4px;font-family:Georgia,serif;">Your Group</div>
               <div style="font-family:Georgia,serif;font-size:16px;color:#b8976a;font-weight:600;margin-bottom:4px;">${groupName}</div>
-              <div style="font-size:12px;color:rgba(138,173,138,0.55);">Starting Hole: ${startingHole}</div>
+              ${teeTime
+                ? `<div style="font-size:12px;color:rgba(138,173,138,0.55);">Tee Time: ${formatTeeTime(teeTime)}</div>`
+                : `<div style="font-size:12px;color:rgba(138,173,138,0.55);">Starting Hole: ${startingHole}</div>`
+              }
             </td></tr>
             ${
               players.length > 0

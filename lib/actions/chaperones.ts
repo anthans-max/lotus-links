@@ -187,6 +187,7 @@ export async function sendGroupChaperoneEmails(
         chaperoneName: chap.name,
         players: playerNames,
         startingHole: group.starting_hole ?? 1,
+        teeTime: group.tee_time ?? null,
         scoringUrl,
         tournamentName: tournament.name,
         courseName: tournament.course,
