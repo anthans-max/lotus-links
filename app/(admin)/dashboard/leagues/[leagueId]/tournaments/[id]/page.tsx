@@ -12,6 +12,7 @@ import SendScorecardButton from '@/components/admin/SendScorecardButton'
 import VolunteerCard from '@/components/admin/VolunteerCard'
 import PublishResultsButton from '@/components/admin/PublishResultsButton'
 import ChatAssistant from '@/components/chat/ChatAssistant'
+import ResetScoresButton from '@/components/admin/ResetScoresButton'
 
 export const metadata: Metadata = {
   title: 'Tournament',
@@ -57,6 +58,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     ? (await supabase.from('holes').select('par').eq('tournament_id', id)).data?.reduce((sum, h) => sum + h.par, 0) ?? 0
     : 0
 
+  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '')
   const accentColor = (league as any).primary_color || '#1a5c2a'
   const logoUrl = (league as any).logo_url as string | null | undefined
 
@@ -191,6 +193,11 @@ export default async function TournamentDetailPage({ params }: Props) {
             leagueId={leagueId}
             resultsPublished={(tournament as any).results_published ?? false}
           />
+        )}
+
+        {/* Reset Scores — super admin only */}
+        {isSuperAdmin && (
+          <ResetScoresButton tournamentId={id} scoreCount={scoreCount ?? 0} />
         )}
 
         {/* Scorecard — Stableford / Stroke Play only */}

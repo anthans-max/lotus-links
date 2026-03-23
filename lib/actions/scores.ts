@@ -121,6 +121,41 @@ export async function adminUpdateScore(data: {
   revalidatePath('/dashboard')
 }
 
+export async function resetTournamentScores(tournamentId: string): Promise<{ deleted: number }> {
+  const supabase = await createClient()
+
+  // Verify super admin
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+  const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
+  if (user.email !== superAdmin) throw new Error('Super admin access required')
+
+  // Count scores before deleting
+  const { count } = await supabase
+    .from('scores')
+    .select('*', { count: 'exact', head: true })
+    .eq('tournament_id', tournamentId)
+
+  // Delete all scores for this tournament
+  const { error: scoreErr } = await supabase
+    .from('scores')
+    .delete()
+    .eq('tournament_id', tournamentId)
+
+  if (scoreErr) throw new Error(scoreErr.message)
+
+  // Reset all groups to not_started, current_hole back to 1
+  const { error: groupErr } = await supabase
+    .from('groups')
+    .update({ status: 'not_started', current_hole: 1 })
+    .eq('tournament_id', tournamentId)
+
+  if (groupErr) throw new Error(groupErr.message)
+
+  revalidatePath('/dashboard')
+  return { deleted: count ?? 0 }
+}
+
 export async function toggleLeaderboardPublic(tournamentId: string, isPublic: boolean) {
   const supabase = await createClient()
 
