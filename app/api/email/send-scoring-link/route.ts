@@ -119,12 +119,21 @@ export async function POST(req: NextRequest) {
 
     const playerMap = new Map((allPlayers ?? []).map(p => [p.id, p.name]))
 
-    const results = await Promise.allSettled(
-      groups.map(group => {
-        const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
-        const playerNames = playerIds.map(id => playerMap.get(id) ?? 'Unknown')
+    console.log(`[bulk] ${groups.length} recipients:`, groups.map(g => ({
+      email: g.chaperone_email, group: g.name,
+    })))
 
-        return sendScoringLinkEmail({
+    // Send sequentially — 600ms gap to stay under Resend's 2 req/s rate limit
+    let sent = 0
+    const failures: Array<{ email: string; groupName: string; error: string }> = []
+
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i]
+      const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+      const playerNames = playerIds.map(id => playerMap.get(id) ?? 'Unknown')
+
+      try {
+        await sendScoringLinkEmail({
           to: group.chaperone_email!,
           groupName: group.name,
           chaperoneName: group.chaperone_name ?? null,
@@ -135,21 +144,21 @@ export async function POST(req: NextRequest) {
           courseName: tournament.course,
           tournamentDate: tournament.date,
         })
-      })
-    )
-
-    const sent = results.filter(r => r.status === 'fulfilled').length
-    const failures: Array<{ email: string; groupName: string; error: string }> = []
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
+        sent++
+      } catch (err) {
         failures.push({
-          email: groups[i].chaperone_email!,
-          groupName: groups[i].name,
-          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+          email: group.chaperone_email!,
+          groupName: group.name,
+          error: err instanceof Error ? err.message : String(err),
         })
       }
-    })
-    if (failures.length > 0) console.error('[send-scoring-link] all-chaperones failures:', JSON.stringify(failures))
+      // 600ms between sends — stays comfortably under 2 req/s
+      if (i < groups.length - 1) {
+        await new Promise(res => setTimeout(res, 600))
+      }
+    }
+
+    if (failures.length > 0) console.error('[send-scoring-link] bulk failures:', JSON.stringify(failures))
 
     return NextResponse.json({ sent, failed: failures.length, failures })
   }
@@ -551,10 +560,11 @@ export async function POST(req: NextRequest) {
 
   // ─── All-chaperones-token: send token links to all assigned chaperones ─────────
   if (body.mode === 'all-chaperones-token') {
-    const { tournamentId, baseUrl } = body as {
+    const { tournamentId, baseUrl, dryRun } = body as {
       mode: 'all-chaperones-token'
       tournamentId: string
       baseUrl: string
+      dryRun?: boolean
     }
 
     if (!tournamentId || !baseUrl) {
@@ -614,45 +624,96 @@ export async function POST(req: NextRequest) {
       .eq('tournament_id', tournamentId)
     const tokenByGroup = new Map((tokenRows ?? []).map(t => [t.group_id, t.token]))
 
-    const results = await Promise.allSettled(
-      eligible.map(gc => {
-        const chaperone = (gc.chaperones as unknown) as { name: string; email: string }
-        const group = (groups ?? []).find(g => g.id === gc.group_id)
-        if (!group) return Promise.reject(new Error('Group not found'))
+    // Pre-flight: build the full payload and log all recipients
+    const emailPayloads: Array<{
+      chaperoneId: string
+      to: string
+      chaperoneName: string
+      groupId: string
+      groupName: string
+      playerNames: string[]
+      startingHole: number
+      scoringUrl: string
+    }> = []
 
-        const token = tokenByGroup.get(gc.group_id)
-        if (!token) return Promise.reject(new Error('Token not found'))
+    for (const gc of eligible) {
+      const chaperone = (gc.chaperones as unknown) as { id: string; name: string; email: string }
+      const group = (groups ?? []).find(g => g.id === gc.group_id)
+      if (!group) continue
+      const token = tokenByGroup.get(gc.group_id)
+      if (!token) continue
 
-        const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
-        const playerNames = playerIds.map(id => playerMap.get(id) ?? 'Unknown')
+      const playerIds = (group.group_players as { player_id: string }[]).map(gp => gp.player_id)
+      const playerNames = playerIds.map(id => playerMap.get(id) ?? 'Unknown')
 
-        return sendScoringLinkEmail({
-          to: chaperone.email,
-          groupName: group.name,
-          chaperoneName: chaperone.name,
-          players: playerNames,
-          startingHole: group.starting_hole ?? 1,
-          scoringUrl: `${baseUrl}/score/t/${token}`,
+      emailPayloads.push({
+        chaperoneId: chaperone.id,
+        to: chaperone.email,
+        chaperoneName: chaperone.name,
+        groupId: gc.group_id,
+        groupName: group.name,
+        playerNames,
+        startingHole: group.starting_hole ?? 1,
+        scoringUrl: `${baseUrl}/score/t/${token}`,
+      })
+    }
+
+    console.log(`[all-chaperones-token] ${emailPayloads.length} recipients:`, emailPayloads.map(p => ({
+      email: p.to, group: p.groupName, chaperone: p.chaperoneName,
+    })))
+
+    // Dry run: return the payload without sending
+    if (dryRun) {
+      return NextResponse.json({
+        dryRun: true,
+        wouldSend: emailPayloads.length,
+        recipients: emailPayloads.map(p => ({
+          email: p.to,
+          chaperoneName: p.chaperoneName,
+          groupName: p.groupName,
+          players: p.playerNames,
+          scoringUrl: p.scoringUrl,
+        })),
+      })
+    }
+
+    // Send sequentially — 600ms gap to stay under Resend's 2 req/s rate limit
+    const now = new Date().toISOString()
+    let sent = 0
+    const failures: Array<{ email: string; groupName: string; error: string }> = []
+
+    for (const payload of emailPayloads) {
+      try {
+        await sendScoringLinkEmail({
+          to: payload.to,
+          groupName: payload.groupName,
+          chaperoneName: payload.chaperoneName,
+          players: payload.playerNames,
+          startingHole: payload.startingHole,
+          scoringUrl: payload.scoringUrl,
           tournamentName: tournament.name,
           courseName: tournament.course,
           tournamentDate: tournament.date,
         })
-      })
-    )
-
-    const sent = results.filter(r => r.status === 'fulfilled').length
-    const failures: Array<{ email: string; groupName: string; error: string }> = []
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') {
-        const chaperone = (eligible[i].chaperones as unknown) as { name: string; email: string }
-        const group = (groups ?? []).find(g => g.id === eligible[i].group_id)
+        // Update token_sent_at on chaperone row
+        await supabase
+          .from('chaperones')
+          .update({ token_sent_at: now })
+          .eq('id', payload.chaperoneId)
+        sent++
+      } catch (err) {
         failures.push({
-          email: chaperone.email,
-          groupName: group?.name ?? 'Unknown',
-          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+          email: payload.to,
+          groupName: payload.groupName,
+          error: err instanceof Error ? err.message : String(err),
         })
       }
-    })
+      // 600ms between sends — stays comfortably under 2 req/s
+      if (emailPayloads.indexOf(payload) < emailPayloads.length - 1) {
+        await new Promise(res => setTimeout(res, 600))
+      }
+    }
+
     if (failures.length > 0) console.error('[send-scoring-link] all-chaperones-token failures:', JSON.stringify(failures))
 
     return NextResponse.json({ sent, failed: failures.length, failures })
