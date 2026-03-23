@@ -63,6 +63,7 @@ export default async function ScoreEntryPage({ params }: Props) {
           pin: group.pin,
           status: group.status,
           currentHole: group.current_hole ?? 1,
+          teeTime: group.tee_time ?? null,
         }}
         tournament={{
           id: tournament.id,

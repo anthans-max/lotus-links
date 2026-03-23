@@ -20,6 +20,7 @@ interface ScoreEntryAppProps {
     pin: string
     status: string
     currentHole: number
+    teeTime: string | null
   }
   tournament: {
     id: string
@@ -38,6 +39,16 @@ interface ScoreEntryAppProps {
 }
 
 type Screen = 'confirm' | 'scoring' | 'review' | 'success'
+
+function formatTeeTime(time: string): string {
+  const [hStr, mStr] = time.split(':')
+  let h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  if (h > 12) h -= 12
+  if (h === 0) h = 12
+  return `${h}:${m} ${ampm}`
+}
 
 function parLabel(score: number, par: number) {
   const d = score - par
@@ -303,7 +314,11 @@ export default function ScoreEntryApp({
                 ))}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                {tournament.format} format &middot; {holes.length} holes &middot; {tournament.course}<br />
+                {tournament.format} format &middot; {holes.length} holes &middot; {tournament.course}
+                {group.teeTime && (
+                  <><br /><span style={{ color: 'var(--gold)', fontSize: '0.82rem', fontWeight: 500 }}>Tee Time: {formatTeeTime(group.teeTime)}</span></>
+                )}
+                <br />
                 <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>You&apos;ll enter one team score per hole</span>
               </div>
             </div>
