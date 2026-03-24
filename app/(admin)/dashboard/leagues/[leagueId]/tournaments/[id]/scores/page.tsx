@@ -6,6 +6,7 @@ import { checkLeagueAccess } from '@/lib/auth'
 import PageHeader from '@/components/ui/PageHeader'
 import TournamentTabs from '@/components/admin/TournamentTabs'
 import ScoresMonitor from '@/components/admin/ScoresMonitor'
+import ResetScoresButton from '@/components/admin/ResetScoresButton'
 
 export const metadata: Metadata = {
   title: 'Scores',
@@ -22,13 +23,16 @@ export default async function ScoresPage({ params }: Props) {
   const isAdmin = !!user && hasAccess
   if (!isAdmin) redirect(`/leaderboard/${id}`)
 
+  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '')
+
   const supabase = await createClient()
-  const [{ data: league }, { data: tournament }, { data: holes }, { data: groups }, { data: scores }] = await Promise.all([
+  const [{ data: league }, { data: tournament }, { data: holes }, { data: groups }, { data: scores }, { count: scoreCount }] = await Promise.all([
     supabase.from('leagues').select('id, name, primary_color, logo_url').eq('id', leagueId).single(),
     supabase.from('tournaments').select('*').eq('id', id).single(),
     supabase.from('holes').select('hole_number, par').eq('tournament_id', id).order('hole_number'),
     supabase.from('groups').select('id, name, chaperone_name, current_hole, status, pin').eq('tournament_id', id).order('name'),
     supabase.from('scores').select('*').eq('tournament_id', id).order('hole_number'),
+    supabase.from('scores').select('*', { count: 'exact', head: true }).eq('tournament_id', id),
   ])
 
   if (!league || !tournament) notFound()
@@ -46,6 +50,11 @@ export default async function ScoresPage({ params }: Props) {
         leagueName={(league as any).name}
       />
       <TournamentTabs leagueId={leagueId} tournamentId={id} />
+      {isSuperAdmin && (
+        <div style={{ marginBottom: '1rem' }}>
+          <ResetScoresButton tournamentId={id} scoreCount={scoreCount ?? 0} />
+        </div>
+      )}
       <ScoresMonitor
         tournamentId={id}
         leagueId={leagueId}
