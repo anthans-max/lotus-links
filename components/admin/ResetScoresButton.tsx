@@ -29,8 +29,6 @@ export default function ResetScoresButton({ tournamentId, scoreCount }: Props) {
     }
   }
 
-  if (scoreCount === 0 && phase === 'idle') return null
-
   return (
     <div
       className="card"
@@ -49,7 +47,9 @@ export default function ResetScoresButton({ tournamentId, scoreCount }: Props) {
             Reset All Scores
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
-            {scoreCount} score {scoreCount !== 1 ? 'entries' : 'entry'} — clears all scores and resets groups to not started
+            {scoreCount > 0
+              ? `${scoreCount} score ${scoreCount !== 1 ? 'entries' : 'entry'} — clears all scores and resets groups to not started`
+              : 'Resets all group statuses to not started'}
           </div>
         </div>
         {phase === 'idle' && (
