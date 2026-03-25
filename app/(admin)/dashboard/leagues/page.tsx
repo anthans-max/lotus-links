@@ -49,8 +49,8 @@ export default async function LeaguesPage() {
 
   const { data: leagues } = await query
 
-  // Owners and new users (no memberships yet) can create leagues; invited admins cannot
-  const canCreateLeague = isSuperAdmin || ownerLeagueIds.size > 0 || (leagueIds?.length ?? 0) === 0
+  // Only super admins can create new leagues
+  const canCreateLeague = isSuperAdmin
 
   const leagueList: LeagueWithCount[] = (leagues ?? []).map((l: any) => ({
     id: l.id,

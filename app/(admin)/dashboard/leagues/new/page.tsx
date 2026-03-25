@@ -13,17 +13,9 @@ export default async function NewLeaguePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Only owners and new users (no memberships) can create leagues
+  // Only super admins can create new leagues
   const superAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || ''
-  if (user.email !== superAdmin) {
-    const { data: myAdminRows } = await supabase
-      .from('league_admins')
-      .select('role')
-      .eq('email', user.email!)
-    const rows = myAdminRows ?? []
-    const canCreate = rows.length === 0 || rows.some((r: any) => r.role === 'owner')
-    if (!canCreate) redirect('/dashboard/leagues')
-  }
+  if (user.email !== superAdmin) redirect('/dashboard/leagues')
 
   return (
     <div className="section fade-up">

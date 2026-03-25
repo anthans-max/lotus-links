@@ -717,7 +717,8 @@ export default function RegistrationForm({
               />
             </div>
 
-            {/* Chaperone volunteer */}
+            {/* Chaperone volunteer — WISH only */}
+            {isWish && (
             <div className="card" style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.3s ease 0.1s both' }}>
               <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.5rem' }}>
                 Would You Like to Help?
@@ -772,6 +773,7 @@ export default function RegistrationForm({
                 </div>
               </button>
             </div>
+            )}
 
             {/* WISH-only: special requests / comments */}
             {isWish && (
