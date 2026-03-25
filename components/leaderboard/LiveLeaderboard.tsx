@@ -78,6 +78,7 @@ interface LiveLeaderboardProps {
   divisions?: DivisionInfo[]
   resultsPublished?: boolean
   initialDivisionId?: string | null
+  scorecardUrl?: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export default function LiveLeaderboard({
   divisions = [],
   resultsPublished = false,
   initialDivisionId = null,
+  scorecardUrl = null,
 }: LiveLeaderboardProps) {
   const router = useRouter()
   const [groupScores, setGroupScores] = useState(initialScores)
@@ -474,7 +476,7 @@ export default function LiveLeaderboard({
         )}
 
         {isIndividual && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', padding: '0 1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem', padding: '0 1.25rem', gap: '0.75rem' }}>
             <div style={{ display: 'flex', borderRadius: 20, border: '1px solid var(--gold-border)', overflow: 'hidden', height: 44, width: '100%', maxWidth: 340 }}>
               <button
                 onClick={() => setUseGross(false)}
@@ -489,6 +491,15 @@ export default function LiveLeaderboard({
                 Gross
               </button>
             </div>
+            {scorecardUrl && (
+              <a
+                href={scorecardUrl}
+                className="btn btn-outline btn-sm"
+                style={{ textDecoration: 'none', letterSpacing: '0.08em' }}
+              >
+                View Full Scorecard
+              </a>
+            )}
           </div>
         )}
       </div>

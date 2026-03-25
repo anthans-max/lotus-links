@@ -119,16 +119,8 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
               holeNumber: s.hole_number,
               strokes: s.strokes,
             }))}
+          scorecardUrl={`/scorecard/${tournamentId}`}
         />
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0.75rem 1.25rem 1.25rem' }}>
-          <a
-            href={`/scorecard/${tournamentId}`}
-            className="btn btn-outline btn-sm"
-            style={{ textDecoration: 'none', letterSpacing: '0.08em' }}
-          >
-            📋 View Full Scorecard
-          </a>
-        </div>
         <ChatAssistant
           tournamentId={tournamentId}
           format={tournament.format}

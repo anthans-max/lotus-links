@@ -791,8 +791,8 @@ export default function GroupsManager({
         </div>
       )}
 
-      {/* Divisions panel */}
-      <div style={{ marginBottom: '1.25rem' }}>
+      {/* Divisions panel — WISH only */}
+      {isWish && <div style={{ marginBottom: '1.25rem' }}>
         <button
           className={`btn btn-sm ${showDivisionsPanel ? 'btn-gold' : 'btn-outline'}`}
           onClick={() => setShowDivisionsPanel(v => !v)}
@@ -947,7 +947,7 @@ export default function GroupsManager({
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Pairing preferences toggle */}
       {pairingPrefs.length > 0 && (
