@@ -38,9 +38,9 @@ export default function VolunteerCard({ tournamentId, leagueId, initialVolunteer
   return (
     <div className="card" style={{ padding: '1rem 1.25rem' }}>
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ fontSize: '1.5rem' }}>🤝</div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: '1 1 0', minWidth: '10rem' }}>
           <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.15rem' }}>
             Volunteer Sign-Ups
           </div>
@@ -50,7 +50,7 @@ export default function VolunteerCard({ tournamentId, leagueId, initialVolunteer
               : `${count} volunteer${count !== 1 ? 's' : ''} signed up`}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           {count > 0 && (
             <button
               onClick={() => setExpanded(e => !e)}

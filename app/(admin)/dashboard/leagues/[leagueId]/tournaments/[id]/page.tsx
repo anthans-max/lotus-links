@@ -156,19 +156,19 @@ export default async function TournamentDetailPage({ params }: Props) {
             className="card"
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
-              gap: '1rem',
+              gap: '0.75rem',
               padding: '1rem 1.25rem',
             }}
           >
             <div style={{ fontSize: '1.5rem' }}>🔗</div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '1 1 0', minWidth: '10rem' }}>
               <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.15rem' }}>
                 Player Scoring Link
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--fm)' }}>
-                Share with players — opens score entry at{' '}
-                <span style={{ color: 'var(--text-dim)' }}>/t/{tournament.public_token}</span>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Share with players — opens score entry
               </div>
             </div>
             <CopyTokenButton token={tournament.public_token} />
