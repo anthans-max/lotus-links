@@ -5,6 +5,8 @@ import PoweredByFooter from '@/components/ui/PoweredByFooter'
 import { parseStablefordConfig } from '@/lib/scoring/stableford'
 import ChatAssistant from '@/components/chat/ChatAssistant'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Leaderboard',
 }
