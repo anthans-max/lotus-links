@@ -32,16 +32,8 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
     return <NotFoundView />
   }
 
-  const today = new Date().toISOString().split('T')[0]
-  const tournamentDate = tournament.date ? tournament.date.split('T')[0] : ''
-  if (!tournament.leaderboard_public && today < tournamentDate) {
-    return (
-      <>
-        <ComingSoonView tournamentName={tournament.name} tournamentDate={tournament.date} />
-        <ChatAssistant tournamentId={tournamentId} format={tournament.format} />
-      </>
-    )
-  }
+  // Date gate removed — leaderboard is always accessible. If no scores
+  // exist yet, the LiveLeaderboard component shows "Waiting for Scores".
 
   const isIndividual = tournament.format === 'Stableford' || tournament.format === 'Stroke Play'
 
