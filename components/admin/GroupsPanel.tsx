@@ -279,7 +279,7 @@ export default function GroupsPanel({ tournament, players, groups }: GroupsPanel
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                    <span className="badge badge-gold">PIN: {group.pin}</span>
+                    <span className="badge badge-gold" hidden>PIN: {group.pin}</span>
                     {group.starting_hole && (
                       <span className="badge badge-gray">H{group.starting_hole}</span>
                     )}

@@ -361,7 +361,9 @@ export default function RegistrationForm({
               Select Your Player{selectedIds.size !== 1 ? 's' : ''}
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              Tap to select your child. You can select multiple if you have siblings playing.
+              {isWish
+                ? 'Tap to select your child. You can select multiple if you have siblings playing.'
+                : 'Tap to select your name. You can select multiple players.'}
             </p>
 
             {/* Search */}
@@ -383,7 +385,7 @@ export default function RegistrationForm({
                   className="btn btn-gold btn-sm"
                   onClick={() => setShowAddNew(true)}
                 >
-                  Add Your Child
+                  {isWish ? 'Add Your Child' : 'Add Me'}
                 </button>
               </div>
             ) : (
@@ -460,18 +462,18 @@ export default function RegistrationForm({
                 style={{ width: '100%', marginBottom: '1.5rem', fontSize: '0.85rem' }}
                 onClick={() => setShowAddNew(true)}
               >
-                I don&apos;t see my child — Add them
+                {isWish ? "I don\u0027t see my child \u2014 Add them" : "I don\u0027t see my name \u2014 Add me"}
               </button>
             ) : (
               <div className="card card-gold" style={{ marginBottom: '1.5rem', animation: 'fadeUp 0.25s ease' }}>
                 <div style={{ fontFamily: 'var(--fd)', fontSize: '1rem', marginBottom: '0.75rem' }}>
-                  Add Your Child
+                  {isWish ? 'Add Your Child' : 'Add Yourself'}
                 </div>
                 <div style={{ marginBottom: '0.75rem' }}>
                   <div className="label">Full Name</div>
                   <input
                     className="input"
-                    placeholder="Your child's name"
+                    placeholder={isWish ? "Your child's name" : "Your full name"}
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
                     autoFocus
@@ -521,7 +523,9 @@ export default function RegistrationForm({
               Pairing Preferences
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              Who would your child like to play with? This is optional — we&apos;ll do our best to honor requests.
+              {isWish
+                ? "Who would your child like to play with? This is optional \u2014 we\u0027ll do our best to honor requests."
+                : "Who would you like to play with? This is optional \u2014 we\u0027ll do our best to honor requests."}
             </p>
 
             {selectedPlayers.map(child => {
@@ -539,7 +543,7 @@ export default function RegistrationForm({
                     {child.name}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                    Who would they like to play with?
+                    {isWish ? 'Who would they like to play with?' : 'Who would you like to play with?'}
                   </div>
 
                   {/* Selected pairings chips */}
@@ -678,7 +682,7 @@ export default function RegistrationForm({
             </p>
 
             <div style={{ marginBottom: '1rem' }}>
-              <div className="label">Parent / Guardian Name</div>
+              <div className="label">{isWish ? 'Parent / Guardian Name' : 'Your Name'}</div>
               <input
                 className="input"
                 placeholder="Your full name"

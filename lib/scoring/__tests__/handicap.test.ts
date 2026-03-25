@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeCourseHandicap, getStrokesOnHole } from '../handicap'
+import { computeCourseHandicap, getStrokesOnHole, netHoleScore } from '../handicap'
 
 // ---------------------------------------------------------------------------
 // computeCourseHandicap
@@ -115,5 +115,47 @@ describe('getStrokesOnHole', () => {
     // Very high CH (e.g. 54) on 18-hole course: base=3, remainder=0 → capped at 2
     expect(getStrokesOnHole(54, 1, 18)).toBe(2)
     expect(getStrokesOnHole(54, 18, 18)).toBe(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// netHoleScore
+// ---------------------------------------------------------------------------
+
+describe('netHoleScore', () => {
+  it('subtracts strokes received from gross on normal scores', () => {
+    // Par 4, gross 5 (bogey), 1 stroke received → net 4 (par)
+    expect(netHoleScore(5, 4, 1)).toBe(4)
+  })
+
+  it('returns gross when no strokes received', () => {
+    expect(netHoleScore(5, 4, 0)).toBe(5)
+  })
+
+  it('subtracts 2 strokes when 2 received', () => {
+    // Par 3, gross 5, 2 strokes received → net 3
+    expect(netHoleScore(5, 3, 2)).toBe(3)
+  })
+
+  it('caps gross at par + 2 + received before subtracting', () => {
+    // Par 4, gross 10 (blow-up), 1 stroke received
+    // ESC cap = 4 + 2 + 1 = 7, net = 7 - 1 = 6
+    expect(netHoleScore(10, 4, 1)).toBe(6)
+  })
+
+  it('does not cap when gross is within ESC limit', () => {
+    // Par 4, gross 6 (double bogey), 0 strokes received → net 6
+    expect(netHoleScore(6, 4, 0)).toBe(6)
+  })
+
+  it('handles birdie with stroke received', () => {
+    // Par 4, gross 3 (birdie), 1 stroke received → net 2 (eagle)
+    expect(netHoleScore(3, 4, 1)).toBe(2)
+  })
+
+  it('handles par 3 with 2 strokes received and blow-up', () => {
+    // Par 3, gross 9, 2 strokes received
+    // ESC cap = 3 + 2 + 2 = 7, net = 7 - 2 = 5
+    expect(netHoleScore(9, 3, 2)).toBe(5)
   })
 })

@@ -57,3 +57,23 @@ export function getStrokesOnHole(
   const extra = strokeIndex <= remainder ? 1 : 0
   return Math.min(2, base + extra) as 0 | 1 | 2
 }
+
+/**
+ * Compute per-hole net score: ESC-adjusted gross minus strokes received.
+ *
+ * ESC cap: a player's gross is capped at par + 2 + received (max net double bogey).
+ * Net score = capped gross − strokes received.
+ *
+ * @param gross           Raw strokes on the hole
+ * @param par             Hole par
+ * @param strokesReceived Handicap strokes received on this hole (0, 1, or 2)
+ * @returns               Net score for the hole
+ */
+export function netHoleScore(
+  gross: number,
+  par: number,
+  strokesReceived: number
+): number {
+  const cappedGross = Math.min(gross, par + 2 + strokesReceived)
+  return cappedGross - strokesReceived
+}

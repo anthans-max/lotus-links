@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import ScorecardTable from '@/components/scorecard/ScorecardTable'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 import SendScorecardButton from '@/components/admin/SendScorecardButton'
-import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
+import { computeCourseHandicap, getStrokesOnHole, netHoleScore } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, parseStablefordConfig } from '@/lib/scoring/stableford'
 
 export const metadata: Metadata = {
@@ -87,7 +87,7 @@ export default async function ScorecardPage({ params }: Props) {
     const rows = holeList.map(h => {
       const raw = playerScores.get(h.number) ?? null
       const received = courseHcp > 0 ? getStrokesOnHole(courseHcp, h.strokeIndex, holeCount) : 0
-      const adjScore = raw != null ? Math.min(raw, h.par + 2 + received) : null
+      const adjScore = raw != null ? netHoleScore(raw, h.par, received) : null
       const pts = raw != null ? computeStablefordPoints(raw, h.par, received, stablefordConfig) : null
       return { holeNumber: h.number, raw, adjScore, pts, received }
     })

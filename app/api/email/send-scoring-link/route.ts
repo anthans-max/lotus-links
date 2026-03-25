@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendScoringLinkEmail, sendPlayerScoringEmail, sendScorecardSummaryEmail } from '@/lib/email'
-import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
+import { computeCourseHandicap, getStrokesOnHole, netHoleScore } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, parseStablefordConfig } from '@/lib/scoring/stableford'
 
 export async function POST(req: NextRequest) {
@@ -393,7 +393,7 @@ export async function POST(req: NextRequest) {
         const raw = playerScores.get(h.number) ?? null
         const received = courseHcp > 0 ? getStrokesOnHole(courseHcp, h.strokeIndex, holeCount) : 0
         const pts = raw != null ? computeStablefordPoints(raw, h.par, received, stablefordConfig) : null
-        const adjScore = raw != null ? Math.min(raw, h.par + 2 + received) : null
+        const adjScore = raw != null ? netHoleScore(raw, h.par, received) : null
         if (raw != null) totalGross += raw
         if (adjScore != null) totalNet += adjScore
         if (pts != null) totalPts += pts

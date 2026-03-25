@@ -1470,6 +1470,7 @@ export default function GroupsManager({
                         style={{ cursor: 'pointer', border: '1px solid var(--gold-border)' }}
                         onClick={() => copyPin(group.pin)}
                         title="Click to copy PIN"
+                        hidden
                       >
                         PIN: {group.pin} {copiedPin === group.pin ? '✓' : ''}
                       </button>
@@ -1780,6 +1781,7 @@ export default function GroupsManager({
                         style={{ fontSize: '0.65rem' }}
                         onClick={() => handleRegeneratePin(group.id)}
                         disabled={isPending}
+                        hidden
                       >
                         New PIN
                       </button>

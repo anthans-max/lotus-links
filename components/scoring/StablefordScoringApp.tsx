@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
+import { computeCourseHandicap, getStrokesOnHole, netHoleScore } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, type StablefordPointsConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 
@@ -308,7 +308,7 @@ export default function StablefordScoringApp({
       if (!hole) return
       const received = getStrokesReceivedSingle(holeNumber)
       totalGross += gross
-      totalNet += Math.min(gross, hole.par + 2 + received)
+      totalNet += netHoleScore(gross, hole.par, received)
       totalPts += computeStablefordPoints(gross, hole.par, received, tournament.stablefordConfig)
     })
     return { totalPts, totalGross, totalNet }
@@ -366,8 +366,8 @@ export default function StablefordScoringApp({
     if (!hole) return 0
     const strokes = allDraftScores[playerId]?.[holeNumber] ?? hole.par
     const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, holeNumber)
-    const adj = useGross ? strokes : Math.min(strokes, hole.par + 2 + received)
-    return adj - hole.par
+    const net = useGross ? strokes : netHoleScore(strokes, hole.par, received)
+    return net - hole.par
   }, [holes, allDraftScores, scoredKeys, getPlayerStrokesOnHole, useGross])
 
   /** Stroke Play: cumulative adj-to-par across all scored holes. */
@@ -378,8 +378,8 @@ export default function StablefordScoringApp({
       const strokes = allDraftScores[playerId]?.[hole.number]
       if (strokes === undefined) continue
       const received = useGross ? 0 : getPlayerStrokesOnHole(playerId, hole.number)
-      const adj = useGross ? strokes : Math.min(strokes, hole.par + 2 + received)
-      total += adj - hole.par
+      const net = useGross ? strokes : netHoleScore(strokes, hole.par, received)
+      total += net - hole.par
     }
     return total
   }, [holes, allDraftScores, scoredKeys, getPlayerStrokesOnHole, useGross])
@@ -586,7 +586,7 @@ export default function StablefordScoringApp({
           if (!hole) return
           const received = useGross ? 0 : getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
           totalGross += s.strokes
-          totalNet += useGross ? s.strokes : Math.min(s.strokes, hole.par + 2 + received)
+          totalNet += useGross ? s.strokes : netHoleScore(s.strokes, hole.par, received)
           parForCompleted += hole.par
           totalPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
         })
@@ -756,7 +756,8 @@ export default function StablefordScoringApp({
                     const netTotal = pScores.reduce((sum, s) => {
                       const hole = holes.find(h => h.number === s.holeNumber)
                       if (!hole) return sum
-                      return sum + s.strokes - getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+                      const received = getStrokesOnHole(pCourseHcp, hole.handicap, holes.length)
+                      return sum + netHoleScore(s.strokes, hole.par, received)
                     }, 0)
                     const parSoFar = pScores.reduce((sum, s) => {
                       const hole = holes.find(h => h.number === s.holeNumber)
@@ -883,7 +884,7 @@ export default function StablefordScoringApp({
             {holes.map((hole, idx) => {
               const gross = localScores[hole.number] ?? hole.par
               const received = getStrokesReceivedSingle(hole.number)
-              const net = Math.min(gross, hole.par + 2 + received)
+              const net = netHoleScore(gross, hole.par, received)
               const netRelative = net - hole.par
               const isSaved = savedHoles.has(hole.number)
               const netColor = netRelative < 0 ? '#4CAF50' : netRelative > 0 ? 'var(--over)' : 'var(--text-muted)'

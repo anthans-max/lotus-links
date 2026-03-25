@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { computeCourseHandicap, getStrokesOnHole } from '@/lib/scoring/handicap'
+import { computeCourseHandicap, getStrokesOnHole, netHoleScore } from '@/lib/scoring/handicap'
 import { computeStablefordPoints, type StablefordPointsConfig } from '@/lib/scoring/stableford'
 import PoweredByFooter from '@/components/ui/PoweredByFooter'
 import LeagueLogo from '@/components/ui/LeagueLogo'
@@ -274,7 +274,7 @@ export default function LiveLeaderboard({
         if (!hole) return
         const received = getStrokesOnHole(pCourseHcp, hole.strokeIndex ?? null, holes.length)
         totalGross += s.strokes
-        totalNet += Math.min(s.strokes, hole.par + 2 + received)
+        totalNet += netHoleScore(s.strokes, hole.par, received)
         parForCompleted += hole.par
         netPts += computeStablefordPoints(s.strokes, hole.par, received, tournament.stablefordConfig)
         grossPts += computeStablefordPoints(s.strokes, hole.par, 0, tournament.stablefordConfig)
