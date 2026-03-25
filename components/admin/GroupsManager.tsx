@@ -1324,18 +1324,20 @@ export default function GroupsManager({
                 onChange={e => setNewPhone(e.target.value)}
               />
             </div>
-            <div>
-              <div className="label">Starting Hole (optional)</div>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                max={tournament.holes}
-                placeholder={`1-${tournament.holes}`}
-                value={newStarting}
-                onChange={e => setNewStarting(e.target.value)}
-              />
-            </div>
+            {tournament.shotgun_start && (
+              <div>
+                <div className="label">Starting Hole (optional)</div>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max={tournament.holes}
+                  placeholder={`1-${tournament.holes}`}
+                  value={newStarting}
+                  onChange={e => setNewStarting(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-gold" onClick={handleCreate} disabled={isPending}>
@@ -1408,10 +1410,12 @@ export default function GroupsManager({
                       </div>
                     </div>
                     <div className="g2" style={{ marginBottom: '0.75rem' }}>
-                      <div>
-                        <div className="label">Starting Hole</div>
-                        <input className="input" type="number" min="1" max={tournament.holes} value={editStarting} onChange={e => setEditStarting(e.target.value)} style={{ fontSize: '0.85rem', width: 80 }} />
-                      </div>
+                      {tournament.shotgun_start && (
+                        <div>
+                          <div className="label">Starting Hole</div>
+                          <input className="input" type="number" min="1" max={tournament.holes} value={editStarting} onChange={e => setEditStarting(e.target.value)} style={{ fontSize: '0.85rem', width: 80 }} />
+                        </div>
+                      )}
                       <div>
                         <div className="label">Tee Time</div>
                         <input className="input" type="time" value={editTeeTime} onChange={e => setEditTeeTime(e.target.value)} style={{ fontSize: '0.85rem', width: 130 }} />
@@ -1449,7 +1453,7 @@ export default function GroupsManager({
                           {formatTeeTime(group.tee_time)}
                         </span>
                       )}
-                      {group.starting_hole && (
+                      {tournament.shotgun_start && group.starting_hole && (
                         <span className="badge badge-gray">H{group.starting_hole}</span>
                       )}
                       {localDivisions.length > 0 && (

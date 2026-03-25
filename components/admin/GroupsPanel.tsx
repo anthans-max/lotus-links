@@ -199,18 +199,20 @@ export default function GroupsPanel({ tournament, players, groups }: GroupsPanel
                 onChange={e => setNewChaperone(e.target.value)}
               />
             </div>
-            <div>
-              <div className="label">Starting Hole (optional)</div>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                max="10"
-                placeholder="1-10"
-                value={newStarting}
-                onChange={e => setNewStarting(e.target.value)}
-              />
-            </div>
+            {tournament?.shotgun_start && (
+              <div>
+                <div className="label">Starting Hole (optional)</div>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="10"
+                  placeholder="1-10"
+                  value={newStarting}
+                  onChange={e => setNewStarting(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-gold" onClick={handleCreate} disabled={isPending}>
@@ -280,7 +282,7 @@ export default function GroupsPanel({ tournament, players, groups }: GroupsPanel
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     <span className="badge badge-gold" hidden>PIN: {group.pin}</span>
-                    {group.starting_hole && (
+                    {tournament?.shotgun_start && group.starting_hole && (
                       <span className="badge badge-gray">H{group.starting_hole}</span>
                     )}
                   </div>
