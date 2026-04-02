@@ -57,6 +57,8 @@ NEXT_PUBLIC_SUPER_ADMIN_EMAIL=       # Email that bypasses league isolation
 NEXT_PUBLIC_APP_URL=                 # Canonical domain (e.g. https://links.getlotusai.com); used by lib/url.ts getBaseUrl()
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
+ANTHROPIC_API_KEY=                   # Primary AI provider for /api/chat
+OPENAI_API_KEY=                      # Fallback AI provider for /api/chat (only one needed)
 ```
 
 ## Design System
@@ -108,7 +110,7 @@ RESEND_FROM_EMAIL=
 
 ## DB Schema
 
-Full column detail is in `supabase/migrations/` (001–020, run manually in Supabase SQL editor — no CLI workflow). Key non-obvious points:
+Full column detail is in `supabase/migrations/` (001–021, run manually in Supabase SQL editor — no CLI workflow). Key non-obvious points:
 
 | Table | Notes |
 |---|---|
@@ -117,7 +119,7 @@ Full column detail is in `supabase/migrations/` (001–020, run manually in Supa
 | `league_admins` | `role`: `owner\|admin`; `accepted_at` null until first login; UNIQUE `(league_id, email)` |
 | `tournaments` | `public_token` (uuid) → `/t/[token]`; `stableford_points_config` (JSONB); `results_published` (bool, default false) — activates celebration leaderboard view |
 | `players` | `handicap` (int, fallback) + `handicap_index` (USGA decimal, preferred); `status`: `pre-registered→registered→checked_in` |
-| `scores` | `group_id` null for individual; `player_id` null for scramble. Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` and partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL` |
+| `scores` | `group_id` null for individual; `player_id` null for scramble. Two UNIQUE constraints: `(group_id, tournament_id, hole_number)` and partial `(player_id, tournament_id, hole_number) WHERE player_id IS NOT NULL`. `submitted_at` (migration 021) records per-hole submission time. |
 | `chaperones` | Formal registry — separate from `players` table and `groups.chaperone_name` inline field |
 | `group_scoring_tokens` | One token per group; maps `/score/t/[token]` → group (no PIN needed) |
 | `volunteers` | Public sign-up (anon INSERT); `roles` is `TEXT[]`; UNIQUE `(tournament_id, email)` |
@@ -146,6 +148,7 @@ All domain logic and DB access is in `lib/`:
 - `lib/url.ts` — `getBaseUrl()` for shareable links
 - `lib/email.ts` — Resend email helpers
 - `lib/course-data.ts` — WISH hole presets + `createTournamentWithWishHoles()` server action
+- `lib/printPairingsTemplate.ts` — HTML template generator for printable group pairings sheets
 
 ## Route Map
 
@@ -162,11 +165,12 @@ All domain logic and DB access is in `lib/`:
 /api/auth/callback                → OAuth code exchange
 /score/t/[token]                  → token-based scramble scoring (no PIN) — maps token→group via group_scoring_tokens
 /api/email/send-scoring-link      → Resend email trigger (modes: single, bulk, group-players, all-players, scorecard-summary, chaperone-token, all-chaperones-token)
-/api/chat                         → Chat assistant (AI-powered scoring Q&A)
+/api/chat                         → Chat assistant (AI-powered scoring Q&A, golf-topic guardrails, 20 req/min/IP rate limit)
+/pairings/[token]                 → public tournament pairings/tee-time viewer (uses tournaments.public_token)
 /volunteer/[tournamentId]         → public volunteer sign-up (unauthenticated)
 ```
 
-Migrations live in `supabase/migrations/` — numbered sequentially (001–020). Run them manually in the Supabase SQL editor; there is no CLI migration workflow.
+Migrations live in `supabase/migrations/` — numbered sequentially (001–021). Run them manually in the Supabase SQL editor; there is no CLI migration workflow. Migration 021 adds `submitted_at` to `scores` — required for all score upserts.
 
 `lib/course-data.ts` contains WISH tournament hole configuration pre-loaded (10 holes, all par-3). Use `createTournamentWithWishHoles()` server action to bootstrap a WISH tournament.
 

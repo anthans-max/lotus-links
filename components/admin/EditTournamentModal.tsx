@@ -123,7 +123,7 @@ export default function EditTournamentModal({ open, onClose, tournament }: EditT
             { value: 'Scramble',    label: 'Scramble'    },
             { value: 'Stableford',  label: 'Stableford'  },
             { value: 'Stroke Play', label: 'Stroke Play' },
-            { value: 'Match Play',  label: 'Match Play'  },
+            { value: 'Match Play',  label: 'Match Play (Coming Soon)', disabled: true },
           ]}
         />
 

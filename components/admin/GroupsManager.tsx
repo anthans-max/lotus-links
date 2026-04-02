@@ -1171,7 +1171,7 @@ export default function GroupsManager({
             {confirmSendAllChaperones ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Email {chaperoneEmailCount} chaperone{chaperoneEmailCount !== 1 ? 's' : ''} across {groupsWithChaperoneToken.length} group{groupsWithChaperoneToken.length !== 1 ? 's' : ''}?
+                  Email {chaperoneEmailCount} {scorerLabel.toLowerCase()}{chaperoneEmailCount !== 1 ? 's' : ''} across {groupsWithChaperoneToken.length} group{groupsWithChaperoneToken.length !== 1 ? 's' : ''}?
                 </span>
                 <button className="btn btn-gold btn-sm" onClick={handleSendAllChaperones} disabled={sendingAllChaperones}>Confirm</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setConfirmSendAllChaperones(false)}>Cancel</button>
@@ -1182,7 +1182,7 @@ export default function GroupsManager({
                 onClick={() => setConfirmSendAllChaperones(true)}
                 disabled={sendingAllChaperones}
               >
-                {sendingAllChaperones ? 'Sending...' : `Email All Chaperones (${chaperoneEmailCount})`}
+                {sendingAllChaperones ? 'Sending...' : `Email All ${scorerLabel}s (${chaperoneEmailCount})`}
               </button>
             )}
           </>
